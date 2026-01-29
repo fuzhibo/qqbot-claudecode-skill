@@ -17,6 +17,8 @@ export interface ResolvedQQBotAccount {
   appId: string;
   clientSecret: string;
   secretSource: "config" | "file" | "env" | "none";
+  /** 系统提示词 */
+  systemPrompt?: string;
   config: QQBotAccountConfig;
 }
 
@@ -31,6 +33,8 @@ export interface QQBotAccountConfig {
   clientSecretFile?: string;
   dmPolicy?: "open" | "pairing" | "allowlist";
   allowFrom?: string[];
+  /** 系统提示词，会添加在用户消息前面 */
+  systemPrompt?: string;
 }
 
 /**

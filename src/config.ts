@@ -62,6 +62,7 @@ export function resolveQQBotAccount(
       clientSecretFile: qqbot?.clientSecretFile,
       dmPolicy: qqbot?.dmPolicy,
       allowFrom: qqbot?.allowFrom,
+      systemPrompt: qqbot?.systemPrompt,
     };
     appId = qqbot?.appId ?? "";
   } else {
@@ -95,6 +96,7 @@ export function resolveQQBotAccount(
     appId,
     clientSecret,
     secretSource,
+    systemPrompt: accountConfig.systemPrompt,
     config: accountConfig,
   };
 }
