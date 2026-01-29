@@ -209,17 +209,37 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
           QQGroupOpenid: event.groupOpenid,
         });
 
+        // 发送消息的辅助函数，带 token 过期重试
+        const sendWithTokenRetry = async (sendFn: (token: string) => Promise<unknown>) => {
+          try {
+            const token = await getAccessToken(account.appId, account.clientSecret);
+            await sendFn(token);
+          } catch (err) {
+            const errMsg = String(err);
+            // 如果是 token 相关错误，清除缓存重试一次
+            if (errMsg.includes("401") || errMsg.includes("token") || errMsg.includes("access_token")) {
+              log?.info(`[qqbot:${account.accountId}] Token may be expired, refreshing...`);
+              clearTokenCache();
+              const newToken = await getAccessToken(account.appId, account.clientSecret);
+              await sendFn(newToken);
+            } else {
+              throw err;
+            }
+          }
+        };
+
         // 发送错误提示的辅助函数
         const sendErrorMessage = async (errorText: string) => {
           try {
-            const token = await getAccessToken(account.appId, account.clientSecret);
-            if (event.type === "c2c") {
-              await sendC2CMessage(token, event.senderId, errorText, event.messageId);
-            } else if (event.type === "group" && event.groupOpenid) {
-              await sendGroupMessage(token, event.groupOpenid, errorText, event.messageId);
-            } else if (event.channelId) {
-              await sendChannelMessage(token, event.channelId, errorText, event.messageId);
-            }
+            await sendWithTokenRetry(async (token) => {
+              if (event.type === "c2c") {
+                await sendC2CMessage(token, event.senderId, errorText, event.messageId);
+              } else if (event.type === "group" && event.groupOpenid) {
+                await sendGroupMessage(token, event.groupOpenid, errorText, event.messageId);
+              } else if (event.channelId) {
+                await sendChannelMessage(token, event.channelId, errorText, event.messageId);
+              }
+            });
           } catch (sendErr) {
             log?.error(`[qqbot:${account.accountId}] Failed to send error message: ${sendErr}`);
           }
@@ -227,9 +247,6 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
 
         try {
           const messagesConfig = pluginRuntime.channel.reply.resolveEffectiveMessagesConfig(cfg, route.agentId);
-
-          // 每次发消息前刷新 token
-          const freshToken = await getAccessToken(account.appId, account.clientSecret);
 
           // 追踪是否有响应
           let hasResponse = false;
@@ -260,22 +277,27 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
                 if (!replyText.trim()) return;
 
                 // 处理回复内容，避免被 QQ 识别为 URL
-                // 把文件扩展名中的点替换为下划线，如 README.md -> README_md
                 const originalText = replyText;
-                replyText = replyText.replace(/(\w+)\.(\w{2,4})\b/g, "$1_$2");
+                
+                // 把所有可能被识别为 URL 的点替换为下划线
+                // 匹配：字母/数字.字母/数字 的模式
+                replyText = replyText.replace(/([a-zA-Z0-9])\.([a-zA-Z0-9])/g, "$1_$2");
+                
                 const hasReplacement = replyText !== originalText;
                 if (hasReplacement) {
                   replyText += "\n\n（由于平台限制，回复中的部分符号已被替换）";
                 }
 
                 try {
-                  if (event.type === "c2c") {
-                    await sendC2CMessage(freshToken, event.senderId, replyText, event.messageId);
-                  } else if (event.type === "group" && event.groupOpenid) {
-                    await sendGroupMessage(freshToken, event.groupOpenid, replyText, event.messageId);
-                  } else if (event.channelId) {
-                    await sendChannelMessage(freshToken, event.channelId, replyText, event.messageId);
-                  }
+                  await sendWithTokenRetry(async (token) => {
+                    if (event.type === "c2c") {
+                      await sendC2CMessage(token, event.senderId, replyText, event.messageId);
+                    } else if (event.type === "group" && event.groupOpenid) {
+                      await sendGroupMessage(token, event.groupOpenid, replyText, event.messageId);
+                    } else if (event.channelId) {
+                      await sendChannelMessage(token, event.channelId, replyText, event.messageId);
+                    }
+                  });
                   log?.info(`[qqbot:${account.accountId}] Sent reply`);
 
                   pluginRuntime.channel.activity.record({
