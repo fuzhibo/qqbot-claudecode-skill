@@ -5,9 +5,11 @@ import { getQQBotRuntime } from "./runtime.js";
 
 // QQ Bot intents
 const INTENTS = {
-  PUBLIC_GUILD_MESSAGES: 1 << 30,  // 频道公开消息
-  DIRECT_MESSAGE: 1 << 12,         // 频道私信
-  GROUP_AND_C2C: 1 << 25,          // 群聊和 C2C 私聊
+  GUILDS: 1 << 0,                    // 频道相关
+  GUILD_MEMBERS: 1 << 1,             // 频道成员
+  PUBLIC_GUILD_MESSAGES: 1 << 30,    // 频道公开消息（公域）
+  DIRECT_MESSAGE: 1 << 12,           // 频道私信
+  GROUP_AND_C2C: 1 << 25,            // 群聊和 C2C 私聊（需申请）
 };
 
 // 重连配置
@@ -51,6 +53,7 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
   let isConnecting = false; // 防止并发连接
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null; // 重连定时器
   let shouldRefreshToken = false; // 下次连接是否需要刷新 token
+  let identifyFailCount = 0; // identify 失败次数
 
   abortSignal.addEventListener("abort", () => {
     isAborted = true;
@@ -406,11 +409,22 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
                 }));
               } else {
                 // 新连接，发送 Identify
+                // 如果 identify 失败多次，尝试只使用基础权限
+                let intents: number;
+                if (identifyFailCount >= 3) {
+                  // 只使用基础权限（频道消息）
+                  intents = INTENTS.PUBLIC_GUILD_MESSAGES | INTENTS.GUILD_MEMBERS;
+                  log?.info(`[qqbot:${account.accountId}] Using basic intents only (after ${identifyFailCount} failures): ${intents}`);
+                } else {
+                  // 使用完整权限
+                  intents = INTENTS.PUBLIC_GUILD_MESSAGES | INTENTS.DIRECT_MESSAGE | INTENTS.GROUP_AND_C2C;
+                  log?.info(`[qqbot:${account.accountId}] Sending identify with intents: ${intents}`);
+                }
                 ws.send(JSON.stringify({
                   op: 2,
                   d: {
                     token: `QQBot ${accessToken}`,
-                    intents: INTENTS.PUBLIC_GUILD_MESSAGES | INTENTS.DIRECT_MESSAGE | INTENTS.GROUP_AND_C2C,
+                    intents: intents,
                     shard: [0, 1],
                   },
                 }));
@@ -431,6 +445,7 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
               if (t === "READY") {
                 const readyData = d as { session_id: string };
                 sessionId = readyData.session_id;
+                identifyFailCount = 0; // 连接成功，重置失败计数
                 log?.info(`[qqbot:${account.accountId}] Ready, session: ${sessionId}`);
                 onReady?.(d);
               } else if (t === "RESUMED") {
@@ -500,8 +515,14 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
               if (!canResume) {
                 sessionId = null;
                 lastSeq = null;
+                identifyFailCount++;
                 // 标记需要刷新 token（可能是 token 过期导致的）
                 shouldRefreshToken = true;
+                
+                if (identifyFailCount >= 3) {
+                  log?.error(`[qqbot:${account.accountId}] Identify failed ${identifyFailCount} times. This may be a permission issue.`);
+                  log?.error(`[qqbot:${account.accountId}] Please check: 1) AppID/Secret is correct 2) Bot has GROUP_AND_C2C permission on QQ Open Platform`);
+                }
               }
               cleanup();
               // Invalid Session 后等待一段时间再重连
