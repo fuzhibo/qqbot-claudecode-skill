@@ -10,6 +10,10 @@ QQ 官方机器人 API 的 Moltbot 渠道插件，支持 C2C 私聊、群聊 @�
 - **系统提示词**：可配置自定义系统提示词注入到 AI 请求
 - **错误提示**：AI 无响应时自动提示用户检查配置
 
+## 使用示例：
+<img width="1852" height="1082" alt="image" src="https://github.com/user-attachments/assets/a16d582b-708c-473e-b3a2-e0c4c503a0c8" />
+
+
 ## 安装
 
 在插件目录下执行：
@@ -65,12 +69,7 @@ clawdbot channels add --channel qqbot --token "102146862:xxxxxxxx"
 }
 ```
 
-### 4. 环境变量配置（可选）
 
-```bash
-export QQBOT_APP_ID="你的AppID"
-export QQBOT_CLIENT_SECRET="你的AppSecret"
-```
 
 ## 配置项说明
 
@@ -96,8 +95,14 @@ export QQBOT_CLIENT_SECRET="你的AppSecret"
 
 ### 启动
 
+后台启动
 ```bash
 clawdbot gateway restart
+```
+
+前台启动, 方便试试查看日志
+```bash
+clawdbot gateway --port 18789 --verbose
 ```
 
 ### CLI 配置向导
