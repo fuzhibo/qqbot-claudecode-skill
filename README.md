@@ -114,6 +114,28 @@ clawdbot onboard
 3. **群消息**：需要在群内 @机器人 才能触发回复
 4. **沙箱模式**：新创建的机器人默认在沙箱模式，需要添加测试用户
 
+## 升级
+
+如果需要升级插件，先运行升级脚本清理旧版本：
+
+```bash
+# 运行升级脚本（清理旧版本和配置）
+./scripts/upgrade.sh
+
+# 重新安装插件
+clawdbot plugins install .
+
+# 重新配置
+clawdbot channels add --channel qqbot --token "AppID:AppSecret"
+
+# 重启网关
+clawdbot gateway restart
+```
+
+升级脚本会自动：
+- 删除 `~/.clawdbot/extensions/qqbot` 目录
+- 清理 `clawdbot.json` 中的 qqbot 相关配置
+
 ## 开发
 
 ```bash
@@ -141,6 +163,8 @@ qqbot/
 │   ├── outbound.ts   # 出站消息处理
 │   ├── runtime.ts    # 运行时状态
 │   └── types.ts      # 类型定义
+├── scripts/
+│   └── upgrade.sh    # 升级脚本
 ├── package.json
 └── tsconfig.json
 ```
