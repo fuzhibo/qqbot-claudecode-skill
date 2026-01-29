@@ -24,19 +24,21 @@ moltbot plugins install /path/to/qqbot --force
 2. 创建机器人应用
 3. 获取 `AppID` 和 `AppSecret`（ClientSecret）
 
-### 2. 配置 moltbot.yaml
+### 2. 配置 clawdbot.json
 
-```yaml
-channels:
-  qqbot:
-    enabled: true
-    appId: "你的AppID"
-    clientSecret: "你的AppSecret"
-    
-    # 可选：自定义系统提示词
-    systemPrompt: |
-      你是一个友好的助手。
-      请用简洁的语言回答问题。
+编辑 `~/.clawdbot/clawdbot.json`：
+
+```json
+{
+  "channels": {
+    "qqbot": {
+      "enabled": true,
+      "appId": "你的AppID",
+      "clientSecret": "你的AppSecret",
+      "systemPrompt": "你是一个友好的助手"
+    }
+  }
+}
 ```
 
 ### 3. 环境变量配置（可选）
@@ -46,24 +48,6 @@ channels:
 ```bash
 export QQBOT_APP_ID="你的AppID"
 export QQBOT_CLIENT_SECRET="你的AppSecret"
-```
-
-### 4. 多账户配置
-
-```yaml
-channels:
-  qqbot:
-    enabled: true
-    # 默认账户
-    appId: "默认AppID"
-    clientSecret: "默认AppSecret"
-    
-    # 多账户
-    accounts:
-      bot2:
-        appId: "第二个机器人AppID"
-        clientSecret: "第二个机器人AppSecret"
-        systemPrompt: "你是第二个机器人"
 ```
 
 ## 配置项说明
@@ -76,8 +60,6 @@ channels:
 | `enabled` | boolean | 否 | 是否启用，默认 `true` |
 | `name` | string | 否 | 账户显示名称 |
 | `systemPrompt` | string | 否 | 自定义系统提示词 |
-| `dmPolicy` | string | 否 | 私信策略：`open`/`pairing`/`allowlist` |
-| `allowFrom` | string[] | 否 | 允许的发送者列表（配合 `allowlist` 策略） |
 
 ## 支持的消息类型
 
