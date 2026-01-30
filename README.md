@@ -39,7 +39,7 @@ QQ 官方机器人 API 的 Moltbot 渠道插件，支持 C2C 私聊、群聊 @�
 
 ```bash
 git clone https://github.com/sliverp/qqbot.git && cd qqbot
-clawdbot plugins install . # 这一步会有点久，需要安装一些以来。稍微耐心等待一下，尤其是小内存机器
+clawdbot plugins install . # 这一步会有点久，需要安装一些依赖。稍微耐心等待一下，尤其是小内存机器
 ```
 
 ## 配置
@@ -150,7 +150,7 @@ git clone https://github.com/sliverp/qqbot.git && cd qqbot
 bash ./scripts/upgrade.sh
 
 # 重新安装插件
-clawdbot plugins install . # 这一步会有点久，需要安装一些以来。稍微耐心等待一下，尤其是小内存机器
+clawdbot plugins install . # 这一步会有点久，需要安装一些依赖。稍微耐心等待一下，尤其是小内存机器
 
 # 重新配置
 clawdbot channels add --channel qqbot --token "AppID:AppSecret"
