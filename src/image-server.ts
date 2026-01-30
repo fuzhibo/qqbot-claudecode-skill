@@ -74,14 +74,22 @@ function getMimeType(ext: string): string {
 /**
  * 从 MIME 类型获取扩展名
  */
-function getExtFromMime(mimeType: string): string {
+function getExtFromMime(mimeType: string): string | null {
   const extMap: Record<string, string> = {
     "image/png": "png",
     "image/jpeg": "jpg",
     "image/gif": "gif",
     "image/webp": "webp",
+    "application/pdf": "pdf",
+    "application/json": "json",
+    "text/plain": "txt",
+    "text/csv": "csv",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
   };
-  return extMap[mimeType] || "png";
+  return extMap[mimeType] || null;
 }
 
 /**
@@ -302,7 +310,7 @@ export function saveImage(
 
   // 生成唯一 ID 和文件名
   const imageId = generateImageId();
-  const ext = getExtFromMime(mimeType);
+  const ext = getExtFromMime(mimeType) || "png";
   const filename = `${imageId}.${ext}`;
 
   // 保存文件
@@ -391,19 +399,18 @@ export async function downloadFile(
 
     const buffer = Buffer.from(await response.arrayBuffer());
     
-    // 从 Content-Type 或 URL 推断扩展名
-    const contentType = response.headers.get("content-type") || "";
-    let ext = getExtFromMime(contentType);
-    if (ext === "png" && !contentType.includes("png")) {
-      // 尝试从 URL 获取扩展名
-      const urlExt = url.match(/\.(\w+)(?:\?|$)/)?.[1]?.toLowerCase();
-      if (urlExt && ["png", "jpg", "jpeg", "gif", "webp", "pdf", "doc", "docx", "txt", "json", "jsonl"].includes(urlExt)) {
-        ext = urlExt;
-      }
+    // 直接从 URL 提取原始文件名
+    let finalFilename: string;
+    if (filename) {
+      finalFilename = filename;
+    } else {
+      // 从 URL 路径中提取文件名（去掉查询参数）
+      const urlPath = new URL(url).pathname;
+      const urlFilename = path.basename(urlPath);
+      // 如果 URL 有文件名就用，否则生成随机名
+      finalFilename = urlFilename && urlFilename !== "/" ? urlFilename : `${generateImageId()}.bin`;
     }
-
-    // 生成文件名
-    const finalFilename = `${filename || generateImageId()}.${ext}`;
+    
     const filePath = path.join(destDir, finalFilename);
 
     // 保存文件
