@@ -478,7 +478,8 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
 
       ws.on("message", async (data) => {
         try {
-          const payload = JSON.parse(data.toString()) as WSPayload;
+          const rawData = data.toString();
+          const payload = JSON.parse(rawData) as WSPayload;
           const { op, d, s, t } = payload;
 
           if (s) lastSeq = s;
@@ -604,7 +605,7 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
 
             case 9: // Invalid Session
               const canResume = d as boolean;
-              log?.error(`[qqbot:${account.accountId}] Invalid session, can resume: ${canResume}`);
+              log?.error(`[qqbot:${account.accountId}] Invalid session, can resume: ${canResume}, raw: ${rawData}`);
               if (!canResume) {
                 sessionId = null;
                 lastSeq = null;
