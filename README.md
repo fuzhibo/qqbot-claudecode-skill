@@ -35,6 +35,7 @@ QQ 官方机器人 API 的 Moltbot 渠道插件，支持 C2C 私聊、群聊 @�
 在插件目录下执行：
 
 ```bash
+git clone https://github.com/sliverp/qqbot.git && cd qqbot
 clawdbot plugins install .
 ```
 
@@ -140,8 +141,10 @@ clawdbot onboard
 如果需要升级插件，先运行升级脚本清理旧版本：
 
 ```bash
+git clone https://github.com/sliverp/qqbot.git && cd qqbot 
+
 # 运行升级脚本（清理旧版本和配置）
-./scripts/upgrade.sh
+bash ./scripts/upgrade.sh
 
 # 重新安装插件
 clawdbot plugins install .
