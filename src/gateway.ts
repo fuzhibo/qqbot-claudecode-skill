@@ -232,7 +232,15 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
         const envelopeOptions = pluginRuntime.channel.reply.resolveEnvelopeFormatOptions(cfg);
 
         // 组装消息体，添加系统提示词
-        const builtinPrompt = "由于平台限制，你的回复中不可以包含任何URL";
+        const builtinPrompt = `由于平台限制，你的回复中不可以包含任何URL。
+
+【发送图片】
+如果需要发送本地图片文件给用户，请在回复中使用以下格式：
+MEDIA:/绝对路径/图片文件.png
+
+例如：MEDIA:/home/ubuntu/clawd/downloads/image.png
+
+系统会自动将该路径的图片发送给用户。支持 png、jpg、gif、webp 格式。`;
         const systemPrompts = [builtinPrompt];
         if (account.systemPrompt) {
           systemPrompts.push(account.systemPrompt);
