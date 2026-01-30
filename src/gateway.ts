@@ -4,14 +4,38 @@ import { getAccessToken, getGatewayUrl, sendC2CMessage, sendChannelMessage, send
 import { getQQBotRuntime } from "./runtime.js";
 import { startImageServer, saveImage, isImageServerRunning, type ImageServerConfig } from "./image-server.js";
 
-// QQ Bot intents
+// QQ Bot intents - 按权限级别分组
 const INTENTS = {
+  // 基础权限（默认有）
   GUILDS: 1 << 0,                    // 频道相关
   GUILD_MEMBERS: 1 << 1,             // 频道成员
   PUBLIC_GUILD_MESSAGES: 1 << 30,    // 频道公开消息（公域）
+  // 需要申请的权限
   DIRECT_MESSAGE: 1 << 12,           // 频道私信
   GROUP_AND_C2C: 1 << 25,            // 群聊和 C2C 私聊（需申请）
 };
+
+// 权限级别：从高到低依次尝试
+const INTENT_LEVELS = [
+  // Level 0: 完整权限（群聊 + 私信 + 频道）
+  {
+    name: "full",
+    intents: INTENTS.PUBLIC_GUILD_MESSAGES | INTENTS.DIRECT_MESSAGE | INTENTS.GROUP_AND_C2C,
+    description: "群聊+私信+频道",
+  },
+  // Level 1: 群聊 + 频道（无私信）
+  {
+    name: "group+channel",
+    intents: INTENTS.PUBLIC_GUILD_MESSAGES | INTENTS.GROUP_AND_C2C,
+    description: "群聊+频道",
+  },
+  // Level 2: 仅频道（基础权限）
+  {
+    name: "channel-only",
+    intents: INTENTS.PUBLIC_GUILD_MESSAGES | INTENTS.GUILD_MEMBERS,
+    description: "仅频道消息",
+  },
+];
 
 // 重连配置
 const RECONNECT_DELAYS = [1000, 2000, 5000, 10000, 30000, 60000]; // 递增延迟
@@ -85,7 +109,8 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
   let isConnecting = false; // 防止并发连接
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null; // 重连定时器
   let shouldRefreshToken = false; // 下次连接是否需要刷新 token
-  let identifyFailCount = 0; // identify 失败次数
+  let intentLevelIndex = 0; // 当前尝试的权限级别索引
+  let lastSuccessfulIntentLevel = -1; // 上次成功的权限级别
 
   abortSignal.addEventListener("abort", () => {
     isAborted = true;
@@ -503,22 +528,15 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
                 }));
               } else {
                 // 新连接，发送 Identify
-                // 如果 identify 失败多次，尝试只使用基础权限
-                let intents: number;
-                if (identifyFailCount >= 3) {
-                  // 只使用基础权限（频道消息）
-                  intents = INTENTS.PUBLIC_GUILD_MESSAGES | INTENTS.GUILD_MEMBERS;
-                  log?.info(`[qqbot:${account.accountId}] Using basic intents only (after ${identifyFailCount} failures): ${intents}`);
-                } else {
-                  // 使用完整权限
-                  intents = INTENTS.PUBLIC_GUILD_MESSAGES | INTENTS.DIRECT_MESSAGE | INTENTS.GROUP_AND_C2C;
-                  log?.info(`[qqbot:${account.accountId}] Sending identify with intents: ${intents}`);
-                }
+                // 如果有上次成功的级别，直接使用；否则从当前级别开始尝试
+                const levelToUse = lastSuccessfulIntentLevel >= 0 ? lastSuccessfulIntentLevel : intentLevelIndex;
+                const intentLevel = INTENT_LEVELS[Math.min(levelToUse, INTENT_LEVELS.length - 1)];
+                log?.info(`[qqbot:${account.accountId}] Sending identify with intents: ${intentLevel.intents} (${intentLevel.description})`);
                 ws.send(JSON.stringify({
                   op: 2,
                   d: {
                     token: `QQBot ${accessToken}`,
-                    intents: intents,
+                    intents: intentLevel.intents,
                     shard: [0, 1],
                   },
                 }));
@@ -539,8 +557,10 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
               if (t === "READY") {
                 const readyData = d as { session_id: string };
                 sessionId = readyData.session_id;
-                identifyFailCount = 0; // 连接成功，重置失败计数
-                log?.info(`[qqbot:${account.accountId}] Ready, session: ${sessionId}`);
+                // 记录成功的权限级别
+                lastSuccessfulIntentLevel = intentLevelIndex;
+                const successLevel = INTENT_LEVELS[intentLevelIndex];
+                log?.info(`[qqbot:${account.accountId}] Ready with ${successLevel.description}, session: ${sessionId}`);
                 onReady?.(d);
               } else if (t === "RESUMED") {
                 log?.info(`[qqbot:${account.accountId}] Session resumed`);
@@ -605,22 +625,27 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
 
             case 9: // Invalid Session
               const canResume = d as boolean;
-              log?.error(`[qqbot:${account.accountId}] Invalid session, can resume: ${canResume}, raw: ${rawData}`);
+              const currentLevel = INTENT_LEVELS[intentLevelIndex];
+              log?.error(`[qqbot:${account.accountId}] Invalid session (${currentLevel.description}), can resume: ${canResume}, raw: ${rawData}`);
+              
               if (!canResume) {
                 sessionId = null;
                 lastSeq = null;
-                identifyFailCount++;
-                // 标记需要刷新 token（可能是 token 过期导致的）
-                shouldRefreshToken = true;
                 
-                if (identifyFailCount >= 3) {
-                  log?.error(`[qqbot:${account.accountId}] Identify failed ${identifyFailCount} times. This may be a permission issue.`);
-                  log?.error(`[qqbot:${account.accountId}] Please check: 1) AppID/Secret is correct 2) Bot has GROUP_AND_C2C permission on QQ Open Platform`);
+                // 尝试降级到下一个权限级别
+                if (intentLevelIndex < INTENT_LEVELS.length - 1) {
+                  intentLevelIndex++;
+                  const nextLevel = INTENT_LEVELS[intentLevelIndex];
+                  log?.info(`[qqbot:${account.accountId}] Downgrading intents to: ${nextLevel.description}`);
+                } else {
+                  // 已经是最低权限级别了
+                  log?.error(`[qqbot:${account.accountId}] All intent levels failed. Please check AppID/Secret.`);
+                  shouldRefreshToken = true;
                 }
               }
               cleanup();
               // Invalid Session 后等待一段时间再重连
-              scheduleReconnect(5000);
+              scheduleReconnect(3000);
               break;
           }
         } catch (err) {
