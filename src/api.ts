@@ -56,18 +56,21 @@ export function clearTokenCache(): void {
 /**
  * msg_seq 追踪器 - 用于对同一条消息的多次回复
  * key: msg_id, value: 当前 seq 值
+ * 使用时间戳作为基础值，确保进程重启后不会重复
  */
 const msgSeqTracker = new Map<string, number>();
+const seqBaseTime = Math.floor(Date.now() / 1000) % 100000000; // 取秒级时间戳的后8位作为基础
 
 /**
  * 获取并递增消息序号
+ * 返回的 seq 会基于时间戳，避免进程重启后重复
  */
 export function getNextMsgSeq(msgId: string): number {
   const current = msgSeqTracker.get(msgId) ?? 0;
   const next = current + 1;
   msgSeqTracker.set(msgId, next);
   
-  // 清理过期的序号（超过 5 次或 60 分钟后无意义）
+  // 清理过期的序号
   // 简单策略：保留最近 1000 条
   if (msgSeqTracker.size > 1000) {
     const keys = Array.from(msgSeqTracker.keys());
@@ -76,7 +79,8 @@ export function getNextMsgSeq(msgId: string): number {
     }
   }
   
-  return next;
+  // 结合时间戳基础值，确保唯一性
+  return seqBaseTime + next;
 }
 
 /**
@@ -208,4 +212,162 @@ export async function sendProactiveGroupMessage(
     content,
     msg_type: 0,
   });
+}
+
+// ============ 富媒体消息支持 ============
+
+/**
+ * 媒体文件类型
+ */
+export enum MediaFileType {
+  IMAGE = 1,
+  VIDEO = 2,
+  VOICE = 3,
+  FILE = 4, // 暂未开放
+}
+
+/**
+ * 上传富媒体文件的响应
+ */
+export interface UploadMediaResponse {
+  file_uuid: string;
+  file_info: string;
+  ttl: number;
+  id?: string; // 仅当 srv_send_msg=true 时返回
+}
+
+/**
+ * 上传富媒体文件到 C2C 单聊
+ * @param accessToken 访问令牌
+ * @param openid 用户 openid
+ * @param fileType 文件类型
+ * @param url 媒体资源 URL
+ * @param srvSendMsg 是否直接发送（推荐 false，获取 file_info 后再发送）
+ */
+export async function uploadC2CMedia(
+  accessToken: string,
+  openid: string,
+  fileType: MediaFileType,
+  url: string,
+  srvSendMsg = false
+): Promise<UploadMediaResponse> {
+  return apiRequest(accessToken, "POST", `/v2/users/${openid}/files`, {
+    file_type: fileType,
+    url,
+    srv_send_msg: srvSendMsg,
+  });
+}
+
+/**
+ * 上传富媒体文件到群聊
+ * @param accessToken 访问令牌
+ * @param groupOpenid 群 openid
+ * @param fileType 文件类型
+ * @param url 媒体资源 URL
+ * @param srvSendMsg 是否直接发送（推荐 false，获取 file_info 后再发送）
+ */
+export async function uploadGroupMedia(
+  accessToken: string,
+  groupOpenid: string,
+  fileType: MediaFileType,
+  url: string,
+  srvSendMsg = false
+): Promise<UploadMediaResponse> {
+  return apiRequest(accessToken, "POST", `/v2/groups/${groupOpenid}/files`, {
+    file_type: fileType,
+    url,
+    srv_send_msg: srvSendMsg,
+  });
+}
+
+/**
+ * 发送 C2C 单聊富媒体消息
+ * @param accessToken 访问令牌
+ * @param openid 用户 openid
+ * @param fileInfo 从 uploadC2CMedia 获取的 file_info
+ * @param msgId 被动回复时需要的消息 ID
+ * @param content 可选的文字内容
+ */
+export async function sendC2CMediaMessage(
+  accessToken: string,
+  openid: string,
+  fileInfo: string,
+  msgId?: string,
+  content?: string
+): Promise<{ id: string; timestamp: number }> {
+  const msgSeq = msgId ? getNextMsgSeq(msgId) : 1;
+  return apiRequest(accessToken, "POST", `/v2/users/${openid}/messages`, {
+    msg_type: 7, // 富媒体消息类型
+    media: { file_info: fileInfo },
+    msg_seq: msgSeq,
+    ...(content ? { content } : {}),
+    ...(msgId ? { msg_id: msgId } : {}),
+  });
+}
+
+/**
+ * 发送群聊富媒体消息
+ * @param accessToken 访问令牌
+ * @param groupOpenid 群 openid
+ * @param fileInfo 从 uploadGroupMedia 获取的 file_info
+ * @param msgId 被动回复时需要的消息 ID
+ * @param content 可选的文字内容
+ */
+export async function sendGroupMediaMessage(
+  accessToken: string,
+  groupOpenid: string,
+  fileInfo: string,
+  msgId?: string,
+  content?: string
+): Promise<{ id: string; timestamp: string }> {
+  const msgSeq = msgId ? getNextMsgSeq(msgId) : 1;
+  return apiRequest(accessToken, "POST", `/v2/groups/${groupOpenid}/messages`, {
+    msg_type: 7, // 富媒体消息类型
+    media: { file_info: fileInfo },
+    msg_seq: msgSeq,
+    ...(content ? { content } : {}),
+    ...(msgId ? { msg_id: msgId } : {}),
+  });
+}
+
+/**
+ * 发送带图片的 C2C 单聊消息（封装上传+发送）
+ * @param accessToken 访问令牌
+ * @param openid 用户 openid
+ * @param imageUrl 图片 URL
+ * @param msgId 被动回复时需要的消息 ID
+ * @param content 可选的文字内容
+ */
+export async function sendC2CImageMessage(
+  accessToken: string,
+  openid: string,
+  imageUrl: string,
+  msgId?: string,
+  content?: string
+): Promise<{ id: string; timestamp: number }> {
+  // 先上传图片获取 file_info
+  const uploadResult = await uploadC2CMedia(accessToken, openid, MediaFileType.IMAGE, imageUrl, false);
+  // 再发送富媒体消息
+  return sendC2CMediaMessage(accessToken, openid, uploadResult.file_info, msgId, content);
+}
+
+/**
+ * 发送带图片的群聊消息（封装上传+发送）
+ * @param accessToken 访问令牌
+ * @param groupOpenid 群 openid
+ * @param imageUrl 图片 URL
+ * @param msgId 被动回复时需要的消息 ID
+ * @param content 可选的文字内容
+ */
+export async function sendGroupImageMessage(
+  accessToken: string,
+  groupOpenid: string,
+  imageUrl: string,
+  msgId?: string,
+  content?: string
+): Promise<{ id: string; timestamp: string }> {
+  // 先上传图片获取 file_info
+  const uploadResult = await uploadGroupMedia(accessToken, groupOpenid, MediaFileType.IMAGE, imageUrl, false);
+  // 再发送富媒体消息
+  return sendGroupMediaMessage(accessToken, groupOpenid, uploadResult.file_info, msgId, content);
 }

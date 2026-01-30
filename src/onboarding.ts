@@ -29,12 +29,14 @@ interface QQBotChannelConfig {
   clientSecret?: string;
   clientSecretFile?: string;
   name?: string;
+  imageServerBaseUrl?: string;
   accounts?: Record<string, {
     enabled?: boolean;
     appId?: string;
     clientSecret?: string;
     clientSecretFile?: string;
     name?: string;
+    imageServerBaseUrl?: string;
   }>;
 }
 
