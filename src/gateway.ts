@@ -379,25 +379,52 @@ MEDIA:/绝对路径/图片文件.png
             cfg,
             dispatcherOptions: {
               responsePrefix: messagesConfig.responsePrefix,
-              deliver: async (payload: { text?: string }) => {
+              deliver: async (payload: { text?: string; mediaUrls?: string[]; mediaUrl?: string }) => {
                 hasResponse = true;
                 if (timeoutId) {
                   clearTimeout(timeoutId);
                   timeoutId = null;
                 }
 
-                log?.info(`[qqbot:${account.accountId}] deliver called, payload: ${JSON.stringify(payload).slice(0, 200)}`);
+                log?.info(`[qqbot:${account.accountId}] deliver called, payload keys: ${Object.keys(payload).join(", ")}`);
 
                 let replyText = payload.text ?? "";
-                if (!replyText.trim()) {
-                  log?.info(`[qqbot:${account.accountId}] Empty reply text, skipping`);
+                
+                // 收集所有图片路径
+                const imageUrls: string[] = [];
+                
+                // 处理 mediaUrls 和 mediaUrl 字段（本地文件路径）
+                const mediaPaths: string[] = [];
+                if (payload.mediaUrls?.length) {
+                  mediaPaths.push(...payload.mediaUrls);
+                }
+                if (payload.mediaUrl && !mediaPaths.includes(payload.mediaUrl)) {
+                  mediaPaths.push(payload.mediaUrl);
+                }
+                
+                for (const localPath of mediaPaths) {
+                  if (localPath && imageServerBaseUrl) {
+                    try {
+                      const savedUrl = saveImageFromPath(localPath);
+                      if (savedUrl) {
+                        imageUrls.push(savedUrl);
+                        log?.info(`[qqbot:${account.accountId}] Saved media to server: ${localPath}`);
+                      } else {
+                        log?.error(`[qqbot:${account.accountId}] Failed to save media (not found or not image): ${localPath}`);
+                      }
+                    } catch (err) {
+                      log?.error(`[qqbot:${account.accountId}] Failed to save media: ${err}`);
+                    }
+                  }
+                }
+                
+                // 如果没有文本也没有图片，跳过
+                if (!replyText.trim() && imageUrls.length === 0) {
+                  log?.info(`[qqbot:${account.accountId}] Empty reply, skipping`);
                   return;
                 }
 
-                // 提取回复中的图片
-                const imageUrls: string[] = [];
-                
-                // 0. 提取 MEDIA: 前缀的本地文件路径
+                // 0. 提取 MEDIA: 前缀的本地文件路径（从文本中）
                 const mediaPathRegex = /MEDIA:([^\s\n]+)/gi;
                 const mediaMatches = [...replyText.matchAll(mediaPathRegex)];
                 
