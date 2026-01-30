@@ -1,6 +1,6 @@
 # QQ Bot Channel Plugin for Moltbot
 
-QQ 官方机器人 API 的 Moltbot 渠道插件，支持 C2C 私聊、群聊 @消息、频道消息。
+QQ 开放平台Bot API 的 Moltbot 渠道插件，支持 C2C 私聊、群聊 @消息、频道消息。
 
 ## 功能特性
 
