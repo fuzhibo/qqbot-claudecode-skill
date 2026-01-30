@@ -1,7 +1,8 @@
 import WebSocket from "ws";
 import type { ResolvedQQBotAccount, WSPayload, C2CMessageEvent, GuildMessageEvent, GroupMessageEvent } from "./types.js";
-import { getAccessToken, getGatewayUrl, sendC2CMessage, sendChannelMessage, sendGroupMessage, clearTokenCache } from "./api.js";
+import { getAccessToken, getGatewayUrl, sendC2CMessage, sendChannelMessage, sendGroupMessage, clearTokenCache, sendC2CImageMessage, sendGroupImageMessage } from "./api.js";
 import { getQQBotRuntime } from "./runtime.js";
+import { startImageServer, saveImage, isImageServerRunning, type ImageServerConfig } from "./image-server.js";
 
 // QQ Bot intents
 const INTENTS = {
@@ -19,6 +20,10 @@ const MAX_RECONNECT_ATTEMPTS = 100;
 const MAX_QUICK_DISCONNECT_COUNT = 3; // 连续快速断开次数阈值
 const QUICK_DISCONNECT_THRESHOLD = 5000; // 5秒内断开视为快速断开
 
+// 图床服务器配置（可通过环境变量覆盖）
+const IMAGE_SERVER_PORT = parseInt(process.env.QQBOT_IMAGE_SERVER_PORT || "18765", 10);
+const IMAGE_SERVER_DIR = process.env.QQBOT_IMAGE_SERVER_DIR || "./qqbot-images";
+
 export interface GatewayContext {
   account: ResolvedQQBotAccount;
   abortSignal: AbortSignal;
@@ -33,6 +38,30 @@ export interface GatewayContext {
 }
 
 /**
+ * 启动图床服务器
+ */
+async function ensureImageServer(log?: GatewayContext["log"]): Promise<string | null> {
+  if (isImageServerRunning()) {
+    return `http://0.0.0.0:${IMAGE_SERVER_PORT}`;
+  }
+
+  try {
+    const config: Partial<ImageServerConfig> = {
+      port: IMAGE_SERVER_PORT,
+      storageDir: IMAGE_SERVER_DIR,
+      baseUrl: `http://0.0.0.0:${IMAGE_SERVER_PORT}`,
+      ttlSeconds: 3600, // 1 小时过期
+    };
+    await startImageServer(config);
+    log?.info(`[qqbot] Image server started on port ${IMAGE_SERVER_PORT}`);
+    return `http://0.0.0.0:${IMAGE_SERVER_PORT}`;
+  } catch (err) {
+    log?.error(`[qqbot] Failed to start image server: ${err}`);
+    return null;
+  }
+}
+
+/**
  * 启动 Gateway WebSocket 连接（带自动重连）
  */
 export async function startGateway(ctx: GatewayContext): Promise<void> {
@@ -41,6 +70,9 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
   if (!account.appId || !account.clientSecret) {
     throw new Error("QQBot not configured (missing appId or clientSecret)");
   }
+
+  // 尝试启动图床服务器
+  const imageServerBaseUrl = await ensureImageServer(log);
 
   let reconnectAttempts = 0;
   let isAborted = false;
@@ -306,29 +338,90 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
                 let replyText = payload.text ?? "";
                 if (!replyText.trim()) return;
 
-                // 处理回复内容，避免被 QQ 识别为 URL
-                const originalText = replyText;
+                // 提取回复中的图片
+                const imageUrls: string[] = [];
                 
-                // 把所有可能被识别为 URL 的点替换为下划线
-                // 匹配：字母/数字.字母/数字 的模式
-                replyText = replyText.replace(/([a-zA-Z0-9])\.([a-zA-Z0-9])/g, "$1_$2");
+                // 1. 提取 base64 图片（data:image/xxx;base64,...）
+                const base64ImageRegex = /!\[([^\]]*)\]\((data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)\)|(?<![(\[])(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/gi;
+                const base64Matches = [...replyText.matchAll(base64ImageRegex)];
                 
-                const hasReplacement = replyText !== originalText;
-                if (hasReplacement) {
-                  replyText += "\n\n（由于平台限制，回复中的部分符号已被替换）";
+                for (const match of base64Matches) {
+                  const dataUrl = match[2] || match[3];
+                  if (dataUrl && imageServerBaseUrl) {
+                    // 将 base64 保存到本地图床
+                    try {
+                      const savedUrl = saveImage(dataUrl);
+                      imageUrls.push(savedUrl);
+                      log?.info(`[qqbot:${account.accountId}] Saved base64 image to local server`);
+                    } catch (err) {
+                      log?.error(`[qqbot:${account.accountId}] Failed to save base64 image: ${err}`);
+                    }
+                  }
+                  // 从文本中移除 base64
+                  replyText = replyText.replace(match[0], "").trim();
+                }
+
+                // 2. 提取 URL 图片（Markdown 格式或纯 URL）
+                const imageUrlRegex = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+\.(?:png|jpg|jpeg|gif|webp)(?:\?[^\s)]*)?)\)|(?<![(\[])(https?:\/\/[^\s)]+\.(?:png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?)/gi;
+                const urlMatches = [...replyText.matchAll(imageUrlRegex)];
+                
+                for (const match of urlMatches) {
+                  // match[2] 是 Markdown 格式的 URL，match[3] 是纯 URL
+                  const url = match[2] || match[3];
+                  if (url) {
+                    imageUrls.push(url);
+                  }
+                }
+
+                // 从文本中移除图片 URL，避免被 QQ 拦截
+                let textWithoutImages = replyText;
+                for (const match of urlMatches) {
+                  textWithoutImages = textWithoutImages.replace(match[0], "").trim();
+                }
+
+                // 处理剩余文本中的 URL 点号
+                const originalText = textWithoutImages;
+                textWithoutImages = textWithoutImages.replace(/([a-zA-Z0-9])\.([a-zA-Z0-9])/g, "$1_$2");
+                
+                const hasReplacement = textWithoutImages !== originalText;
+                if (hasReplacement && textWithoutImages.trim()) {
+                  textWithoutImages += "\n\n（由于平台限制，回复中的部分符号已被替换）";
                 }
 
                 try {
-                  await sendWithTokenRetry(async (token) => {
-                    if (event.type === "c2c") {
-                      await sendC2CMessage(token, event.senderId, replyText, event.messageId);
-                    } else if (event.type === "group" && event.groupOpenid) {
-                      await sendGroupMessage(token, event.groupOpenid, replyText, event.messageId);
-                    } else if (event.channelId) {
-                      await sendChannelMessage(token, event.channelId, replyText, event.messageId);
+                  // 先发送图片（如果有）
+                  for (const imageUrl of imageUrls) {
+                    try {
+                      await sendWithTokenRetry(async (token) => {
+                        if (event.type === "c2c") {
+                          await sendC2CImageMessage(token, event.senderId, imageUrl, event.messageId);
+                        } else if (event.type === "group" && event.groupOpenid) {
+                          await sendGroupImageMessage(token, event.groupOpenid, imageUrl, event.messageId);
+                        }
+                        // 频道消息暂不支持富媒体，跳过图片
+                      });
+                      log?.info(`[qqbot:${account.accountId}] Sent image: ${imageUrl.slice(0, 50)}...`);
+                    } catch (imgErr) {
+                      log?.error(`[qqbot:${account.accountId}] Failed to send image: ${imgErr}`);
+                      // 图片发送失败时，把 URL 加回文本（已处理过点号的版本）
+                      const safeUrl = imageUrl.replace(/([a-zA-Z0-9])\.([a-zA-Z0-9])/g, "$1_$2");
+                      textWithoutImages = `[图片: ${safeUrl}]\n${textWithoutImages}`;
                     }
-                  });
-                  log?.info(`[qqbot:${account.accountId}] Sent reply`);
+                  }
+
+                  // 再发送文本（如果有）
+                  if (textWithoutImages.trim()) {
+                    await sendWithTokenRetry(async (token) => {
+                      if (event.type === "c2c") {
+                        await sendC2CMessage(token, event.senderId, textWithoutImages, event.messageId);
+                      } else if (event.type === "group" && event.groupOpenid) {
+                        await sendGroupMessage(token, event.groupOpenid, textWithoutImages, event.messageId);
+                      } else if (event.channelId) {
+                        await sendChannelMessage(token, event.channelId, textWithoutImages, event.messageId);
+                      }
+                    });
+                    log?.info(`[qqbot:${account.accountId}] Sent text reply`);
+                  }
 
                   pluginRuntime.channel.activity.record({
                     channel: "qqbot",
@@ -538,12 +631,28 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
         log?.info(`[qqbot:${account.accountId}] WebSocket closed: ${code} ${reason.toString()}`);
         isConnecting = false; // 释放锁
         
-        // 4903 等错误码表示 session 创建失败，需要刷新 token
-        if (code === 4903 || code === 4009 || code === 4014) {
-          log?.info(`[qqbot:${account.accountId}] Session error (${code}), will refresh token`);
+        // 根据错误码处理
+        // 4009: 可以重新发起 resume
+        // 4900-4913: 内部错误，需要重新 identify
+        // 4914: 机器人已下架
+        // 4915: 机器人已封禁
+        if (code === 4914 || code === 4915) {
+          log?.error(`[qqbot:${account.accountId}] Bot is ${code === 4914 ? "offline/sandbox-only" : "banned"}. Please contact QQ platform.`);
+          cleanup();
+          // 不重连，直接退出
+          return;
+        }
+        
+        if (code === 4009) {
+          // 4009 可以尝试 resume，保留 session
+          log?.info(`[qqbot:${account.accountId}] Error 4009, will try resume`);
           shouldRefreshToken = true;
+        } else if (code >= 4900 && code <= 4913) {
+          // 4900-4913 内部错误，清除 session 重新 identify
+          log?.info(`[qqbot:${account.accountId}] Internal error (${code}), will re-identify`);
           sessionId = null;
           lastSeq = null;
+          shouldRefreshToken = true;
         }
         
         // 检测是否是快速断开（连接后很快就断了）
@@ -552,12 +661,10 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
           quickDisconnectCount++;
           log?.info(`[qqbot:${account.accountId}] Quick disconnect detected (${connectionDuration}ms), count: ${quickDisconnectCount}`);
           
-          // 如果连续快速断开超过阈值，清除 session 并等待更长时间
+          // 如果连续快速断开超过阈值，等待更长时间
           if (quickDisconnectCount >= MAX_QUICK_DISCONNECT_COUNT) {
-            log?.info(`[qqbot:${account.accountId}] Too many quick disconnects, clearing session and refreshing token`);
-            sessionId = null;
-            lastSeq = null;
-            shouldRefreshToken = true;
+            log?.error(`[qqbot:${account.accountId}] Too many quick disconnects. This may indicate a permission issue.`);
+            log?.error(`[qqbot:${account.accountId}] Please check: 1) AppID/Secret correct 2) Bot permissions on QQ Open Platform`);
             quickDisconnectCount = 0;
             cleanup();
             // 快速断开太多次，等待更长时间再重连
