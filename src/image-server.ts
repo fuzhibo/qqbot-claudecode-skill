@@ -389,13 +389,13 @@ export function isImageServerRunning(): boolean {
  * 下载远程文件并保存到本地
  * @param url 远程文件 URL
  * @param destDir 目标目录
- * @param filename 文件名（可选，不含扩展名）
+ * @param originalFilename 原始文件名（可选，完整文件名包含扩展名）
  * @returns 本地文件路径，失败返回 null
  */
 export async function downloadFile(
   url: string,
   destDir: string,
-  filename?: string
+  originalFilename?: string
 ): Promise<string | null> {
   try {
     // 确保目录存在
@@ -412,22 +412,24 @@ export async function downloadFile(
 
     const buffer = Buffer.from(await response.arrayBuffer());
     
-    // 直接从 URL 提取原始文件名
+    // 确定文件名
     let finalFilename: string;
-    if (filename) {
-      finalFilename = filename;
+    if (originalFilename) {
+      // 使用原始文件名，但添加时间戳避免冲突
+      const ext = path.extname(originalFilename);
+      const baseName = path.basename(originalFilename, ext);
+      const timestamp = Date.now();
+      finalFilename = `${baseName}_${timestamp}${ext}`;
     } else {
-      // 从 URL 路径中提取文件名（去掉查询参数）
-      const urlPath = new URL(url).pathname;
-      const urlFilename = path.basename(urlPath);
-      // 如果 URL 有文件名就用，否则生成随机名
-      finalFilename = urlFilename && urlFilename !== "/" ? urlFilename : `${generateImageId()}.bin`;
+      // 没有原始文件名，生成随机名
+      finalFilename = `${generateImageId()}.bin`;
     }
     
     const filePath = path.join(destDir, finalFilename);
 
     // 保存文件
     fs.writeFileSync(filePath, buffer);
+    console.log(`[image-server] Downloaded file: ${filePath}`);
     
     return filePath;
   } catch (err) {

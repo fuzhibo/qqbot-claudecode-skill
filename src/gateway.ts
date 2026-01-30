@@ -254,8 +254,8 @@ MEDIA:/绝对路径/图片文件.png
         
         if (event.attachments?.length) {
           for (const att of event.attachments) {
-            // 下载附件到本地
-            const localPath = await downloadFile(att.url, downloadDir);
+            // 下载附件到本地，使用原始文件名
+            const localPath = await downloadFile(att.url, downloadDir, att.filename);
             if (localPath) {
               if (att.content_type?.startsWith("image/")) {
                 imageUrls.push(localPath);
