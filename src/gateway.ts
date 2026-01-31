@@ -242,7 +242,7 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
         const envelopeOptions = pluginRuntime.channel.reply.resolveEnvelopeFormatOptions(cfg);
 
         // 组装消息体，添加系统提示词
-        let builtinPrompt = "由于平台限制，你的回复中不可以包含任何URL。";
+        let builtinPrompt = "";
         
         // 只有配置了图床公网地址，才告诉 AI 可以发送图片
         if (imageServerBaseUrl) {
@@ -518,24 +518,6 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
                   }
                 }
 
-                // 从文本中移除图片 URL，避免被 QQ 拦截
-                let textWithoutImages = replyText;
-                for (const match of urlMatches) {
-                  textWithoutImages = textWithoutImages.replace(match[0], "").trim();
-                }
-
-                // 处理剩余文本中的 URL 点号（只有在没有图片的情况下才替换，避免误伤）
-                const hasImages = imageUrls.length > 0;
-                let hasReplacement = false;
-                if (!hasImages) {
-                  const originalText = textWithoutImages;
-                  textWithoutImages = textWithoutImages.replace(/([a-zA-Z0-9])\.([a-zA-Z0-9])/g, "$1_$2");
-                  hasReplacement = textWithoutImages !== originalText;
-                  if (hasReplacement && textWithoutImages.trim()) {
-                    textWithoutImages += "\n\n（由于平台限制，回复中的部分符号已被替换）";
-                  }
-                }
-
                 try {
                   // 先发送图片（如果有）
                   for (const imageUrl of imageUrls) {
@@ -553,19 +535,19 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
                       log?.error(`[qqbot:${account.accountId}] Failed to send image: ${imgErr}`);
                       // 图片发送失败时，显示错误信息而不是 URL
                       const errMsg = String(imgErr).slice(0, 200);
-                      textWithoutImages = `[图片发送失败: ${errMsg}]\n${textWithoutImages}`;
+                      replyText = `[图片发送失败: ${errMsg}]\n${replyText}`;
                     }
                   }
 
                   // 再发送文本（如果有）
-                  if (textWithoutImages.trim()) {
+                  if (replyText.trim()) {
                     await sendWithTokenRetry(async (token) => {
                       if (event.type === "c2c") {
-                        await sendC2CMessage(token, event.senderId, textWithoutImages, event.messageId);
+                        await sendC2CMessage(token, event.senderId, replyText, event.messageId);
                       } else if (event.type === "group" && event.groupOpenid) {
-                        await sendGroupMessage(token, event.groupOpenid, textWithoutImages, event.messageId);
+                        await sendGroupMessage(token, event.groupOpenid, replyText, event.messageId);
                       } else if (event.channelId) {
-                        await sendChannelMessage(token, event.channelId, textWithoutImages, event.messageId);
+                        await sendChannelMessage(token, event.channelId, replyText, event.messageId);
                       }
                     });
                     log?.info(`[qqbot:${account.accountId}] Sent text reply`);
