@@ -1,5 +1,6 @@
 import WebSocket from "ws";
 import path from "node:path";
+import * as fs from "node:fs";
 import type { ResolvedQQBotAccount, WSPayload, C2CMessageEvent, GuildMessageEvent, GroupMessageEvent } from "./types.js";
 import { getAccessToken, getGatewayUrl, sendC2CMessage, sendChannelMessage, sendGroupMessage, clearTokenCache, sendC2CImageMessage, sendGroupImageMessage, initApiConfig, startBackgroundTokenRefresh, stopBackgroundTokenRefresh } from "./api.js";
 import { loadSession, saveSession, clearSession, type SessionState } from "./session-store.js";
@@ -713,7 +714,7 @@ openclaw cron add \\
                 
                 /**
                  * 检查并收集图片 URL
-                 * 支持：公网 URL (http/https) 和 Base64 Data URL (data:image/...)
+                 * 支持：公网 URL (http/https)、Base64 Data URL (data:image/...) 和本地文件路径
                  */
                 const collectImageUrl = (url: string | undefined | null): boolean => {
                   if (!url) return false;
@@ -740,7 +741,45 @@ openclaw cron add \\
                                       url.startsWith("../");
                   
                   if (isLocalPath) {
-                    log?.info(`[qqbot:${account.accountId}] Skipped local file path (OpenClaw should convert to Base64 or upload): ${url.slice(0, 80)}`);
+                    // 🎯 新增：自动读取本地文件并转换为 Base64 Data URL
+                    try {
+                      if (!fs.existsSync(url)) {
+                        log?.info(`[qqbot:${account.accountId}] Local file not found: ${url}`);
+                        return false;
+                      }
+                      
+                      const fileBuffer = fs.readFileSync(url);
+                      const base64Data = fileBuffer.toString("base64");
+                      
+                      // 根据文件扩展名确定 MIME 类型
+                      const ext = path.extname(url).toLowerCase();
+                      const mimeTypes: Record<string, string> = {
+                        ".jpg": "image/jpeg",
+                        ".jpeg": "image/jpeg",
+                        ".png": "image/png",
+                        ".gif": "image/gif",
+                        ".webp": "image/webp",
+                        ".bmp": "image/bmp",
+                      };
+                      
+                      const mimeType = mimeTypes[ext];
+                      if (!mimeType) {
+                        log?.info(`[qqbot:${account.accountId}] Unsupported image format: ${ext}`);
+                        return false;
+                      }
+                      
+                      // 构造 Data URL
+                      const dataUrl = `data:${mimeType};base64,${base64Data}`;
+                      if (!imageUrls.includes(dataUrl)) {
+                        imageUrls.push(dataUrl);
+                        log?.info(`[qqbot:${account.accountId}] Converted local file to Base64 (size: ${fileBuffer.length} bytes, type: ${mimeType}): ${url}`);
+                      }
+                      return true;
+                    } catch (readErr) {
+                      const errMsg = readErr instanceof Error ? readErr.message : String(readErr);
+                      log?.error(`[qqbot:${account.accountId}] Failed to read local file: ${errMsg}`);
+                      return false;
+                    }
                   } else {
                     log?.info(`[qqbot:${account.accountId}] Skipped unsupported media format: ${url.slice(0, 50)}`);
                   }
@@ -759,13 +798,21 @@ openclaw cron add \\
                 
                 // 提取文本中的图片格式
                 // 1. 提取 markdown 格式的图片 ![alt](url) 或 ![#宽px #高px](url)
-                const mdImageRegex = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/gi;
+                // 🎯 同时支持 http/https URL 和本地路径
+                const mdImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/gi;
                 const mdMatches = [...replyText.matchAll(mdImageRegex)];
                 for (const match of mdMatches) {
-                  const url = match[2];
+                  const url = match[2]?.trim();
                   if (url && !imageUrls.includes(url)) {
-                    imageUrls.push(url);
-                    log?.info(`[qqbot:${account.accountId}] Extracted image from markdown: ${url.slice(0, 80)}...`);
+                    // 判断是公网 URL 还是本地路径
+                    if (url.startsWith('http://') || url.startsWith('https://')) {
+                      imageUrls.push(url);
+                      log?.info(`[qqbot:${account.accountId}] Extracted HTTP image from markdown: ${url.slice(0, 80)}...`);
+                    } else if (/^\/?(?:Users|home|tmp|var|private|[A-Z]:)/i.test(url) && /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(url)) {
+                      // 本地路径：以 /Users, /home, /tmp, /var, /private 或 Windows 盘符开头，且以图片扩展名结尾
+                      collectImageUrl(url);
+                      log?.info(`[qqbot:${account.accountId}] Extracted local image from markdown: ${url}`);
+                    }
                   }
                 }
                 
@@ -777,6 +824,24 @@ openclaw cron add \\
                   if (url && !imageUrls.includes(url)) {
                     imageUrls.push(url);
                     log?.info(`[qqbot:${account.accountId}] Extracted bare image URL: ${url.slice(0, 80)}...`);
+                  }
+                }
+                
+                // 3. 🎯 检测文本中的裸露本地路径（仅记录日志，不自动发送）
+                // 方案 1：使用显式标记 - 只有 ![](本地路径) 格式才会发送图片
+                // 裸露的本地路径不再自动发送，而是记录日志提醒
+                const bareLocalPathRegex = /(?:^|[\s\n])(\/(?:Users|home|tmp|var|private)[^\s"'<>\n]+\.(?:png|jpg|jpeg|gif|webp|bmp))(?:$|[\s\n])/gi;
+                const bareLocalPathMatches = [...replyText.matchAll(bareLocalPathRegex)];
+                if (bareLocalPathMatches.length > 0) {
+                  for (const match of bareLocalPathMatches) {
+                    const localPath = match[1]?.trim();
+                    if (localPath) {
+                      // 检查这个路径是否已经通过 ![](path) 格式处理过
+                      if (!imageUrls.includes(localPath)) {
+                        log?.info(`[qqbot:${account.accountId}] Found bare local path (not sending): ${localPath}`);
+                        log?.info(`[qqbot:${account.accountId}] 💡 Hint: Use ![](${localPath}) format to send this image`);
+                      }
+                    }
                   }
                 }
                 
@@ -798,28 +863,64 @@ openclaw cron add \\
                 
                 // 根据模式处理图片
                 if (useMarkdown) {
-                  // ============ Markdown 模式：使用 ![#宽px #高px](url) 格式 ============
-                  // QQBot 的 markdown 图片格式要求：![#宽px #高px](url)
-                  // 需要自动获取图片尺寸，或使用默认尺寸
+                  // ============ Markdown 模式 ============
+                  // 🎯 关键改动：区分公网 URL 和本地文件/Base64
+                  // - 公网 URL (http/https) → 使用 Markdown 图片格式 ![#宽px #高px](url)
+                  // - 本地文件/Base64 (data:image/...) → 使用富媒体 API 发送
                   
+                  // 分离图片：公网 URL vs Base64/本地文件
+                  const httpImageUrls: string[] = [];      // 公网 URL，用于 Markdown 嵌入
+                  const base64ImageUrls: string[] = [];    // Base64，用于富媒体 API
+                  
+                  for (const url of imageUrls) {
+                    if (url.startsWith("data:image/")) {
+                      base64ImageUrls.push(url);
+                    } else if (url.startsWith("http://") || url.startsWith("https://")) {
+                      httpImageUrls.push(url);
+                    }
+                  }
+                  
+                  log?.info(`[qqbot:${account.accountId}] Image classification: httpUrls=${httpImageUrls.length}, base64=${base64ImageUrls.length}`);
+                  
+                  // 🔹 第一步：通过富媒体 API 发送 Base64 图片（本地文件已转换为 Base64）
+                  if (base64ImageUrls.length > 0) {
+                    log?.info(`[qqbot:${account.accountId}] Sending ${base64ImageUrls.length} image(s) via Rich Media API...`);
+                    for (const imageUrl of base64ImageUrls) {
+                      try {
+                        await sendWithTokenRetry(async (token) => {
+                          if (event.type === "c2c") {
+                            await sendC2CImageMessage(token, event.senderId, imageUrl, event.messageId);
+                          } else if (event.type === "group" && event.groupOpenid) {
+                            await sendGroupImageMessage(token, event.groupOpenid, imageUrl, event.messageId);
+                          } else if (event.channelId) {
+                            // 频道暂不支持富媒体，跳过
+                            log?.info(`[qqbot:${account.accountId}] Channel does not support rich media, skipping Base64 image`);
+                          }
+                        });
+                        log?.info(`[qqbot:${account.accountId}] Sent Base64 image via Rich Media API (size: ${imageUrl.length} chars)`);
+                      } catch (imgErr) {
+                        log?.error(`[qqbot:${account.accountId}] Failed to send Base64 image via Rich Media API: ${imgErr}`);
+                      }
+                    }
+                  }
+                  
+                  // 🔹 第二步：处理文本和公网 URL 图片
                   // 记录已存在于文本中的 markdown 图片 URL
                   const existingMdUrls = new Set(mdMatches.map(m => m[2]));
                   
-                  // 需要追加的图片（从 mediaUrl/mediaUrls 来的）
+                  // 需要追加的公网图片（从 mediaUrl/mediaUrls 来的，且不在文本中）
                   const imagesToAppend: string[] = [];
                   
-                  // 处理需要追加的图片：获取尺寸并格式化
-                  for (const url of imageUrls) {
+                  // 处理需要追加的公网 URL 图片：获取尺寸并格式化
+                  for (const url of httpImageUrls) {
                     if (!existingMdUrls.has(url)) {
                       // 这个 URL 不在文本的 markdown 格式中，需要追加
-                      // 尝试获取图片尺寸
                       try {
                         const size = await getImageSize(url);
                         const mdImage = formatQQBotMarkdownImage(url, size);
                         imagesToAppend.push(mdImage);
-                        log?.info(`[qqbot:${account.accountId}] Formatted image: ${size ? `${size.width}x${size.height}` : 'default size'} - ${url.slice(0, 60)}...`);
+                        log?.info(`[qqbot:${account.accountId}] Formatted HTTP image: ${size ? `${size.width}x${size.height}` : 'default size'} - ${url.slice(0, 60)}...`);
                       } catch (err) {
-                        // 获取尺寸失败，使用默认尺寸
                         log?.info(`[qqbot:${account.accountId}] Failed to get image size, using default: ${err}`);
                         const mdImage = formatQQBotMarkdownImage(url, null);
                         imagesToAppend.push(mdImage);
@@ -835,20 +936,17 @@ openclaw cron add \\
                     
                     // 检查是否已经有 QQBot 格式的尺寸 ![#宽px #高px](url)
                     if (!hasQQBotImageSize(fullMatch)) {
-                      // 没有尺寸信息，需要补充
                       try {
                         const size = await getImageSize(imgUrl);
                         const newMdImage = formatQQBotMarkdownImage(imgUrl, size);
                         textWithoutImages = textWithoutImages.replace(fullMatch, newMdImage);
                         log?.info(`[qqbot:${account.accountId}] Updated image with size: ${size ? `${size.width}x${size.height}` : 'default'} - ${imgUrl.slice(0, 60)}...`);
                       } catch (err) {
-                        // 获取尺寸失败，使用默认尺寸
                         log?.info(`[qqbot:${account.accountId}] Failed to get image size for existing md, using default: ${err}`);
                         const newMdImage = formatQQBotMarkdownImage(imgUrl, null);
                         textWithoutImages = textWithoutImages.replace(fullMatch, newMdImage);
                       }
                     }
-                    // 如果已经有尺寸信息，保留原格式
                   }
                   
                   // 从文本中移除裸 URL 图片（已转换为 markdown 格式）
@@ -856,7 +954,7 @@ openclaw cron add \\
                     textWithoutImages = textWithoutImages.replace(match[0], "").trim();
                   }
                   
-                  // 追加需要添加的图片到文本末尾
+                  // 追加需要添加的公网图片到文本末尾
                   if (imagesToAppend.length > 0) {
                     textWithoutImages = textWithoutImages.trim();
                     if (textWithoutImages) {
@@ -866,7 +964,7 @@ openclaw cron add \\
                     }
                   }
                   
-                  // 发送带图片的 markdown 消息（文本+图片一起发送）
+                  // 🔹 第三步：发送带公网图片的 markdown 消息
                   if (textWithoutImages.trim()) {
                     try {
                       await sendWithTokenRetry(async (token) => {
@@ -878,7 +976,7 @@ openclaw cron add \\
                           await sendChannelMessage(token, event.channelId, textWithoutImages, event.messageId);
                         }
                       });
-                      log?.info(`[qqbot:${account.accountId}] Sent markdown message with ${imageUrls.length} images (${event.type})`);
+                      log?.info(`[qqbot:${account.accountId}] Sent markdown message with ${httpImageUrls.length} HTTP images (${event.type})`);
                     } catch (err) {
                       log?.error(`[qqbot:${account.accountId}] Failed to send markdown message: ${err}`);
                     }
