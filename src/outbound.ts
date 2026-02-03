@@ -5,6 +5,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import type { ResolvedQQBotAccount } from "./types.js";
+import { decodeCronPayload } from "./utils/payload.js";
 import {
   getAccessToken, 
   sendC2CMessage, 
@@ -495,9 +496,76 @@ export async function sendMedia(ctx: MediaOutboundContext): Promise<OutboundResu
       }
     }
 
-    return { channel: "qqbot", messageId: imageResult.id, timestamp: imageResult.timestamp };
+  return { channel: "qqbot", messageId: imageResult.id, timestamp: imageResult.timestamp };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { channel: "qqbot", error: message };
   }
+}
+
+/**
+ * 发送 Cron 触发的消息
+ * 
+ * 当 OpenClaw cron 任务触发时，消息内容可能是：
+ * 1. QQBOT_CRON:{base64} 格式的结构化载荷 - 解码后根据 targetType 和 targetAddress 发送
+ * 2. 普通文本 - 直接发送到指定目标
+ * 
+ * @param account - 账户配置
+ * @param to - 目标地址（作为后备，如果载荷中没有指定）
+ * @param message - 消息内容（可能是 QQBOT_CRON: 格式或普通文本）
+ * @returns 发送结果
+ * 
+ * @example
+ * ```typescript
+ * // 处理结构化载荷
+ * const result = await sendCronMessage(
+ *   account,
+ *   "user_openid",  // 后备地址
+ *   "QQBOT_CRON:eyJ0eXBlIjoiY3Jvbl9yZW1pbmRlciIs..."  // Base64 编码的载荷
+ * );
+ * 
+ * // 处理普通文本
+ * const result = await sendCronMessage(
+ *   account,
+ *   "user_openid",
+ *   "这是一条普通的提醒消息"
+ * );
+ * ```
+ */
+export async function sendCronMessage(
+  account: ResolvedQQBotAccount,
+  to: string,
+  message: string
+): Promise<OutboundResult> {
+  console.log(`[qqbot] sendCronMessage: to=${to}, message length=${message.length}`);
+  
+  // 检测是否是 QQBOT_CRON: 格式的结构化载荷
+  const cronResult = decodeCronPayload(message);
+  
+  if (cronResult.isCronPayload) {
+    if (cronResult.error) {
+      console.error(`[qqbot] sendCronMessage: cron payload decode error: ${cronResult.error}`);
+      return {
+        channel: "qqbot",
+        error: `Cron 载荷解码失败: ${cronResult.error}`
+      };
+    }
+    
+    if (cronResult.payload) {
+      const payload = cronResult.payload;
+      console.log(`[qqbot] sendCronMessage: decoded cron payload, targetType=${payload.targetType}, targetAddress=${payload.targetAddress}`);
+      
+      // 使用载荷中的目标地址和类型发送消息
+      const targetTo = payload.targetType === "group" 
+        ? `group:${payload.targetAddress}` 
+        : payload.targetAddress;
+      
+      // 发送提醒内容
+      return await sendProactiveMessage(account, targetTo, payload.content);
+    }
+  }
+  
+  // 非结构化载荷，作为普通文本处理
+  console.log(`[qqbot] sendCronMessage: plain text message, sending to ${to}`);
+  return await sendProactiveMessage(account, to, message);
 }

@@ -1,4 +1,7 @@
 ---
+name: qqbot-media
+description: QQ Bot 媒体发送指南。教 AI 如何发送图片给用户。
+metadata: {"clawdbot":{"emoji":"📸"}}
 triggers:
   - qqbot
   - qq
@@ -12,42 +15,75 @@ priority: 80
 
 # QQBot 媒体发送指南
 
-## 📸 发送本地图片
+## ⚠️ 重要：你有能力发送本地图片！
 
-当需要发送本地图片时，**必须使用 Markdown 图片语法**：
+**当用户要求发送本地图片时，只需使用 `<qqimg>` 标签包裹图片路径即可。系统会自动处理文件读取和发送。**
+
+**不要说"无法发送本地图片"！使用正确的标签格式，系统就能发送。**
+
+---
+
+## 📸 发送图片（推荐方式：`<qqimg>` 标签）
+
+使用 `<qqimg>` 标签包裹图片路径，即可发送图片：
 
 ```
-![](本地绝对路径)
+<qqimg>图片路径</qqimg>
 ```
 
-### ✅ 正确方式
+### ✅ 发送本地图片示例
+
+当用户说"发送那张图片"、"把图发给我"等，你应该输出：
 
 ```
 这是你要的图片：
-![](/Users/xxx/images/photo.jpg)
+<qqimg>/Users/xxx/images/photo.jpg</qqimg>
 ```
 
-或者带描述：
+### ✅ 发送网络图片示例
 
 ```
-这是截图：
-![截图](/tmp/screenshot.png)
+这是网络上的图片：
+<qqimg>https://example.com/image.png</qqimg>
 ```
 
-### ❌ 错误方式（不会发送图片）
-
-直接放路径**不会**发送图片：
+### ✅ 发送多张图片
 
 ```
-这是图片：
-/Users/xxx/images/photo.jpg
+这是你要的所有图片：
+<qqimg>/Users/xxx/image1.jpg</qqimg>
+<qqimg>/Users/xxx/image2.png</qqimg>
 ```
 
-> **原理**：系统只识别 `![](路径)` 格式的本地图片。裸露的路径会被当作普通文本处理。
+### 📝 标签说明
 
-### 🔤 告知路径信息（不发送图片）
+| 格式 | 说明 |
+|------|------|
+| `<qqimg>本地路径</qqimg>` | 发送本地图片（绝对路径） |
+| `<qqimg>网络URL</qqimg>` | 发送网络图片 |
 
-如果你需要**告知用户图片的保存路径**（而不是发送图片），直接写路径即可：
+### ⚠️ 注意事项
+
+1. **路径必须正确**：本地文件需要绝对路径，网络图片需要完整 URL
+2. **支持的图片格式**：jpg, jpeg, png, gif, webp, bmp
+3. **不要拒绝**：如果用户要求发送本地图片，直接使用 `<qqimg>` 标签即可
+4. **标签外的文本会正常发送**：可以在标签前后添加描述文字
+
+---
+
+## 🚫 错误示例（不要这样做）
+
+❌ **错误**：说"我无法发送本地图片"
+❌ **错误**：说"受限于技术限制，无法直接发送"
+❌ **错误**：只提供路径文本，不使用 `<qqimg>` 标签
+
+✅ **正确**：直接使用 `<qqimg>` 标签包裹路径
+
+---
+
+## 🔤 告知路径信息（不发送图片）
+
+如果你需要**告知用户图片的保存路径**（而不是发送图片），直接写路径即可，不要使用标签：
 
 ```
 图片已保存在：/Users/xxx/images/photo.jpg
@@ -59,49 +95,42 @@ priority: 80
 图片已保存在：`/Users/xxx/images/photo.jpg`
 ```
 
-### ⚠️ 注意事项
+---
 
-1. **使用绝对路径**：路径必须以 `/` 开头（macOS/Linux）或盘符开头（Windows，如 `C:\`）
-2. **支持的格式**：jpg, jpeg, png, gif, webp, bmp
-3. **无需调用其他工具**：不需要用 `read_file` 读取文件内容，直接输出 `![](路径)` 即可
-4. **文件必须存在**：确保路径指向的文件确实存在
+## 📋 高级选项：JSON 结构化载荷
 
-### 📌 示例场景
-
-**用户说**："发送 /tmp/screenshot.png 给我"
-
-**正确回复**：
-```
-好的，这是截图：
-![](/tmp/screenshot.png)
-```
-
-**用户说**："图片保存在哪？"
-
-**正确回复**：
-```
-图片保存在：/Users/xxx/downloads/image.jpg
-```
-
-## 🖼️ 发送网络图片
-
-发送网络图片时，也使用 Markdown 图片语法：
+如果需要更精细的控制（如添加图片描述），可以使用 JSON 格式：
 
 ```
-这是图片：
-![](https://example.com/image.png)
+QQBOT_PAYLOAD:
+{
+  "type": "media",
+  "mediaType": "image",
+  "source": "file",
+  "path": "/path/to/image.jpg",
+  "caption": "图片描述（可选）"
+}
 ```
 
-或直接放 URL 也可以（系统会自动识别图片 URL）：
+### JSON 字段说明
 
-```
-这是图片：
-https://example.com/image.png
-```
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `type` | string | ✅ | 固定为 `"media"` |
+| `mediaType` | string | ✅ | 媒体类型：`"image"` |
+| `source` | string | ✅ | 来源：`"file"`（本地）或 `"url"`（网络） |
+| `path` | string | ✅ | 图片路径或 URL |
+| `caption` | string | ❌ | 图片描述，会作为单独消息发送 |
 
-## 🎵 其他说明
+> 💡 **提示**：对于简单的图片发送，推荐使用 `<qqimg>` 标签，更简洁易用。
 
-- 当前仅支持图片格式，音频/视频等格式暂不支持
-- 群消息和私聊消息的图片发送方式相同
-- 图片大小建议不超过 10MB
-- 参考文档：https://bot.q.qq.com/wiki/develop/api-v2/server-inter/message/send-receive/rich-media.html
+---
+
+## 🎯 快速参考
+
+| 场景 | 使用方式 |
+|------|----------|
+| 发送本地图片 | `<qqimg>/path/to/image.jpg</qqimg>` |
+| 发送网络图片 | `<qqimg>https://example.com/image.png</qqimg>` |
+| 发送多张图片 | 多个 `<qqimg>` 标签 |
+| 告知路径（不发送） | 直接写路径文本 |

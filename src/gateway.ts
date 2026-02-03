@@ -8,6 +8,7 @@ import { recordKnownUser, flushKnownUsers } from "./known-users.js";
 import { getQQBotRuntime } from "./runtime.js";
 import { startImageServer, isImageServerRunning, downloadFile, type ImageServerConfig } from "./image-server.js";
 import { getImageSize, formatQQBotMarkdownImage, hasQQBotImageSize, DEFAULT_IMAGE_SIZE } from "./utils/image-size.js";
+import { parseQQBotPayload, encodePayloadForCron, isCronReminderPayload, isMediaPayload, type CronReminderPayload, type MediaPayload } from "./utils/payload.js";
 
 // QQ Bot intents - 按权限级别分组
 const INTENTS = {
@@ -123,92 +124,23 @@ function recordMessageReply(messageId: string): void {
   }
 }
 
-// ============ 图片发送时的文本智能简化 ============
-// 当 AI 发送图片时，检测并移除冗余的解释性文字
+// ============ 内部标记过滤 ============
 
 /**
- * 冗余文本模式 - 这些模式表示 AI 在"解释"而不是"回应"
- * 通常出现在 AI 不确定图片是否发送成功时
+ * 过滤内部标记（如 [[reply_to: xxx]]）
+ * 这些标记可能被 AI 错误地学习并输出，需要在发送前移除
  */
-const REDUNDANT_TEXT_PATTERNS = [
-  // 中文冗余模式
-  /让我总结一下[^\n]*/gi,
-  /目前的情况[是：:][^\n]*/gi,
-  /由于[^\n]*(?:工具[集]?|插件|集成|API)[^\n]*(?:限制|问题)[^\n]*/gi,
-  /我已经[^\n]*(?:尝试|下载|保存)[^\n]*/gi,
-  /最实用的(?:方法|解决方案)[是：:][^\n]*/gi,
-  /如果你希望我继续[^\n]*/gi,
-  /你可以[直接]?点击[^\n]*链接[^\n]*/gi,
-  /我注意到你重复[^\n]*/gi,
-  /我[已经]?多次尝试[^\n]*/gi,
-  /(?:已经|成功)?(?:保存|下载)到本地[^\n]*/gi,
-  /(?:直接)?(?:查看|访问)[该这]?(?:图片|文件|链接)[^\n]*/gi,
-  // 英文冗余模式
-  /let me summarize[^\n]*/gi,
-  /i(?:'ve| have) tried[^\n]*(?:multiple|several)[^\n]*/gi,
-  /due to[^\n]*(?:tool|plugin|integration)[^\n]*limitation[^\n]*/gi,
-  /the most practical[^\n]*solution[^\n]*/gi,
-];
-
-/**
- * 检查文本是否为纯冗余解释
- * 如果整个文本都是在解释发送过程，而不是描述图片内容，则返回 true
- */
-function isEntirelyRedundantExplanation(text: string): boolean {
-  // 移除空行和空格
-  const trimmed = text.trim();
-  if (!trimmed) return true;
+function filterInternalMarkers(text: string): string {
+  if (!text) return text;
   
-  // 检查是否包含"步骤列表"类的解释
-  const hasStepList = /^\d+\.\s+/m.test(trimmed) && 
-                      (trimmed.includes("下载") || trimmed.includes("尝试") || trimmed.includes("发送"));
+  // 过滤 [[xxx: yyy]] 格式的内部标记
+  // 例如: [[reply_to: ROBOT1.0_kbc...]]
+  let result = text.replace(/\[\[[a-z_]+:\s*[^\]]*\]\]/gi, "");
   
-  // 检查是否主要由冗余模式组成
-  let cleaned = trimmed;
-  for (const pattern of REDUNDANT_TEXT_PATTERNS) {
-    cleaned = cleaned.replace(pattern, "");
-  }
-  
-  // 如果清理后只剩下很少的文字（主要是标点和连接词），认为整体都是冗余
-  const cleanedWords = cleaned.replace(/[\s\n\r.,;:!?，。；：！？·…—""''()（）【】[\]{}]+/g, "").trim();
-  const significantContentRemaining = cleanedWords.length > 20;
-  
-  return hasStepList || !significantContentRemaining;
-}
-
-/**
- * 智能简化图片发送时的文本
- * 当检测到发送图片时，移除冗余的解释性文字
- * 
- * @param text 原始文本
- * @param hasImages 是否包含图片
- * @returns 简化后的文本
- */
-function simplifyTextForImageSend(text: string, hasImages: boolean): string {
-  if (!hasImages || !text) return text;
-  
-  const trimmed = text.trim();
-  
-  // 如果整个文本都是冗余解释，替换为简短的成功提示
-  if (isEntirelyRedundantExplanation(trimmed)) {
-    return "图片如上 ☝️";
-  }
-  
-  // 否则，只移除明显的冗余段落
-  let result = trimmed;
-  for (const pattern of REDUNDANT_TEXT_PATTERNS) {
-    result = result.replace(pattern, "");
-  }
-  
-  // 清理多余的空行
+  // 清理可能产生的多余空行
   result = result.replace(/\n{3,}/g, "\n\n").trim();
   
-  // 如果清理后文本太短，恢复原文
-  if (result.length < 10 && trimmed.length > 50) {
-    return "图片如上 ☝️";
-  }
-  
-  return result || trimmed;
+  return result;
 }
 
 export interface GatewayContext {
@@ -525,33 +457,41 @@ openclaw cron add \\
   --deliver \\
   --channel qqbot \\
   --to "${targetAddress}" \\
-  --reply-to "${event.messageId}" \\
   --delete-after-run
 \`\`\`
 
 关键参数说明：
 - \`--to\`: 目标地址（当前用户: ${targetAddress}）
-- \`--reply-to\`: 回复消息ID（当前消息: ${event.messageId}，使提醒能引用原消息）
 - \`--at\`: 一次性定时任务的触发时间
   - 相对时间格式：数字+单位，如 \`5m\`（5分钟）、\`1h\`（1小时）、\`2d\`（2天）【注意：不要加 + 号】
   - 绝对时间格式：ISO 8601 带时区，如 \`2026-02-01T14:00:00+08:00\`
 - \`--cron\`: 周期性任务（如 \`0 8 * * *\` 每天早上8点）
 - \`--tz "Asia/Shanghai"\`: 周期任务务必设置时区
 - \`--delete-after-run\`: 一次性任务必须添加此参数
-- \`--message\`: 消息内容（必填，不能为空！对应 QQ API 的 markdown.content 字段）
+- \`--message\`: 消息内容（必填，不能为空！这是定时提醒触发时直接发送给用户的内容）
 
 ⚠️ 重要注意事项：
 1. --at 参数格式：相对时间用 \`5m\`、\`1h\` 等（不要加 + 号！）；绝对时间用完整 ISO 格式
-2. --message 参数必须有实际内容，不能为空字符串`;
+2. --message 参数必须有实际内容，不能为空字符串
+3. cron add 命令不支持 --reply-to 参数，定时提醒只能作为主动消息发送`;
 
-        // 只有配置了图床公网地址，才告诉 AI 可以发送图片
-        if (imageServerBaseUrl) {
-          builtinPrompt += `
+        // 🎯 发送图片功能：使用 <qqimg> 标签发送本地或网络图片
+        // 系统会自动将本地文件转换为 Base64 发送，不需要图床服务器
+        builtinPrompt += `
 
 【发送图片】
-你可以发送本地图片文件给用户。只需在回复中直接引用图片的绝对路径即可，系统会自动处理。
-支持 png、jpg、gif、webp 格式。`;
-        }
+你可以直接发送图片给用户！使用 <qqimg> 标签包裹图片路径：
+
+<qqimg>图片路径</qqimg>
+
+示例：
+- <qqimg>/Users/xxx/images/photo.jpg</qqimg>  （本地文件）
+- <qqimg>https://example.com/image.png</qqimg>  （网络图片）
+
+⚠️ 注意：
+- 必须使用 <qqimg>路径</qqimg> 格式
+- 本地路径必须是绝对路径，支持 png、jpg、jpeg、gif、webp 格式
+- 图片文件/URL 必须有效，否则发送失败`;
         
         const systemPrompts = [builtinPrompt];
         if (account.systemPrompt) {
@@ -565,15 +505,32 @@ openclaw cron add \\
         const downloadDir = path.join(process.env.HOME || "/home/ubuntu", "clawd", "downloads");
         
         if (event.attachments?.length) {
+          // ============ 接收图片的自然语言描述生成 ============
+          // 根据需求 4：将图片信息转换为自然语言描述，便于 AI 理解
+          const imageDescriptions: string[] = [];
+          const otherAttachments: string[] = [];
+          
           for (const att of event.attachments) {
             // 下载附件到本地，使用原始文件名
             const localPath = await downloadFile(att.url, downloadDir, att.filename);
             if (localPath) {
               if (att.content_type?.startsWith("image/")) {
                 imageUrls.push(localPath);
-                attachmentInfo += `\n[图片: ${localPath}]`;
+                
+                // 构建自然语言描述（根据需求 4.2）
+                const format = att.content_type?.split("/")[1] || "未知格式";
+                const timestamp = new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+                
+                imageDescriptions.push(`
+用户发送了一张图片：
+- 图片地址：${localPath}
+- 图片格式：${format}
+- 消息ID：${event.messageId}
+- 发送时间：${timestamp}
+
+请根据图片内容进行回复。`);
               } else {
-                attachmentInfo += `\n[附件: ${localPath}]`;
+                otherAttachments.push(`[附件: ${localPath}]`);
               }
               log?.info(`[qqbot:${account.accountId}] Downloaded attachment to: ${localPath}`);
             } else {
@@ -581,11 +538,31 @@ openclaw cron add \\
               log?.error(`[qqbot:${account.accountId}] Failed to download attachment: ${att.url}`);
               if (att.content_type?.startsWith("image/")) {
                 imageUrls.push(att.url);
-                attachmentInfo += `\n[图片: ${att.url}] (下载失败，可能无法访问)`;
+                
+                // 下载失败时的自然语言描述
+                const format = att.content_type?.split("/")[1] || "未知格式";
+                const timestamp = new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+                
+                imageDescriptions.push(`
+用户发送了一张图片（下载失败，使用原始URL）：
+- 图片地址：${att.url}
+- 图片格式：${format}
+- 消息ID：${event.messageId}
+- 发送时间：${timestamp}
+
+请根据图片内容进行回复。`);
               } else {
-                attachmentInfo += `\n[附件: ${att.filename ?? att.content_type}] (下载失败)`;
+                otherAttachments.push(`[附件: ${att.filename ?? att.content_type}] (下载失败)`);
               }
             }
+          }
+          
+          // 组合附件信息：先图片描述，后其他附件
+          if (imageDescriptions.length > 0) {
+            attachmentInfo += "\n" + imageDescriptions.join("\n");
+          }
+          if (otherAttachments.length > 0) {
+            attachmentInfo += "\n" + otherAttachments.join("\n");
           }
         }
         
@@ -708,13 +685,283 @@ openclaw cron add \\
 
                 let replyText = payload.text ?? "";
                 
-                // 收集所有图片（公网 URL 或 Base64 Data URL）
-                // 注意：本地文件路径由 OpenClaw 负责转换（通过对象存储上传或读取为 Base64）
+                // ============ 简单图片标签解析 ============
+                // 支持 <qqimg>路径</qqimg> 格式发送图片
+                // 这是比 QQBOT_PAYLOAD JSON 更简单的方式，适合大模型能力较弱的情况
+                // 注意：正则限制内容不能包含 < 和 >，避免误匹配 `<qqimg>` 这种反引号内的说明文字
+                const qqimgRegex = /<qqimg>([^<>]+)<\/qqimg>/gi;
+                const qqimgMatches = [...replyText.matchAll(qqimgRegex)];
+                
+                if (qqimgMatches.length > 0) {
+                  log?.info(`[qqbot:${account.accountId}] Detected ${qqimgMatches.length} <qqimg> tag(s)`);
+                  
+                  // 提取标签外的文本（作为描述发送）
+                  let textWithoutTags = replyText;
+                  const imagePaths: string[] = [];
+                  
+                  for (const match of qqimgMatches) {
+                    const fullMatch = match[0];
+                    const imagePath = match[1]?.trim();
+                    
+                    if (imagePath) {
+                      imagePaths.push(imagePath);
+                      log?.info(`[qqbot:${account.accountId}] Found image path in <qqimg>: ${imagePath}`);
+                    }
+                    
+                    // 从文本中移除标签
+                    textWithoutTags = textWithoutTags.replace(fullMatch, "");
+                  }
+                  
+                  // 清理多余空行
+                  textWithoutTags = textWithoutTags.replace(/\n{3,}/g, "\n\n").trim();
+                  
+                  // 发送图片
+                  for (const imagePath of imagePaths) {
+                    try {
+                      let imageUrl = imagePath;
+                      
+                      // 判断是本地文件还是 URL
+                      const isLocalPath = imagePath.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(imagePath);
+                      const isHttpUrl = imagePath.startsWith("http://") || imagePath.startsWith("https://");
+                      
+                      if (isLocalPath) {
+                        // 本地文件：转换为 Base64 Data URL
+                        if (!fs.existsSync(imagePath)) {
+                          log?.error(`[qqbot:${account.accountId}] Image file not found: ${imagePath}`);
+                          await sendErrorMessage(`图片文件不存在: ${imagePath}`);
+                          continue;
+                        }
+                        
+                        const fileBuffer = fs.readFileSync(imagePath);
+                        const base64Data = fileBuffer.toString("base64");
+                        const ext = path.extname(imagePath).toLowerCase();
+                        const mimeTypes: Record<string, string> = {
+                          ".jpg": "image/jpeg",
+                          ".jpeg": "image/jpeg",
+                          ".png": "image/png",
+                          ".gif": "image/gif",
+                          ".webp": "image/webp",
+                          ".bmp": "image/bmp",
+                        };
+                        const mimeType = mimeTypes[ext];
+                        if (!mimeType) {
+                          log?.error(`[qqbot:${account.accountId}] Unsupported image format: ${ext}`);
+                          await sendErrorMessage(`不支持的图片格式: ${ext}`);
+                          continue;
+                        }
+                        imageUrl = `data:${mimeType};base64,${base64Data}`;
+                        log?.info(`[qqbot:${account.accountId}] Converted local image to Base64 (size: ${fileBuffer.length} bytes)`);
+                      } else if (!isHttpUrl) {
+                        log?.error(`[qqbot:${account.accountId}] Invalid image path (not local or URL): ${imagePath}`);
+                        continue;
+                      }
+                      
+                      // 发送图片
+                      await sendWithTokenRetry(async (token) => {
+                        if (event.type === "c2c") {
+                          await sendC2CImageMessage(token, event.senderId, imageUrl, event.messageId);
+                        } else if (event.type === "group" && event.groupOpenid) {
+                          await sendGroupImageMessage(token, event.groupOpenid, imageUrl, event.messageId);
+                        } else if (event.channelId) {
+                          // 频道使用 Markdown 格式（如果是公网 URL）
+                          if (isHttpUrl) {
+                            await sendChannelMessage(token, event.channelId, `![](${imagePath})`, event.messageId);
+                          } else {
+                            // 频道不支持富媒体 Base64
+                            log?.info(`[qqbot:${account.accountId}] Channel does not support rich media for local images`);
+                          }
+                        }
+                      });
+                      log?.info(`[qqbot:${account.accountId}] Sent image via <qqimg> tag: ${imagePath.slice(0, 60)}...`);
+                    } catch (err) {
+                      log?.error(`[qqbot:${account.accountId}] Failed to send image from <qqimg>: ${err}`);
+                      await sendErrorMessage(`发送图片失败: ${err}`);
+                    }
+                  }
+                  
+                  // 发送剩余的文本（如果有）
+                  if (textWithoutTags) {
+                    textWithoutTags = filterInternalMarkers(textWithoutTags);
+                    try {
+                      await sendWithTokenRetry(async (token) => {
+                        if (event.type === "c2c") {
+                          await sendC2CMessage(token, event.senderId, textWithoutTags, event.messageId);
+                        } else if (event.type === "group" && event.groupOpenid) {
+                          await sendGroupMessage(token, event.groupOpenid, textWithoutTags, event.messageId);
+                        } else if (event.channelId) {
+                          await sendChannelMessage(token, event.channelId, textWithoutTags, event.messageId);
+                        }
+                      });
+                      log?.info(`[qqbot:${account.accountId}] Sent caption text: ${textWithoutTags.slice(0, 50)}...`);
+                    } catch (err) {
+                      log?.error(`[qqbot:${account.accountId}] Failed to send caption text: ${err}`);
+                    }
+                  }
+                  
+                  // 记录活动并返回
+                  pluginRuntime.channel.activity.record({
+                    channel: "qqbot",
+                    accountId: account.accountId,
+                    direction: "outbound",
+                  });
+                  return;
+                }
+                
+                // ============ 结构化载荷检测与分发 ============
+                // 优先检测 QQBOT_PAYLOAD: 前缀，如果是结构化载荷则分发到对应处理器
+                const payloadResult = parseQQBotPayload(replyText);
+                
+                if (payloadResult.isPayload) {
+                  if (payloadResult.error) {
+                    // 载荷解析失败，发送错误提示
+                    log?.error(`[qqbot:${account.accountId}] Payload parse error: ${payloadResult.error}`);
+                    await sendErrorMessage(`[QQBot] 载荷解析失败: ${payloadResult.error}`);
+                    return;
+                  }
+                  
+                  if (payloadResult.payload) {
+                    const parsedPayload = payloadResult.payload;
+                    log?.info(`[qqbot:${account.accountId}] Detected structured payload, type: ${parsedPayload.type}`);
+                    
+                    // 根据 type 分发到对应处理器
+                    if (isCronReminderPayload(parsedPayload)) {
+                      // ============ 定时提醒载荷处理 ============
+                      log?.info(`[qqbot:${account.accountId}] Processing cron_reminder payload`);
+                      
+                      // 将载荷编码为 Base64，构建 cron add 命令
+                      const cronMessage = encodePayloadForCron(parsedPayload);
+                      
+                      // 向用户确认提醒已设置（通过正常消息发送）
+                      const confirmText = `⏰ 提醒已设置，将在指定时间发送: "${parsedPayload.content}"`;
+                      try {
+                        await sendWithTokenRetry(async (token) => {
+                          if (event.type === "c2c") {
+                            await sendC2CMessage(token, event.senderId, confirmText, event.messageId);
+                          } else if (event.type === "group" && event.groupOpenid) {
+                            await sendGroupMessage(token, event.groupOpenid, confirmText, event.messageId);
+                          } else if (event.channelId) {
+                            await sendChannelMessage(token, event.channelId, confirmText, event.messageId);
+                          }
+                        });
+                        log?.info(`[qqbot:${account.accountId}] Cron reminder confirmation sent, cronMessage: ${cronMessage}`);
+                      } catch (err) {
+                        log?.error(`[qqbot:${account.accountId}] Failed to send cron confirmation: ${err}`);
+                      }
+                      
+                      // 记录活动并返回（cron add 命令需要由 AI 执行，这里只处理载荷）
+                      pluginRuntime.channel.activity.record({
+                        channel: "qqbot",
+                        accountId: account.accountId,
+                        direction: "outbound",
+                      });
+                      return;
+                    } else if (isMediaPayload(parsedPayload)) {
+                      // ============ 媒体消息载荷处理 ============
+                      log?.info(`[qqbot:${account.accountId}] Processing media payload, mediaType: ${parsedPayload.mediaType}`);
+                      
+                      if (parsedPayload.mediaType === "image") {
+                        // 处理图片发送
+                        let imageUrl = parsedPayload.path;
+                        
+                        // 如果是本地文件，转换为 Base64 Data URL
+                        if (parsedPayload.source === "file") {
+                          try {
+                            if (!fs.existsSync(imageUrl)) {
+                              await sendErrorMessage(`[QQBot] 图片文件不存在: ${imageUrl}`);
+                              return;
+                            }
+                            const fileBuffer = fs.readFileSync(imageUrl);
+                            const base64Data = fileBuffer.toString("base64");
+                            const ext = path.extname(imageUrl).toLowerCase();
+                            const mimeTypes: Record<string, string> = {
+                              ".jpg": "image/jpeg",
+                              ".jpeg": "image/jpeg",
+                              ".png": "image/png",
+                              ".gif": "image/gif",
+                              ".webp": "image/webp",
+                              ".bmp": "image/bmp",
+                            };
+                            const mimeType = mimeTypes[ext];
+                            if (!mimeType) {
+                              await sendErrorMessage(`[QQBot] 不支持的图片格式: ${ext}`);
+                              return;
+                            }
+                            imageUrl = `data:${mimeType};base64,${base64Data}`;
+                            log?.info(`[qqbot:${account.accountId}] Converted local image to Base64 (size: ${fileBuffer.length} bytes)`);
+                          } catch (readErr) {
+                            log?.error(`[qqbot:${account.accountId}] Failed to read local image: ${readErr}`);
+                            await sendErrorMessage(`[QQBot] 读取图片文件失败: ${readErr}`);
+                            return;
+                          }
+                        }
+                        
+                        // 发送图片
+                        try {
+                          await sendWithTokenRetry(async (token) => {
+                            if (event.type === "c2c") {
+                              await sendC2CImageMessage(token, event.senderId, imageUrl, event.messageId);
+                            } else if (event.type === "group" && event.groupOpenid) {
+                              await sendGroupImageMessage(token, event.groupOpenid, imageUrl, event.messageId);
+                            } else if (event.channelId) {
+                              // 频道使用 Markdown 格式
+                              await sendChannelMessage(token, event.channelId, `![](${parsedPayload.path})`, event.messageId);
+                            }
+                          });
+                          log?.info(`[qqbot:${account.accountId}] Sent image via media payload`);
+                          
+                          // 如果有描述文本，单独发送
+                          if (parsedPayload.caption) {
+                            await sendWithTokenRetry(async (token) => {
+                              if (event.type === "c2c") {
+                                await sendC2CMessage(token, event.senderId, parsedPayload.caption!, event.messageId);
+                              } else if (event.type === "group" && event.groupOpenid) {
+                                await sendGroupMessage(token, event.groupOpenid, parsedPayload.caption!, event.messageId);
+                              } else if (event.channelId) {
+                                await sendChannelMessage(token, event.channelId, parsedPayload.caption!, event.messageId);
+                              }
+                            });
+                          }
+                        } catch (err) {
+                          log?.error(`[qqbot:${account.accountId}] Failed to send image: ${err}`);
+                          await sendErrorMessage(`[QQBot] 发送图片失败: ${err}`);
+                        }
+                      } else if (parsedPayload.mediaType === "audio") {
+                        // 音频发送暂不支持
+                        log?.info(`[qqbot:${account.accountId}] Audio sending not yet implemented`);
+                        await sendErrorMessage(`[QQBot] 音频发送功能暂未实现，敬请期待~`);
+                      } else if (parsedPayload.mediaType === "video") {
+                        // 视频发送暂不支持
+                        log?.info(`[qqbot:${account.accountId}] Video sending not supported`);
+                        await sendErrorMessage(`[QQBot] 视频发送功能暂不支持`);
+                      } else {
+                        log?.error(`[qqbot:${account.accountId}] Unknown media type: ${(parsedPayload as MediaPayload).mediaType}`);
+                        await sendErrorMessage(`[QQBot] 不支持的媒体类型: ${(parsedPayload as MediaPayload).mediaType}`);
+                      }
+                      
+                      // 记录活动并返回
+                      pluginRuntime.channel.activity.record({
+                        channel: "qqbot",
+                        accountId: account.accountId,
+                        direction: "outbound",
+                      });
+                      return;
+                    } else {
+                      // 未知的载荷类型
+                      log?.error(`[qqbot:${account.accountId}] Unknown payload type: ${(parsedPayload as any).type}`);
+                      await sendErrorMessage(`[QQBot] 不支持的载荷类型: ${(parsedPayload as any).type}`);
+                      return;
+                    }
+                  }
+                }
+                
+                // ============ 非结构化消息：简化处理 ============
+                // 📝 设计原则：JSON payload (QQBOT_PAYLOAD) 是发送本地图片的唯一方式
+                // 非结构化消息只处理：公网 URL (http/https) 和 Base64 Data URL
                 const imageUrls: string[] = [];
                 
                 /**
-                 * 检查并收集图片 URL
-                 * 支持：公网 URL (http/https)、Base64 Data URL (data:image/...) 和本地文件路径
+                 * 检查并收集图片 URL（仅支持公网 URL 和 Base64 Data URL）
+                 * ⚠️ 本地文件路径必须使用 QQBOT_PAYLOAD JSON 格式发送
                  */
                 const collectImageUrl = (url: string | undefined | null): boolean => {
                   if (!url) return false;
@@ -734,54 +981,11 @@ openclaw cron add \\
                     return true;
                   }
                   
-                  // 检测本地文件路径
-                  const isLocalPath = url.startsWith("/") || 
-                                      /^[a-zA-Z]:[\\/]/.test(url) ||
-                                      url.startsWith("./") ||
-                                      url.startsWith("../");
-                  
+                  // ⚠️ 本地文件路径不再在此处处理，应使用 <qqimg> 标签
+                  const isLocalPath = url.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(url);
                   if (isLocalPath) {
-                    // 🎯 新增：自动读取本地文件并转换为 Base64 Data URL
-                    try {
-                      if (!fs.existsSync(url)) {
-                        log?.info(`[qqbot:${account.accountId}] Local file not found: ${url}`);
-                        return false;
-                      }
-                      
-                      const fileBuffer = fs.readFileSync(url);
-                      const base64Data = fileBuffer.toString("base64");
-                      
-                      // 根据文件扩展名确定 MIME 类型
-                      const ext = path.extname(url).toLowerCase();
-                      const mimeTypes: Record<string, string> = {
-                        ".jpg": "image/jpeg",
-                        ".jpeg": "image/jpeg",
-                        ".png": "image/png",
-                        ".gif": "image/gif",
-                        ".webp": "image/webp",
-                        ".bmp": "image/bmp",
-                      };
-                      
-                      const mimeType = mimeTypes[ext];
-                      if (!mimeType) {
-                        log?.info(`[qqbot:${account.accountId}] Unsupported image format: ${ext}`);
-                        return false;
-                      }
-                      
-                      // 构造 Data URL
-                      const dataUrl = `data:${mimeType};base64,${base64Data}`;
-                      if (!imageUrls.includes(dataUrl)) {
-                        imageUrls.push(dataUrl);
-                        log?.info(`[qqbot:${account.accountId}] Converted local file to Base64 (size: ${fileBuffer.length} bytes, type: ${mimeType}): ${url}`);
-                      }
-                      return true;
-                    } catch (readErr) {
-                      const errMsg = readErr instanceof Error ? readErr.message : String(readErr);
-                      log?.error(`[qqbot:${account.accountId}] Failed to read local file: ${errMsg}`);
-                      return false;
-                    }
-                  } else {
-                    log?.info(`[qqbot:${account.accountId}] Skipped unsupported media format: ${url.slice(0, 50)}`);
+                    log?.info(`[qqbot:${account.accountId}] 💡 Local path detected in non-structured message (not sending): ${url}`);
+                    log?.info(`[qqbot:${account.accountId}] 💡 Hint: Use <qqimg>${url}</qqimg> tag to send local images`);
                   }
                   return false;
                 };
@@ -796,27 +1000,26 @@ openclaw cron add \\
                   collectImageUrl(payload.mediaUrl);
                 }
                 
-                // 提取文本中的图片格式
-                // 1. 提取 markdown 格式的图片 ![alt](url) 或 ![#宽px #高px](url)
-                // 🎯 同时支持 http/https URL 和本地路径
+                // 提取文本中的图片格式（仅处理公网 URL）
+                // 📝 设计：本地路径必须使用 QQBOT_PAYLOAD JSON 格式发送
                 const mdImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/gi;
                 const mdMatches = [...replyText.matchAll(mdImageRegex)];
                 for (const match of mdMatches) {
                   const url = match[2]?.trim();
                   if (url && !imageUrls.includes(url)) {
-                    // 判断是公网 URL 还是本地路径
                     if (url.startsWith('http://') || url.startsWith('https://')) {
+                      // 公网 URL：收集并处理
                       imageUrls.push(url);
                       log?.info(`[qqbot:${account.accountId}] Extracted HTTP image from markdown: ${url.slice(0, 80)}...`);
-                    } else if (/^\/?(?:Users|home|tmp|var|private|[A-Z]:)/i.test(url) && /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(url)) {
-                      // 本地路径：以 /Users, /home, /tmp, /var, /private 或 Windows 盘符开头，且以图片扩展名结尾
-                      collectImageUrl(url);
-                      log?.info(`[qqbot:${account.accountId}] Extracted local image from markdown: ${url}`);
+                    } else if (/^\/?(?:Users|home|tmp|var|private|[A-Z]:)/i.test(url)) {
+                      // 本地路径：记录日志提示，但不发送
+                      log?.info(`[qqbot:${account.accountId}] ⚠️ Local path in markdown (not sending): ${url}`);
+                      log?.info(`[qqbot:${account.accountId}] 💡 Use <qqimg>${url}</qqimg> tag to send local images`);
                     }
                   }
                 }
                 
-                // 2. 提取裸 URL 图片（仅在非 markdown 模式下移除）
+                // 提取裸 URL 图片（公网 URL）
                 const bareUrlRegex = /(?<![(\["'])(https?:\/\/[^\s)"'<>]+\.(?:png|jpg|jpeg|gif|webp)(?:\?[^\s"'<>]*)?)/gi;
                 const bareUrlMatches = [...replyText.matchAll(bareUrlRegex)];
                 for (const match of bareUrlMatches) {
@@ -827,39 +1030,15 @@ openclaw cron add \\
                   }
                 }
                 
-                // 3. 🎯 检测文本中的裸露本地路径（仅记录日志，不自动发送）
-                // 方案 1：使用显式标记 - 只有 ![](本地路径) 格式才会发送图片
-                // 裸露的本地路径不再自动发送，而是记录日志提醒
-                const bareLocalPathRegex = /(?:^|[\s\n])(\/(?:Users|home|tmp|var|private)[^\s"'<>\n]+\.(?:png|jpg|jpeg|gif|webp|bmp))(?:$|[\s\n])/gi;
-                const bareLocalPathMatches = [...replyText.matchAll(bareLocalPathRegex)];
-                if (bareLocalPathMatches.length > 0) {
-                  for (const match of bareLocalPathMatches) {
-                    const localPath = match[1]?.trim();
-                    if (localPath) {
-                      // 检查这个路径是否已经通过 ![](path) 格式处理过
-                      if (!imageUrls.includes(localPath)) {
-                        log?.info(`[qqbot:${account.accountId}] Found bare local path (not sending): ${localPath}`);
-                        log?.info(`[qqbot:${account.accountId}] 💡 Hint: Use ![](${localPath}) format to send this image`);
-                      }
-                    }
-                  }
-                }
-                
                 // 判断是否使用 markdown 模式
                 const useMarkdown = account.markdownSupport === true;
                 log?.info(`[qqbot:${account.accountId}] Markdown mode: ${useMarkdown}, images: ${imageUrls.length}`);
                 
                 let textWithoutImages = replyText;
                 
-                // 🎯 智能简化文本：当发送图片时，移除冗余的解释性文字
-                // 这解决了 AI 不确定图片是否发送成功而输出大量废话的问题
-                if (imageUrls.length > 0) {
-                  const originalLength = textWithoutImages.length;
-                  textWithoutImages = simplifyTextForImageSend(textWithoutImages, true);
-                  if (textWithoutImages.length !== originalLength) {
-                    log?.info(`[qqbot:${account.accountId}] Simplified text for image send: ${originalLength} -> ${textWithoutImages.length} chars`);
-                  }
-                }
+                // 🎯 过滤内部标记（如 [[reply_to: xxx]]）
+                // 这些标记可能被 AI 错误地学习并输出
+                textWithoutImages = filterInternalMarkers(textWithoutImages);
                 
                 // 根据模式处理图片
                 if (useMarkdown) {
@@ -928,14 +1107,15 @@ openclaw cron add \\
                     }
                   }
                   
-                  // 处理文本中已有的 markdown 图片：检查是否需要补充尺寸信息
+                  // 处理文本中已有的 markdown 图片：补充公网 URL 的尺寸信息
+                  // 📝 本地路径不再特殊处理（保留在文本中），因为不通过非结构化消息发送
                   for (const match of mdMatches) {
                     const fullMatch = match[0];  // ![alt](url)
-                    const altText = match[1];     // alt 部分
                     const imgUrl = match[2];      // url 部分
                     
-                    // 检查是否已经有 QQBot 格式的尺寸 ![#宽px #高px](url)
-                    if (!hasQQBotImageSize(fullMatch)) {
+                    // 只处理公网 URL，补充尺寸信息
+                    const isHttpUrl = imgUrl.startsWith('http://') || imgUrl.startsWith('https://');
+                    if (isHttpUrl && !hasQQBotImageSize(fullMatch)) {
                       try {
                         const size = await getImageSize(imgUrl);
                         const newMdImage = formatQQBotMarkdownImage(imgUrl, size);
