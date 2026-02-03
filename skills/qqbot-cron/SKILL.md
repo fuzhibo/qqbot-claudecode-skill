@@ -46,47 +46,6 @@ metadata: {"clawdbot":{"emoji":"⏰"}}
 
 ---
 
-## 📦 结构化载荷格式（新）
-
-> **重要**：定时提醒现在支持结构化载荷格式，AI 只需输出 JSON，代码层会自动处理 Base64 编码。
-
-### 输出格式
-
-当 AI 需要设置定时提醒时，可以输出以下结构化载荷：
-
-```
-QQBOT_PAYLOAD:
-{
-  "type": "cron_reminder",
-  "content": "💧 喝水时间到！",
-  "targetType": "c2c",
-  "targetAddress": "xxx_user_openid",
-  "originalMessageId": "msg_xxx_123"
-}
-```
-
-### 字段说明
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `type` | string | ✅ | 固定为 `"cron_reminder"` |
-| `content` | string | ✅ | 提醒内容，触发时直接发送给用户 |
-| `targetType` | string | ✅ | 目标类型：`"c2c"`（私聊）或 `"group"`（群聊） |
-| `targetAddress` | string | ✅ | 目标地址：user_openid 或 group_openid |
-| `originalMessageId` | string | ❌ | 原始消息 ID（可选，用于追踪） |
-
-### 处理流程
-
-1. AI 输出 `QQBOT_PAYLOAD:` + JSON 格式的载荷
-2. 代码层检测并解析载荷
-3. 代码层将 JSON 编码为 Base64
-4. 代码层调用 `openclaw cron add --message "QQBOT_CRON:{base64}"`
-5. 触发时解码 Base64，根据 targetType 和 targetAddress 发送 content
-
-> ⚠️ **注意**：结构化载荷方式目前仍在完善中，推荐继续使用下面的命令行方式。
-
----
-
 ## 📋 命令速查
 
 ### 创建提醒（完整模板）
@@ -95,7 +54,6 @@ QQBOT_PAYLOAD:
 openclaw cron add \
   --name "{任务名}" \
   --at "{时间}" \
-  --session isolated \
   --message "🔔 {提醒内容}时间到！" \
   --deliver \
   --channel qqbot \
@@ -232,7 +190,6 @@ openclaw message send \
 |------|------|------|
 | `--name` | 任务名，含用户标识 | `"喝水提醒"` |
 | `--at` / `--cron` | 触发时间（二选一） | `5m` / `0 8 * * *` |
-| `--session isolated` | 隔离会话 | 固定值 |
 | `--message` | **提醒内容**（见下方模板） | `"🔔 喝水时间到！"` |
 | `--deliver` | 启用投递 | 固定值 |
 | `--channel qqbot` | QQ 渠道 | 固定值 |
@@ -277,7 +234,6 @@ openclaw message send \
 openclaw cron add \
   --name "喝水提醒" \
   --at "5m" \
-  --session isolated \
   --message "💧 喝水时间到！" \
   --deliver \
   --channel qqbot \
@@ -307,7 +263,6 @@ openclaw cron add \
   --name "打卡提醒" \
   --cron "0 8 * * *" \
   --tz "Asia/Shanghai" \
-  --session isolated \
   --message "🌅 打卡时间到！" \
   --deliver \
   --channel qqbot \
@@ -333,7 +288,6 @@ openclaw cron add \
   --name "日报提醒" \
   --cron "0 18 * * 1-5" \
   --tz "Asia/Shanghai" \
-  --session isolated \
   --message "📝 写日报时间到！" \
   --deliver \
   --channel qqbot \
@@ -356,7 +310,6 @@ openclaw cron add \
 openclaw cron add \
   --name "开会提醒" \
   --at "3m" \
-  --session isolated \
   --message "📅 开会时间到！" \
   --deliver \
   --channel qqbot \
@@ -386,7 +339,6 @@ openclaw cron add \
   --name "站会提醒" \
   --cron "0 9 * * 1-5" \
   --tz "Asia/Shanghai" \
-  --session isolated \
   --message "📢 站会时间到！" \
   --deliver \
   --channel qqbot \

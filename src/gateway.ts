@@ -452,7 +452,6 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
 openclaw cron add \\
   --name "提醒喝水-${event.senderName || "用户"}" \\
   --at "5m" \\
-  --session isolated \\
   --message "💧 该喝水啦！" \\
   --deliver \\
   --channel qqbot \\
@@ -686,10 +685,11 @@ openclaw cron add \\
                 let replyText = payload.text ?? "";
                 
                 // ============ 简单图片标签解析 ============
-                // 支持 <qqimg>路径</qqimg> 格式发送图片
+                // 支持 <qqimg>路径</qqimg> 或 <qqimg>路径</img> 格式发送图片
                 // 这是比 QQBOT_PAYLOAD JSON 更简单的方式，适合大模型能力较弱的情况
                 // 注意：正则限制内容不能包含 < 和 >，避免误匹配 `<qqimg>` 这种反引号内的说明文字
-                const qqimgRegex = /<qqimg>([^<>]+)<\/qqimg>/gi;
+                // 🔧 支持两种闭合方式：</qqimg> 和 </img>（AI 可能输出不同格式）
+                const qqimgRegex = /<qqimg>([^<>]+)<\/(?:qqimg|img)>/gi;
                 const qqimgMatches = [...replyText.matchAll(qqimgRegex)];
                 
                 if (qqimgMatches.length > 0) {
@@ -700,8 +700,8 @@ openclaw cron add \\
                   const sendQueue: Array<{ type: "text" | "image"; content: string }> = [];
                   
                   let lastIndex = 0;
-                  // 使用新的正则来获取带索引的匹配结果
-                  const qqimgRegexWithIndex = /<qqimg>([^<>]+)<\/qqimg>/gi;
+                  // 使用新的正则来获取带索引的匹配结果（支持 </qqimg> 和 </img> 两种闭合方式）
+                  const qqimgRegexWithIndex = /<qqimg>([^<>]+)<\/(?:qqimg|img)>/gi;
                   let match;
                   
                   while ((match = qqimgRegexWithIndex.exec(replyText)) !== null) {
