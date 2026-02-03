@@ -389,7 +389,7 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
 
           // 追踪是否有响应
           let hasResponse = false;
-          const responseTimeout = 300000; // 30秒超时
+          const responseTimeout = 90000; // 90s 超时 
           let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
           const timeoutPromise = new Promise<void>((_, reject) => {
@@ -614,7 +614,7 @@ export async function startGateway(ctx: GatewayContext): Promise<void> {
             }
             if (!hasResponse) {
               log?.error(`[qqbot:${account.accountId}] No response within timeout`);
-              await sendErrorMessage("[ClawdBot] QQ响应正常，但未收到clawdbot响应，请检查大模型是否正确配置");
+              await sendErrorMessage("QQ Channel 收到了你的请求，已经转交给了Openclaw，正在处理中...");
             }
           }
         } catch (err) {
