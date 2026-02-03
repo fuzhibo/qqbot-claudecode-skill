@@ -28,13 +28,13 @@ QQ 开放平台Bot API 的 Moltbot 渠道插件，支持 C2C 私聊、群聊 @�
 - 解除URL发送限制，现在可以直接在私聊发送URL
   <img width="886" height="276" alt="Clipboard_Screenshot_1770092858" src="https://github.com/user-attachments/assets/c660949e-28a5-4e5f-abc2-77f0a2c67bad" />
 - 更新Bot正在输入中状态
-   <img width="740" height="212" alt="Clipboard_Screenshot_1770091969" src="https://github.com/user-attachments/assets/47835c4b-ccd2-4782-aaa6-b873cb58f7d7" />
+  <img width="740" height="212" alt="Clipboard_Screenshot_1770091969" src="https://github.com/user-attachments/assets/47835c4b-ccd2-4782-aaa6-b873cb58f7d7" />
 - 提供主动推送能力（目前AI还不知道怎么调用主动推送，相关完整Skill能力将在后续版本更新）
 - 优化一些已知问题
 - 优化未收到未收到大模型响应时的提示信息
 
 
-### 1.2.2
+### 1.2.2-2026.01.31
 - 支持发送文件
 - 支持openclaw、moltbot命令行
 - 修复[health]检查提示: [health] refresh failed: Cannot read properties of undefined (reading 'appId')的问题（不影响使用）
