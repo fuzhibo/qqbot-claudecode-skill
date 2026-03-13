@@ -276,7 +276,8 @@ async function sendC2CMessage(token, openid, content, msgId = null) {
 // ============ 网关核心 ============
 let ws = null;
 let accessToken = null;
-let heartbeatInterval = null;
+let heartbeatIntervalMs = null;  // 服务器返回的心跳间隔
+let heartbeatTimer = null;       // setInterval 返回的 handle
 let running = false;
 let mode = 'notify'; // notify | auto
 
@@ -316,7 +317,7 @@ async function startGateway(gatewayMode = 'notify') {
 
     switch (payload.op) {
       case 10: // Hello
-        heartbeatInterval = payload.d.heartbeat_interval;
+        heartbeatIntervalMs = payload.d.heartbeat_interval;
         startHeartbeat();
         sendIdentify();
         break;
@@ -349,7 +350,11 @@ function startHeartbeat() {
     }
   };
   send();
-  setInterval(send, heartbeatInterval);
+  // 存储 interval handle 以便在停止时清除
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+  }
+  heartbeatTimer = setInterval(send, heartbeatIntervalMs);
 }
 
 function sendIdentify() {
@@ -536,6 +541,12 @@ async function sendDesktopNotification(title, message) {
 
 function stopGateway() {
   running = false;
+
+  // 清除心跳定时器
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
 
   if (ws) {
     ws.close();
