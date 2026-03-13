@@ -66,7 +66,10 @@
     "gateway:status": "node scripts/qqbot-gateway.js status",
     "hooks": "node scripts/qqbot-hooks.js",
     "hooks:list": "node scripts/qqbot-hooks.js list",
-    "hooks:add": "node scripts/qqbot-hooks.js add"
+    "hooks:add": "node scripts/qqbot-hooks.js add",
+    "upgrade": "node scripts/qqbot-upgrade.js",
+    "upgrade:rollback": "node scripts/qqbot-upgrade.js rollback",
+    "upgrade:backups": "node scripts/qqbot-upgrade.js list-backups"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",

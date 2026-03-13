@@ -293,6 +293,48 @@ npm run doctor
 
 ---
 
+## Version Upgrades
+
+### Automatic Upgrade Handling
+
+The plugin automatically checks for version changes during SessionStart and performs cleanup:
+
+```bash
+# Manually trigger upgrade check
+npm run upgrade
+```
+
+### Automatic Upgrade Actions
+
+| Action | Description |
+|--------|-------------|
+| Stop Service | Automatically stops running gateway |
+| Backup Config | Backs up projects.json, hooks.json, sessions/ |
+| Cleanup Sessions | Removes sessions older than 7 days |
+| Cleanup Logs | Trims logs exceeding 10MB |
+| Migrate Config | Handles config format changes between versions |
+
+### Rollback Operations
+
+```bash
+# List available backups
+npm run upgrade:backups
+
+# Rollback to specific backup
+npm run upgrade:rollback -- backup-2026-03-13T10-30-00-000Z
+```
+
+### Handling Upgrade Exceptions
+
+| Scenario | Solution |
+|----------|----------|
+| Service won't stop | Check PID file, manually kill process |
+| Config migration failed | Restore from backup directory |
+| Session data lost | Restore from backup-*/sessions/ |
+| Permission issues | Check ~/.claude/qqbot-gateway/ directory permissions |
+
+---
+
 ## License
 
 MIT License - see [LICENSE](LICENSE)
