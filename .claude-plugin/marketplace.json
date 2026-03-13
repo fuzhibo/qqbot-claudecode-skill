@@ -1,7 +1,7 @@
 {
   "name": "qqbot-mcp",
   "owner": {
-    "name": "sliverp",
+    "name": "fuzhibo",
     "email": ""
   },
   "metadata": {
@@ -15,7 +15,7 @@
       "description": "QQ Bot MCP integration - bidirectional communication between Claude Code and QQ",
       "version": "1.1.0",
       "author": {
-        "name": "sliverp"
+        "name": "fuzhibo"
       },
       "homepage": "https://github.com/fuzhibo/qqbot-claudecode-skill",
       "repository": "https://github.com/fuzhibo/qqbot-claudecode-skill",
