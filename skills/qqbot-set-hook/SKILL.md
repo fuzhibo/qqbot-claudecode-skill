@@ -168,7 +168,7 @@ Hook 配置存储在项目的 `.claude/hooks/qqbot-notify.yaml` 文件中。
   2. 群聊 (G_)
 请选择: 1
 
-输入目标 ID: 9C420731A85BB53B6B9D7D45BDCD20F2
+输入目标 ID: YOUR_OPENID_HERE
 
 确认保存? (y/n): y
 
@@ -187,7 +187,7 @@ Hook 配置存储在项目的 `.claude/hooks/qqbot-notify.yaml` 文件中。
 
 1. PostToolUse
    Matcher: Bash.*
-   Target: U_9C420731...20F2
+   Target: U_YOUR_OPENID
    状态: 已启用
 
 2. SessionStart
