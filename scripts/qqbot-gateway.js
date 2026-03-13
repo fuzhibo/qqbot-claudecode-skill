@@ -84,6 +84,72 @@ function saveProjects(data) {
   fs.writeFileSync(PROJECTS_FILE, JSON.stringify(data, null, 2));
 }
 
+/**
+ * 同步项目级 .env 配置到全局
+ * @param {string} projectPath - 项目路径
+ * @returns {boolean} - 是否有配置被同步
+ */
+function syncProjectConfig(projectPath) {
+  const projectEnvPath = path.join(projectPath, '.env');
+  const globalEnvPath = path.join(GATEWAY_DIR, '.env');
+
+  if (!fs.existsSync(projectEnvPath)) {
+    return false;
+  }
+
+  // 读取项目配置
+  const projectEnv = fs.readFileSync(projectEnvPath, 'utf-8');
+  const projectConfig = {};
+  projectEnv.split('\n').forEach(line => {
+    const match = line.match(/^([^#=]+)=(.*)$/);
+    if (match) {
+      projectConfig[match[1].trim()] = match[2].trim();
+    }
+  });
+
+  // 检查是否有 QQ Bot 相关配置
+  const qqbotKeys = ['QQBOT_APP_ID', 'QQBOT_CLIENT_SECRET', 'QQBOT_TEST_TARGET_ID', 'QQBOT_IMAGE_SERVER_BASE_URL'];
+  const hasQQBotConfig = qqbotKeys.some(key => projectConfig[key]);
+
+  if (!hasQQBotConfig) {
+    return false;
+  }
+
+  // 读取或创建全局配置
+  let globalEnv = '';
+  if (fs.existsSync(globalEnvPath)) {
+    globalEnv = fs.readFileSync(globalEnvPath, 'utf-8');
+  }
+
+  // 解析全局配置
+  const globalConfig = {};
+  globalEnv.split('\n').forEach(line => {
+    const match = line.match(/^([^#=]+)=(.*)$/);
+    if (match) {
+      globalConfig[match[1].trim()] = match[2].trim();
+    }
+  });
+
+  // 更新全局配置
+  let updated = false;
+  qqbotKeys.forEach(key => {
+    if (projectConfig[key] && projectConfig[key] !== globalConfig[key]) {
+      globalConfig[key] = projectConfig[key];
+      updated = true;
+    }
+  });
+
+  if (updated) {
+    // 写回全局配置
+    const newGlobalEnv = Object.entries(globalConfig)
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+    fs.writeFileSync(globalEnvPath, newGlobalEnv);
+  }
+
+  return updated;
+}
+
 function registerProject(projectPath, name = null) {
   const data = loadProjects();
   const projectName = name || path.basename(projectPath);
@@ -569,14 +635,25 @@ const command = process.argv[2];
 const args = process.argv.slice(3);
 
 switch (command) {
-  case 'start':
+  case 'start': {
+    // 获取项目路径（当前目录或通过 --cwd 指定）
+    const cwdIndex = args.indexOf('--cwd');
+    const startProjectPath = cwdIndex !== -1 ? args[cwdIndex + 1] : process.cwd();
+
+    // 同步项目配置到全局
+    const configSynced = syncProjectConfig(startProjectPath);
+    if (configSynced) {
+      log('green', '✅ 项目配置已同步到全局');
+    }
+
     // 检查是否已有网关运行
     if (fs.existsSync(PID_FILE)) {
-      const pid = parseInt(fs.readFileSync(PID_FILE, 'utf-8'));
+      const existingPid = parseInt(fs.readFileSync(PID_FILE, 'utf-8'));
       try {
-        process.kill(pid, 0);
+        process.kill(existingPid, 0);
         log('yellow', '⚠️ 网关已在运行中');
-        log('cyan', `   PID: ${pid}`);
+        log('cyan', `   PID: ${existingPid}`);
+        log('cyan', '   项目配置已同步，网关将自动使用最新配置');
         log('cyan', '   使用 "node qqbot-gateway.js status" 查看详情');
         log('cyan', '   使用 "node qqbot-gateway.js register <path>" 注册新项目');
         process.exit(0);
@@ -592,6 +669,7 @@ switch (command) {
       process.exit(1);
     });
     break;
+  }
 
   case 'stop':
     if (fs.existsSync(PID_FILE)) {
