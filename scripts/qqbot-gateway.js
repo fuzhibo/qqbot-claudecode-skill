@@ -42,10 +42,14 @@ const LOG_FILE = path.join(GATEWAY_DIR, 'gateway.log');
   }
 });
 
-// 加载环境变量
-const envPath = path.join(__dirname, '..', '.env');
-if (fs.existsSync(envPath)) {
-  config({ path: envPath });
+// 加载环境变量 - 优先使用全局配置
+const globalEnvPath = path.join(os.homedir(), '.claude', 'qqbot-gateway', '.env');
+const localEnvPath = path.join(__dirname, '..', '.env');
+
+if (fs.existsSync(globalEnvPath)) {
+  config({ path: globalEnvPath });
+} else if (fs.existsSync(localEnvPath)) {
+  config({ path: localEnvPath });
 }
 
 const APP_ID = process.env.QQBOT_APP_ID;
