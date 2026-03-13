@@ -566,6 +566,22 @@ const args = process.argv.slice(3);
 
 switch (command) {
   case 'start':
+    // 检查是否已有网关运行
+    if (fs.existsSync(PID_FILE)) {
+      const pid = parseInt(fs.readFileSync(PID_FILE, 'utf-8'));
+      try {
+        process.kill(pid, 0);
+        log('yellow', '⚠️ 网关已在运行中');
+        log('cyan', `   PID: ${pid}`);
+        log('cyan', '   使用 "node qqbot-gateway.js status" 查看详情');
+        log('cyan', '   使用 "node qqbot-gateway.js register <path>" 注册新项目');
+        process.exit(0);
+      } catch (e) {
+        // 进程不存在，清理 PID 文件
+        fs.unlinkSync(PID_FILE);
+      }
+    }
+
     const startMode = args.includes('--auto') ? 'auto' : 'notify';
     startGateway(startMode).catch(err => {
       log('red', `❌ 启动失败: ${err.message}`);
