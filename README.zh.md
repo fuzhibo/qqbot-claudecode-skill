@@ -1,6 +1,6 @@
 # QQ Bot MCP for Claude Code
 
-> **原版文档**: [README.old.md](README.old.md) | [README.old.zh.md](README.old.zh.md)
+> **原版文档**: [README.old.zh.md](README.old.zh.md) | **[English](README.md)**
 
 一个通过模型上下文协议 (MCP) 实现 Claude Code 与 QQ 双向通信的插件。
 

@@ -1,6 +1,6 @@
 # QQ Bot MCP for Claude Code
 
-> **Original Documentation**: [README.old.md](README.old.md) | [中文版](README.old.zh.md)
+> **Original Documentation**: [README.old.md](README.old.md) | **[简体中文](README.zh.md)**
 
 A Claude Code plugin that enables bidirectional communication between Claude Code and QQ through the Model Context Protocol (MCP).
 
