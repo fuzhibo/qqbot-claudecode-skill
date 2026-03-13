@@ -1,22 +1,32 @@
 {
-  "name": "@sliverp/qqbot",
-  "version": "1.5.4",
+  "name": "@sliverp/qqbot-mcp",
+  "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "qqbot": "./bin/qqbot-cli.js"
+    "qqbot": "./bin/qqbot-cli.js",
+    "qqbot-mcp": "./dist/src/mcp/index.js",
+    "qqbot-mcp-cli": "./bin/qqbot-mcp-cli.js",
+    "qqbot-gateway": "./scripts/qqbot-gateway.js",
+    "qqbot-hooks": "./scripts/qqbot-hooks.js"
   },
   "files": [
     "dist",
     "bin",
     "src",
+    "scripts",
     "skills",
+    "commands",
+    ".claude-plugin",
+    "plugin.json",
     "index.ts",
     "tsconfig.json",
     "openclaw.plugin.json",
     "clawdbot.plugin.json",
-    "moltbot.plugin.json"
+    "moltbot.plugin.json",
+    "SKILLS.md",
+    "README.md"
   ],
   "clawdbot": {
     "extensions": [
@@ -34,13 +44,32 @@
     ]
   },
   "scripts": {
-    "build": "tsc || true",
+    "build": "tsc",
     "dev": "tsc --watch",
     "test": "bash tests/run-tests.sh",
     "test:local": "bash tests/e2e.sh",
-    "prepack": "npm install --omit=dev"
+    "test:mcp": "node tests/mcp-integration-test.js",
+    "prepack": "npm install --omit=dev",
+    "prepare": "npm run build",
+    "mcp": "node dist/src/mcp/index.js",
+    "doctor": "node scripts/doctor.js",
+    "release": "node scripts/build-release.js",
+    "release:patch": "node scripts/build-release.js patch",
+    "release:minor": "node scripts/build-release.js minor",
+    "release:major": "node scripts/build-release.js major",
+    "daemon": "node scripts/qqbot-poll-daemon.js",
+    "daemon:auto": "node scripts/qqbot-poll-daemon.js --auto",
+    "gateway": "node scripts/qqbot-gateway.js",
+    "gateway:start": "node scripts/qqbot-gateway.js start",
+    "gateway:start:auto": "node scripts/qqbot-gateway.js start --auto",
+    "gateway:stop": "node scripts/qqbot-gateway.js stop",
+    "gateway:status": "node scripts/qqbot-gateway.js status",
+    "hooks": "node scripts/qqbot-hooks.js",
+    "hooks:list": "node scripts/qqbot-hooks.js list",
+    "hooks:add": "node scripts/qqbot-hooks.js add"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "mpg123-decoder": "^1.0.3",
     "silk-wasm": "^3.7.1",
     "ws": "^8.18.0"

@@ -419,9 +419,74 @@ openclaw gateway restart
 
 ---
 
+## 🤖 Claude Code MCP Integration
+
+This plugin can be used as an **MCP (Model Context Protocol) Server** for Claude Code, enabling bidirectional communication between Claude Code and QQ.
+
+### Quick Start
+
+1. **Install the package:**
+```bash
+npm install -g @sliverp/qqbot-mcp
+```
+
+2. **Configure Claude Code** (`~/.claude/claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "qqbot": {
+      "command": "qqbot-mcp",
+      "env": {
+        "QQBOT_APP_ID": "your-app-id",
+        "QQBOT_CLIENT_SECRET": "your-secret"
+      }
+    }
+  }
+}
+```
+
+3. **Or use CLI to configure bots:**
+```bash
+qqbot-mcp-cli setup my-bot
+qqbot-mcp-cli list
+```
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_active_bots` | Get list of configured bots |
+| `send_qq_message` | Send text message to QQ group/user/channel |
+| `upload_qq_media` | Upload and send files/images/videos |
+| `fetch_unread_tasks` | Get unread messages from QQ |
+| `get_qq_context` | Get recent message history |
+
+### Target ID Format
+
+| Prefix | Type | Example |
+|--------|------|---------|
+| `G_` | Group | `G_123456789` |
+| `U_` | User (C2C) | `U_abc123def` |
+| `C_` | Channel | `C_987654321` |
+
+### Example Usage in Claude Code
+
+```
+User: "Send the analysis result to the dev group"
+Claude: Calls send_qq_message({ targetId: "G_xxx", content: "..." })
+
+User: "Check for new QQ messages"
+Claude: Calls fetch_unread_tasks() to get pending tasks
+```
+
+See [SKILLS.md](SKILLS.md) for detailed documentation.
+
+---
+
 ## 📚 Documentation
 
 - [Rich Media Guide](docs/qqbot-media-guide.md) — images, voice, video, files
 - [Command Reference](docs/commands.md) — OpenClaw CLI commands
 - [Changelog](docs/changelog/) — release notes ([latest: 1.5.4](docs/changelog/1.5.4.md))
+- [MCP Integration Guide](SKILLS.md) — Claude Code MCP integration
 

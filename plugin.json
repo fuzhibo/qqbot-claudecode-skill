@@ -1,0 +1,55 @@
+{
+  "name": "qqbot-mcp",
+  "version": "1.0.0",
+  "description": "QQ Bot MCP integration for Claude Code - send messages, files, and receive tasks from QQ",
+  "author": {
+    "name": "sliverp",
+    "email": ""
+  },
+  "homepage": "https://github.com/sliverp/qqbot",
+  "repository": "https://github.com/sliverp/qqbot",
+  "license": "MIT",
+  "keywords": ["qq", "bot", "mcp", "messaging", "chinese"],
+  "category": "communication",
+
+  "commands": [
+    "./commands/"
+  ],
+
+  "skills": {
+    "qqbot-service": {
+      "path": "./.claude/skills/qqbot-service/SKILL.md",
+      "description": "QQ Bot 后台服务管理 - start/stop/restart/status"
+    },
+    "qqbot-set-hook": {
+      "path": "./.claude/skills/qqbot-set-hook/SKILL.md",
+      "description": "配置项目级 Hook 用于消息推送"
+    }
+  },
+
+  "mcpServers": {
+    "qqbot": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/src/mcp/index.js"],
+      "env": {
+        "QQBOT_APP_ID": "${QQBOT_APP_ID}",
+        "QQBOT_CLIENT_SECRET": "${QQBOT_CLIENT_SECRET}",
+        "QQBOT_IMAGE_SERVER_BASE_URL": "${QQBOT_IMAGE_SERVER_BASE_URL}"
+      }
+    }
+  },
+
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/setup-wizard.js --check 2>/dev/null || echo '\\n🤖 QQ Bot MCP: 尚未配置，请运行 /qqbot-setup 或设置 QQBOT_APP_ID/QQBOT_CLIENT_SECRET 环境变量\\n'"
+          }
+        ]
+      }
+    ]
+  }
+}

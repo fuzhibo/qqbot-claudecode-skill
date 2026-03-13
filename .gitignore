@@ -7,6 +7,11 @@ package-lock.json
 .codebuddy.zip
 openclaw.json
 
+# Environment variables (安全!)
+.env
+.env.local
+.env.*.local
+
 # E2E tests
 tests/.env
 tests/reports/
