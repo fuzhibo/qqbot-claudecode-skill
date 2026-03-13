@@ -27,7 +27,7 @@ import {
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { toolDefinitions, handleToolCall } from './tools.js';
 import { loadFromEnv, setBot, getAllBots } from './config.js';
-import { getClient } from './qq-client.js';
+import { getClient, cleanupAllClients } from './qq-client.js';
 
 // 创建 MCP Server 实例
 const server = new Server(
@@ -131,11 +131,13 @@ process.on('unhandledRejection', (reason, promise) => {
 // 优雅关闭
 process.on('SIGINT', () => {
   console.error('[qqbot-mcp] Received SIGINT, shutting down...');
+  cleanupAllClients();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
   console.error('[qqbot-mcp] Received SIGTERM, shutting down...');
+  cleanupAllClients();
   process.exit(0);
 });
 

@@ -339,3 +339,19 @@ export function removeClient(name: string): boolean {
   }
   return false;
 }
+
+/**
+ * 清理所有客户端 - 用于服务关闭时
+ */
+export function cleanupAllClients(): void {
+  for (const [name, client] of clients) {
+    try {
+      client.stopTokenRefresh();
+      console.error(`[qqbot-mcp] Client stopped: ${name}`);
+    } catch (error) {
+      console.error(`[qqbot-mcp] Error stopping client ${name}:`, error);
+    }
+  }
+  clients.clear();
+  console.error('[qqbot-mcp] All clients cleaned up');
+}
