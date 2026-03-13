@@ -85,72 +85,67 @@ function saveProjects(data) {
 }
 
 /**
- * 同步项目级 .env 配置到全局
+ * 同步项目级 .env 配置到项目注册表（不覆盖全局配置）
  * @param {string} projectPath - 项目路径
- * @returns {boolean} - 是否有配置被同步
+ * @returns {object|null} - 项目配置对象，如果没有配置返回 null
  */
 function syncProjectConfig(projectPath) {
   const projectEnvPath = path.join(projectPath, '.env');
-  const globalEnvPath = path.join(GATEWAY_DIR, '.env');
 
   if (!fs.existsSync(projectEnvPath)) {
-    return false;
+    return null;
   }
 
   // 读取项目配置
   const projectEnv = fs.readFileSync(projectEnvPath, 'utf-8');
-  const projectConfig = {};
+  const config = {};
   projectEnv.split('\n').forEach(line => {
     const match = line.match(/^([^#=]+)=(.*)$/);
     if (match) {
-      projectConfig[match[1].trim()] = match[2].trim();
+      config[match[1].trim()] = match[2].trim();
     }
   });
 
   // 检查是否有 QQ Bot 相关配置
   const qqbotKeys = ['QQBOT_APP_ID', 'QQBOT_CLIENT_SECRET', 'QQBOT_TEST_TARGET_ID', 'QQBOT_IMAGE_SERVER_BASE_URL'];
-  const hasQQBotConfig = qqbotKeys.some(key => projectConfig[key]);
+  const hasQQBotConfig = qqbotKeys.some(key => config[key]);
 
   if (!hasQQBotConfig) {
-    return false;
+    return null;
   }
 
-  // 读取或创建全局配置
-  let globalEnv = '';
-  if (fs.existsSync(globalEnvPath)) {
-    globalEnv = fs.readFileSync(globalEnvPath, 'utf-8');
-  }
-
-  // 解析全局配置
-  const globalConfig = {};
-  globalEnv.split('\n').forEach(line => {
-    const match = line.match(/^([^#=]+)=(.*)$/);
-    if (match) {
-      globalConfig[match[1].trim()] = match[2].trim();
-    }
-  });
-
-  // 更新全局配置
-  let updated = false;
-  qqbotKeys.forEach(key => {
-    if (projectConfig[key] && projectConfig[key] !== globalConfig[key]) {
-      globalConfig[key] = projectConfig[key];
-      updated = true;
-    }
-  });
-
-  if (updated) {
-    // 写回全局配置
-    const newGlobalEnv = Object.entries(globalConfig)
-      .map(([k, v]) => `${k}=${v}`)
-      .join('\n');
-    fs.writeFileSync(globalEnvPath, newGlobalEnv);
-  }
-
-  return updated;
+  // 返回项目配置（用于存储到 projects.json）
+  return {
+    appId: config.QQBOT_APP_ID,
+    clientSecret: config.QQBOT_CLIENT_SECRET,
+    testTargetId: config.QQBOT_TEST_TARGET_ID,
+    imageServerBaseUrl: config.QQBOT_IMAGE_SERVER_BASE_URL,
+  };
 }
 
-function registerProject(projectPath, name = null) {
+/**
+ * 获取项目的机器人配置
+ * @param {string} projectName - 项目名称
+ * @returns {object|null} - 机器人配置
+ */
+function getProjectBotConfig(projectName) {
+  const data = loadProjects();
+  const project = data.projects[projectName];
+
+  if (!project || !project.botConfig) {
+    // 回退到全局环境变量
+    return {
+      appId: process.env.QQBOT_APP_ID,
+      clientSecret: process.env.QQBOT_CLIENT_SECRET,
+      testTargetId: process.env.QQBOT_TEST_TARGET_ID,
+      imageServerBaseUrl: process.env.QQBOT_IMAGE_SERVER_BASE_URL,
+    };
+  }
+
+  return project.botConfig;
+}
+
+function registerProject(projectPath, name = null, botConfig = null) {
   const data = loadProjects();
   const projectName = name || path.basename(projectPath);
 
@@ -160,6 +155,7 @@ function registerProject(projectPath, name = null) {
     registeredAt: Date.now(),
     lastActive: Date.now(),
     session: null,
+    botConfig: botConfig, // 存储项目级机器人配置
   };
 
   data.defaultProject = projectName;
@@ -639,11 +635,23 @@ switch (command) {
     // 获取项目路径（当前目录或通过 --cwd 指定）
     const cwdIndex = args.indexOf('--cwd');
     const startProjectPath = cwdIndex !== -1 ? args[cwdIndex + 1] : process.cwd();
+    const projectName = path.basename(startProjectPath);
 
-    // 同步项目配置到全局
-    const configSynced = syncProjectConfig(startProjectPath);
-    if (configSynced) {
-      log('green', '✅ 项目配置已同步到全局');
+    // 读取项目配置（不覆盖全局配置）
+    const projectBotConfig = syncProjectConfig(startProjectPath);
+
+    // 注册项目并存储配置
+    if (projectBotConfig) {
+      registerProject(startProjectPath, projectName, projectBotConfig);
+      log('green', `✅ 项目 "${projectName}" 已注册，机器人配置已保存`);
+      log('cyan', `   APP_ID: ${projectBotConfig.appId}`);
+    } else {
+      // 没有项目级配置，检查是否已注册
+      const data = loadProjects();
+      if (!data.projects[projectName]) {
+        registerProject(startProjectPath, projectName, null);
+        log('yellow', `⚠️ 项目 "${projectName}" 未检测到 .env 配置，将使用全局环境变量`);
+      }
     }
 
     // 检查是否已有网关运行
@@ -653,9 +661,8 @@ switch (command) {
         process.kill(existingPid, 0);
         log('yellow', '⚠️ 网关已在运行中');
         log('cyan', `   PID: ${existingPid}`);
-        log('cyan', '   项目配置已同步，网关将自动使用最新配置');
+        log('cyan', '   项目已注册，处理消息时将使用项目专属配置');
         log('cyan', '   使用 "node qqbot-gateway.js status" 查看详情');
-        log('cyan', '   使用 "node qqbot-gateway.js register <path>" 注册新项目');
         process.exit(0);
       } catch (e) {
         // 进程不存在，清理 PID 文件
