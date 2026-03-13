@@ -1,6 +1,6 @@
 {
   "name": "qqbot-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "QQ Bot MCP integration for Claude Code - send messages, files, and receive tasks from QQ",
   "author": {
     "name": "sliverp",
@@ -9,13 +9,17 @@
   "homepage": "https://github.com/sliverp/qqbot",
   "repository": "https://github.com/sliverp/qqbot",
   "license": "MIT",
-  "keywords": ["qq", "bot", "mcp", "messaging", "chinese"],
+  "keywords": [
+    "qq",
+    "bot",
+    "mcp",
+    "messaging",
+    "chinese"
+  ],
   "category": "communication",
-
   "commands": [
     "./commands/"
   ],
-
   "skills": {
     "qqbot-service": {
       "path": "./.claude/skills/qqbot-service/SKILL.md",
@@ -26,11 +30,12 @@
       "description": "配置项目级 Hook 用于消息推送"
     }
   },
-
   "mcpServers": {
     "qqbot": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/src/mcp/index.js"],
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/src/mcp/index.js"
+      ],
       "env": {
         "QQBOT_APP_ID": "${QQBOT_APP_ID}",
         "QQBOT_CLIENT_SECRET": "${QQBOT_CLIENT_SECRET}",
@@ -38,7 +43,6 @@
       }
     }
   },
-
   "hooks": {
     "SessionStart": [
       {
