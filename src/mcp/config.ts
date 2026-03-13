@@ -62,7 +62,11 @@ export function readConfig(): ConfigFile {
 export function writeConfig(config: ConfigFile): void {
   ensureConfigDir();
   config.lastUpdated = Date.now();
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+  // 使用 0o600 权限（仅所有者可读写）保护敏感凭证
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), {
+    encoding: 'utf-8',
+    mode: 0o600
+  });
 }
 
 /**
