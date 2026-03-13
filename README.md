@@ -60,13 +60,13 @@ A Claude Code plugin that enables bidirectional communication between Claude Cod
 **Option A: Install from GitHub (Recommended)**
 ```bash
 # Install directly from GitHub
-claude plugin add https://github.com/sliverp/qqbot
+claude plugin add https://github.com/fuzhibo/qqbot-claudecode-skill
 ```
 
 **Option B: Install from Local Directory**
 ```bash
 # Clone the repository
-git clone https://github.com/sliverp/qqbot.git
+git clone https://github.com/fuzhibo/qqbot-claudecode-skill.git
 cd qqbot
 
 # Install dependencies and build

@@ -22,7 +22,7 @@ npm install -g @sliverp/qqbot-mcp
 ### 方式二：本地开发
 
 ```bash
-git clone https://github.com/sliverp/qqbot
+git clone https://github.com/fuzhibo/qqbot-claudecode-skill
 cd qqbot
 npm install
 npm run build

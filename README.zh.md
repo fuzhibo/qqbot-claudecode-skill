@@ -368,4 +368,4 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 ## 原始项目
 
-本项目 fork 自 [sliverp/qqbot](https://github.com/sliverp/qqbot)。原版文档请参阅 [README.old.zh.md](README.old.zh.md)。
+本项目 fork 自 [sliverp/qqbot](https://github.com/fuzhibo/qqbot-claudecode-skill)。原版文档请参阅 [README.old.zh.md](README.old.zh.md)。
