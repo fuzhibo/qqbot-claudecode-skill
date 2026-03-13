@@ -57,9 +57,36 @@ A Claude Code plugin that enables bidirectional communication between Claude Cod
 
 ### 1. Install as Claude Code Plugin
 
+**Option A: Install from GitHub (Recommended)**
 ```bash
+# Install directly from GitHub
+claude plugin add https://github.com/sliverp/qqbot
+```
+
+**Option B: Install from Local Directory**
+```bash
+# Clone the repository
+git clone https://github.com/sliverp/qqbot.git
+cd qqbot
+
+# Install dependencies and build
+npm install
+npm run build
+
 # Add to Claude Code plugins
-claude plugin add /path/to/qqbot-claudecode-skill
+claude plugin add /path/to/qqbot
+```
+
+### Updating the Plugin
+
+```bash
+# Update to latest version
+claude plugin update qqbot-mcp
+
+# Or update from local directory after git pull
+cd /path/to/qqbot
+git pull
+npm install && npm run build
 ```
 
 ### 2. Configure Environment
