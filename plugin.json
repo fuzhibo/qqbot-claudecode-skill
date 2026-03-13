@@ -16,7 +16,6 @@
     "messaging",
     "chinese"
   ],
-  "category": "communication",
   "commands": [
     "./commands/"
   ],
