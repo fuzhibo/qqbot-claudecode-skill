@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "description": "QQ Bot MCP integration for Claude Code - send messages, files, and receive tasks from QQ",
   "author": {
-    "name": "sliverp",
+    "name": "fuzhibo",
     "email": ""
   },
   "homepage": "https://github.com/fuzhibo/qqbot-claudecode-skill",
