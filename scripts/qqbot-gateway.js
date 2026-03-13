@@ -42,18 +42,13 @@ const LOG_FILE = path.join(GATEWAY_DIR, 'gateway.log');
   }
 });
 
-// 加载环境变量 - 优先使用全局配置
-const globalEnvPath = path.join(os.homedir(), '.claude', 'qqbot-gateway', '.env');
+// 加载环境变量 - 从当前项目或插件目录的 .env
 const localEnvPath = path.join(__dirname, '..', '.env');
-
-if (fs.existsSync(globalEnvPath)) {
-  config({ path: globalEnvPath });
-} else if (fs.existsSync(localEnvPath)) {
+if (fs.existsSync(localEnvPath)) {
   config({ path: localEnvPath });
 }
 
-const APP_ID = process.env.QQBOT_APP_ID;
-const CLIENT_SECRET = process.env.QQBOT_CLIENT_SECRET;
+// 注意：APP_ID 和 CLIENT_SECRET 现在从项目配置获取，不再使用全局变量
 
 // ============ 颜色输出 ============
 const colors = {
