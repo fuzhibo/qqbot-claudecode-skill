@@ -1,423 +1,329 @@
-<div align="center">
+# QQ Bot MCP for Claude Code
+
+> **原版文档**: [README.old.md](README.old.md) | [README.old.zh.md](README.old.zh.md)
+
+一个通过模型上下文协议 (MCP) 实现 Claude Code 与 QQ 双向通信的插件。
+
+[![npm version](https://img.shields.io/npm/v/@sliverp/qqbot-mcp?color=blue&label=npm)](https://www.npmjs.com/package/@sliverp/qqbot-mcp)
+[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js->=18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 
 **简体中文 | [English](README.md)**
 
-<img width="120" src="https://img.shields.io/badge/🤖-QQ_Bot-blue?style=for-the-badge" alt="QQ Bot" />
+---
 
-# QQ Bot — OpenClaw 渠道插件
+## 功能特性
 
-**让你的 AI 助手接入 QQ — 私聊、群聊、富媒体，一个插件全搞定。**
-
-[![npm version](https://img.shields.io/npm/v/@sliverp/qqbot?color=blue&label=npm)](https://www.npmjs.com/package/@sliverp/qqbot)
-[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
-[![QQ Bot](https://img.shields.io/badge/QQ_Bot-API_v2-red)](https://bot.q.qq.com/wiki/)
-[![Platform](https://img.shields.io/badge/platform-OpenClaw-orange)](https://github.com/sliverp/openclaw)
-[![Node.js](https://img.shields.io/badge/Node.js->=18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-
-<br/>
-
-扫描二维码加入群聊，一起交流
-
-<img width="316" height="410" alt="QQ 群二维码" src="https://github.com/user-attachments/assets/d079ba89-ecd0-437f-9e66-92319801a325" />
-
-</div>
+- **MCP 集成** - 完整的 MCP 服务器，包含 5 个核心工具
+- **后台网关** - WebSocket 守护进程，实时处理 QQ 消息
+- **多项目支持** - 注册多个项目，独立会话管理
+- **智能消息解析** - 自动识别项目名称、工具权限、权限模式
+- **Hook 系统** - 配置项目级 Hook，推送 QQ 通知
+- **自动回复模式** - 自动调用 Claude Code 无头模式
 
 ---
 
-## ✨ 功能特性
+## 架构设计
 
-| 功能 | 说明 |
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│   QQ 客户端      │────▶│  QQ Bot 网关     │────▶│  Claude Code    │
+│   (用户)         │     │  (WebSocket)     │     │  (无头模式)      │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+                               │
+                               ▼
+                        ┌──────────────────┐
+                        │  消息解析器       │
+                        │  - 项目名称      │
+                        │  - 工具权限      │
+                        │  - 权限模式      │
+                        └──────────────────┘
+```
+
+### 核心组件
+
+| 组件 | 文件 | 描述 |
+|------|------|------|
+| MCP 服务器 | `src/mcp/` | MCP 协议实现，5 个工具 |
+| 网关守护进程 | `scripts/qqbot-gateway.js` | QQ Bot WebSocket 守护进程 |
+| 消息解析器 | `scripts/qqbot-parser.js` | 智能消息解析 |
+| Hook 管理器 | `scripts/qqbot-hooks.js` | 项目级 Hook 配置 |
+| 诊断工具 | `scripts/doctor.js` | 系统诊断 |
+| 配置向导 | `scripts/setup-wizard.js` | 交互式配置 |
+
+---
+
+## 快速开始
+
+### 1. 安装为 Claude Code 插件
+
+```bash
+# 添加到 Claude Code 插件
+claude plugin add /path/to/qqbot-claudecode-skill
+```
+
+### 2. 配置环境变量
+
+```bash
+# 复制示例配置
+cp .env.example .env
+
+# 编辑填入 QQ 机器人凭证
+# 从 https://q.qq.com/ 获取凭证
+```
+
+### 3. 启动网关
+
+```bash
+# 通知模式（仅桌面通知）
+npm run gateway:start
+
+# 自动回复模式（AI 自动响应）
+npm run gateway:start -- --auto
+```
+
+### 4. 查看状态
+
+```bash
+npm run gateway:status
+```
+
+---
+
+## 可用命令
+
+### 服务管理
+
+| 命令 | 描述 |
 |------|------|
-| 🔒 **多场景支持** | C2C 私聊、群聊 @消息、频道消息、频道私信 |
-| 🖼️ **富媒体消息** | 支持图片、语音、视频、文件的收发 |
-| 🎙️ **语音能力 (STT/TTS)** | 语音转文字自动转录 & 文字转语音回复 |
-| ⏰ **定时推送** | 支持定时任务触发后主动推送消息 |
-| 🔗 **URL 无限制** | 私聊可直接发送 URL |
-| ⌨️ **输入状态** | 实时显示"Bot 正在输入中…"状态 |
-| 🔄 **热更新** | 支持 npm 方式安装和无缝热更新 |
-| 📝 **Markdown** | 完整支持 Markdown 格式消息 |
-| 🛠️ **原生命令** | 支持 OpenClaw 原生命令 |
+| `npm run gateway:start` | 启动网关（通知模式） |
+| `npm run gateway:start -- --auto` | 启动网关（自动回复模式） |
+| `npm run gateway:stop` | 停止网关 |
+| `npm run gateway:status` | 查看网关状态 |
+| `npm run doctor` | 运行诊断 |
+| `npm run hooks` | 管理 Hook 配置 |
+
+### CLI 命令
+
+```bash
+# 注册项目
+node scripts/qqbot-gateway.js register /path/to/project --name my-project
+
+# 切换默认项目
+node scripts/qqbot-gateway.js switch my-project
+
+# 初始化会话
+node scripts/qqbot-gateway.js init-session my-project
+
+# 配置 Hook
+node scripts/qqbot-hooks.js add
+node scripts/qqbot-hooks.js list
+```
 
 ---
 
-## 📸 功能展示
+## MCP 工具列表
 
-> **说明：** 本插件仅作为**消息通道**，负责在 QQ 和 OpenClaw 之间传递消息。图片理解、语音转录、AI 画图等能力取决于你配置的 **AI 模型**以及在 OpenClaw 中安装的 **skill**，而非插件本身提供。
-
-<details>
-<summary><b>🎙️ 语音消息（STT）</b> — 配置 STT 后，自动将语音转录为文字理解</summary>
-
-> **你**：*（发送一段语音）*"明天深圳天气怎么样"
->
-> **QQBot**：明天（3月7日 周六）深圳的天气预报 🌤️ ...
-
-<img width="360" src="docs/images/fc7b2236896cfba3a37c94be5d59ce3e_720.jpg" alt="听语音演示" />
-
-</details>
-
-<details>
-<summary><b>📄 文件理解</b> — 发文件给 AI，自动识别内容并智能回复</summary>
-
-> **你**：*（发送《战争与和平》TXT 文件）*
->
-> **QQBot**：收到！你上传了列夫·托尔斯泰的《战争与和平》中文版文本。从内容来看，这是第一章的开头……你想让我做什么？
-
-<img width="360" src="docs/images/07bff56ab68e03173d2af586eeb3bcee_720.jpg" alt="AI理解用户发送的文件" />
-
-</details>
-
-<details>
-<summary><b>🖼️ 图片理解</b> — 主模型支持视觉能力时，发图片 AI 也能看懂</summary>
-
-> **你**：*（发送一张图片）*
->
-> **QQBot**：哈哈，好可爱！这是QQ企鹅穿上小龙虾套装吗？🦞🐧 ...
-
-<img width="360" src="docs/images/59d421891f813b0d3c0cbe12574b6a72_720.jpg" alt="图片理解演示" />
-
-</details>
-
-<details>
-<summary><b>🎨 AI 画图</b> — 调用绘图工具生成图片，直接发到对话里</summary>
-
-> **你**：画一只猫咪
->
-> **QQBot**：给你画好了！🐱
-
-<img width="360" src="docs/images/4645f2b3a20822b7f8d6664a708529eb_720.jpg" alt="发图片演示" />
-
-</details>
-
-<details>
-<summary><b>🔊 语音回复（TTS）</b> — AI 把文字变成语音消息发出来</summary>
-
-> **你**：用语音讲个笑话
->
-> **QQBot**：*（发送一条语音消息）*
-
-<img width="360" src="docs/images/21dce8bfc553ce23d1bd1b270e9c516c.jpg" alt="发语音演示" />
-
-</details>
-
-<details>
-<summary><b>📎 文件发送</b> — 生成并发送任意格式文件，最大 20MB</summary>
-
-> **你**：战争与和平的第一章截取一下发文件给我
->
-> **QQBot**：*（发送 .txt 文件）*
-
-<img width="360" src="docs/images/17cada70df90185d45a2d6dd36e92f2f_720.jpg" alt="发文件演示" />
-
-</details>
-
-<details>
-<summary><b>🎬 视频发送</b> — 支持本地文件和公网 URL，大文件自动显示上传进度</summary>
-
-> **你**：发一个演示视频给我
->
-> **QQBot**：*（发送视频）*
-
-<img width="360" src="docs/images/85d03b8a216f267ab7b2aee248a18a41_720.jpg" alt="发视频演示" />
-
-</details>
-
-> 富媒体能力（图片、语音、视频、文件）的完整说明请参阅 [富媒体指南](docs/qqbot-media-guide.md)。
-
----
-
-## ⭐ Star History
-
-<div align="center">
-
-[![Star History Chart](https://api.star-history.com/svg?repos=sliverp/qqbot&type=date&legend=top-left)](https://www.star-history.com/#sliverp/qqbot&type=date&legend=top-left)
-
-</div>
-
----
-
-## 🚀 快速开始
-
-### 第一步 — 在 QQ 开放平台创建机器人
-
-1. 前往 [QQ 开放平台](https://q.qq.com/)，用**手机 QQ 扫描页面二维码**即可注册/登录。若尚未注册，扫码后系统会自动完成注册并绑定你的 QQ 账号。
-
-<img width="3246" height="1886" alt="Clipboard_Screenshot_1772980354" src="https://github.com/user-attachments/assets/d8491859-57e8-47e4-9d39-b21138be54d0" />
-
-2. 手机 QQ 扫码后选择**同意**，即完成注册，进入 QQ 机器人配置页。
-3. 点击**创建机器人**，即可直接新建一个 QQ 机器人。
-
-<img width="1982" height="1316" alt="Clipboard_Screenshot_1772980440" src="https://github.com/user-attachments/assets/3ccb494d-6e4d-462c-9218-b4dfd43a254f" />
-
-4. 在机器人页面中找到 **AppID** 和 **AppSecret**，分别点击右侧**复制**按钮，保存到记事本或备忘录中。**AppSecret 不支持明文保存，离开页面后再查看会强制重置，请务必妥善保存。**
-
-<img width="1670" height="1036" alt="Clipboard_Screenshot_1772980413" src="https://github.com/user-attachments/assets/b898d171-5711-4d42-bc07-2de967b119ec" />
-
-> 详细图文教程请参阅 [官方指南](https://cloud.tencent.com/developer/article/2626045)。
-
-> ⚠️ 机器人创建后会自动出现在你的 QQ 消息列表中，并发送第一条消息。但在完成下面的配置之前，发消息会提示"该机器人去火星了"，属于正常现象。
-
-### 第二步 — 安装插件
-
-```bash
-# 通过 OpenClaw CLI 安装（推荐）
-openclaw plugins install @sliverp/qqbot@latest
-
-# 或从源码安装
-git clone https://github.com/sliverp/qqbot.git && cd qqbot
-openclaw plugins install .
-```
-
-### 第三步 — 配置 OpenClaw
-
-**方式一：通过 Wizard 配置（推荐）**
-
-```bash
-openclaw channels add --channel qqbot --token "AppID:AppSecret"
-```
-
-**方式二：编辑配置文件**
-
-编辑 `~/.openclaw/openclaw.json`：
-
-```json
-{
-  "channels": {
-    "qqbot": {
-      "enabled": true,
-      "appId": "你的 AppID",
-      "clientSecret": "你的 AppSecret"
-    }
-  }
-}
-```
-
-### 第四步 — 启动与测试
-
-```bash
-openclaw gateway
-```
-
-打开 QQ，找到你的机器人，发条消息试试！
-
-<div align="center">
-<img width="500" alt="聊天演示" src="https://github.com/user-attachments/assets/b2776c8b-de72-4e37-b34d-e8287ce45de1" />
-</div>
-
----
-
-## 🤖 多账户配置（Multi-Bot）
-
-支持在同一个 OpenClaw 实例下同时运行多个 QQ 机器人。
-
-### 配置方式
-
-编辑 `~/.openclaw/openclaw.json`，在 `channels.qqbot` 下增加 `accounts` 字段：
-
-```json
-{
-  "channels": {
-    "qqbot": {
-      "enabled": true,
-      "appId": "111111111",
-      "clientSecret": "secret-of-bot-1",
-
-      "accounts": {
-        "bot2": {
-          "enabled": true,
-          "appId": "222222222",
-          "clientSecret": "secret-of-bot-2"
-        },
-        "bot3": {
-          "enabled": true,
-          "appId": "333333333",
-          "clientSecret": "secret-of-bot-3"
-        }
-      }
-    }
-  }
-}
-```
-
-**说明：**
-
-- 顶层的 `appId` / `clientSecret` 是**默认账户**（accountId = `"default"`）
-- `accounts` 下的每个 key（如 `bot2`、`bot3`）就是该账户的 `accountId`
-- 每个账户都可以独立配置 `enabled`、`name`、`allowFrom`、`systemPrompt` 等字段
-- 也可以不配顶层默认账户，只在 `accounts` 里配置所有机器人
-
-通过 CLI 添加第二个机器人（如果框架支持 `--account` 参数）：
-
-```bash
-openclaw channels add --channel qqbot --account bot2 --token "222222222:secret-of-bot-2"
-```
-
-### 向指定账户的用户发送消息
-
-使用 `openclaw message send` 发消息时，需要通过 `--account` 参数指定使用哪个机器人发送：
-
-```bash
-# 使用默认机器人发送（不指定 --account 时自动使用 default）
-openclaw message send --channel "qqbot" \
-  --target "qqbot:c2c:OPENID" \
-  --message "hello from default bot"
-
-# 使用 bot2 发送
-openclaw message send --channel "qqbot" \
-  --account bot2 \
-  --target "qqbot:c2c:OPENID" \
-  --message "hello from bot2"
-```
-
-**Target 格式支持：**
-
-| 格式 | 说明 |
+| 工具 | 描述 |
 |------|------|
-| `qqbot:c2c:OPENID` | 私聊 |
-| `qqbot:group:GROUP_OPENID` | 群聊 |
-| `qqbot:channel:CHANNEL_ID` | 频道 |
-
-> ⚠️ **注意**：每个机器人的用户 OpenID 是不同的。机器人 A 收到的用户 OpenID 不能用机器人 B 去发消息，否则会返回 500 错误。必须用对应机器人的 accountId 去给该机器人的用户发消息。
-
-### 工作原理
-
-- 启动 `openclaw gateway` 后，所有 `enabled: true` 的账户会同时启动 WebSocket 连接
-- 每个账户独立维护 Token 缓存（基于 `appId` 隔离），互不干扰
-- 接收消息时，日志会带上 `[qqbot:accountId]` 前缀方便排查
+| `get_active_bots` | 获取已配置的机器人列表 |
+| `send_qq_message` | 发送文本消息到 QQ |
+| `upload_qq_media` | 上传文件/图片/视频 |
+| `fetch_unread_tasks` | 获取未读消息 |
+| `get_qq_context` | 获取消息历史 |
 
 ---
 
-## 🎙️ 语音能力配置（可选）
+## QQ 消息通信指南
 
-### STT（语音转文字）— 自动转录用户发来的语音消息
+### 消息格式
 
-STT 支持两级配置，按优先级查找：
+向 QQ 发送消息时，网关会智能解析您的输入：
 
-| 优先级 | 配置路径 | 作用域 |
-|--------|----------|--------|
-| 1（最高） | `channels.qqbot.stt` | 插件专属 |
-| 2（回退） | `tools.media.audio.models[0]` | 框架级 |
+#### 1. 项目选择
 
-```json
-{
-  "channels": {
-    "qqbot": {
-      "stt": {
-        "provider": "your-provider",
-        "model": "your-stt-model"
-      }
-    }
-  }
-}
+```
+[项目名称] 你的消息内容
+```
+或
+```
+project:项目名称 你的消息内容
 ```
 
-- `provider` — 引用 `models.providers` 中的 key，自动继承 `baseUrl` 和 `apiKey`
-- 设置 `enabled: false` 可禁用
-- 配置后，用户发来的语音消息会自动转换（SILK→WAV）并转录为文字
+如果未指定项目，则使用默认项目。
 
-### TTS（文字转语音）— 机器人发送语音消息
+#### 2. 工具权限
 
-| 优先级 | 配置路径 | 作用域 |
-|--------|----------|--------|
-| 1（最高） | `channels.qqbot.tts` | 插件专属 |
-| 2（回退） | `messages.tts` | 框架级 |
-
-```json
-{
-  "channels": {
-    "qqbot": {
-      "tts": {
-        "provider": "your-provider",
-        "model": "your-tts-model",
-        "voice": "your-voice"
-      }
-    }
-  }
-}
+```
+allowedTools: Read, Write, Bash
+disallowedTools: WebFetch
 ```
 
-- `provider` — 引用 `models.providers` 中的 key，自动继承 `baseUrl` 和 `apiKey`
-- `voice` — 语音音色
-- 设置 `enabled: false` 可禁用（默认：`true`）
-- 配置后，AI 可使用 `<qqvoice>` 标签生成并发送语音消息
+**可用工具：**
+- **文件操作**: `Read`, `Write`, `Edit`, `NotebookEdit`
+- **网络工具**: `WebFetch`, `WebSearch`
+- **执行工具**: `Bash`, `Glob`, `Grep`, `BashOutput`, `KillShell`
+- **任务管理**: `Task`, `TodoWrite`
+- **其他**: `SlashCommand`, `Skill`, `ExitPlanMode`
 
----
+#### 3. 权限模式
 
-## 🔄 升级
-
-### 通过 OpenClaw / npm 升级（推荐）
-
-> 仅适用于通过 `openclaw plugins install` 安装的场景
-
-```bash
-openclaw plugins upgrade @sliverp/qqbot@latest
+```
+permission-mode: acceptEdits
 ```
 
-### 通过 npx 升级
-
-```bash
-npx -y @sliverp/qqbot@latest upgrade
-```
-
-### 通过 upgrade-and-run.sh 一键升级
-
-```bash
-bash ./upgrade-and-run.sh
-```
-
-不传 `--appid` / `--secret` 参数时，脚本会自动读取 `~/.openclaw/openclaw.json` 中已有的配置。
-
-```bash
-# 首次配置或需要覆盖时
-bash ./upgrade-and-run.sh --appid YOUR_APPID --secret YOUR_SECRET
-```
-
-<details>
-<summary>完整选项</summary>
-
-| 选项 | 说明 |
+| 模式 | 描述 |
 |------|------|
-| `--appid <id>` | QQ 机器人 AppID |
-| `--secret <secret>` | QQ 机器人 AppSecret |
-| `--markdown <yes\|no>` | 是否启用 Markdown 消息格式（默认: no） |
-| `-h, --help` | 显示帮助 |
+| `default` | 未授权操作需手动确认 |
+| `acceptEdits` | 自动批准文件编辑 |
+| `bypassPermissions` | 跳过所有权限检查（谨慎使用） |
+| `plan` | 仅规划模式，不执行 |
 
-也支持环境变量：`QQBOT_APPID`、`QQBOT_SECRET`、`QQBOT_TOKEN`（AppID:Secret）。
+### QQ 消息示例
 
-</details>
+```
+# 简单消息（使用默认项目）
+你好，能帮我修复一个 bug 吗？
 
-### 通过 pull-latest.sh（Git 源码更新）
+# 指定项目
+[my-app] 检查认证模块
 
-```bash
-bash ./pull-latest.sh
+# 带工具权限
+allowedTools: Read, Grep
+搜索代码库中所有的 TODO 注释
+
+# 带权限模式
+permission-mode: acceptEdits
+[my-app] 重构 API 处理器
+
+# 组合使用
+[backend] allowedTools: Read, Write, Bash
+更新配置文件中的设置
 ```
 
-<details>
-<summary>选项</summary>
+### 响应格式
 
-```bash
-bash ./pull-latest.sh --branch main            # 指定分支（默认 main）
-bash ./pull-latest.sh --force                   # 跳过交互，强制更新
-bash ./pull-latest.sh --repo <git-url>          # 使用其他仓库地址
+所有响应都会包含项目前缀：
+
 ```
-
-</details>
-
-### 从源码升级（手动）
-
-```bash
-git clone https://github.com/sliverp/qqbot.git && cd qqbot
-bash ./scripts/upgrade.sh
-openclaw plugins install .
-openclaw channels add --channel qqbot --token "AppID:AppSecret"
-openclaw gateway restart
+[项目名称] AI 响应内容...
 ```
 
 ---
 
-## 📚 文档
+## Hook 配置
 
-- [富媒体指南](docs/qqbot-media-guide.md) — 图片、语音、视频、文件
-- [命令参考](docs/commands.md) — OpenClaw CLI 常用命令
-- [更新日志](docs/changelog/) — 各版本变更记录（[最新: 1.5.4](docs/changelog/1.5.4.md)）
+配置 Hook 以在 Claude Code 事件发生时接收 QQ 通知。
 
+### 可用 Hook
+
+| Hook | 触发时机 |
+|------|----------|
+| `SessionStart` | 会话开始时 |
+| `SessionEnd` | 会话结束时 |
+| `PreToolUse` | 工具调用前 |
+| `PostToolUse` | 工具调用后 |
+| `UserPromptSubmit` | 用户提交提示时 |
+| `PreCompact` | 上下文压缩前 |
+| `PermissionRequest` | 权限请求时 |
+
+### 模板变量
+
+| 变量 | 描述 |
+|------|------|
+| `{{project}}` | 项目名称 |
+| `{{event}}` | 事件名称 |
+| `{{tool}}` | 工具名称 |
+| `{{timestamp}}` | 时间戳 |
+| `{{cwd}}` | 工作目录 |
+
+### 配置 Hook
+
+```bash
+node scripts/qqbot-hooks.js add
+```
+
+---
+
+## 配置文件
+
+| 文件 | 位置 | 用途 |
+|------|------|------|
+| 项目配置 | `~/.claude/qqbot-gateway/projects.json` | 已注册项目 |
+| 会话数据 | `~/.claude/qqbot-gateway/sessions/` | 会话信息 |
+| Hook 配置 | `~/.claude/qqbot-gateway/hooks.json` | Hook 配置 |
+| 日志 | `~/.claude/qqbot-gateway/gateway.log` | 网关日志 |
+
+---
+
+## 环境变量
+
+| 变量 | 必需 | 描述 |
+|------|------|------|
+| `QQBOT_APP_ID` | 是 | QQ 机器人 AppID |
+| `QQBOT_CLIENT_SECRET` | 是 | QQ 机器人 Client Secret |
+| `QQBOT_IMAGE_SERVER_BASE_URL` | 否 | 图床服务器 URL |
+| `QQBOT_TEST_TARGET_ID` | 否 | 测试目标 ID |
+
+---
+
+## 故障排除
+
+### 运行诊断
+
+```bash
+npm run doctor
+```
+
+### 常见问题
+
+1. **网关无法启动**
+   - 检查 `.env` 中的凭证
+   - 验证网络连接
+   - 运行 `npm run doctor`
+
+2. **收不到消息**
+   - 确认网关正在运行: `npm run gateway:status`
+   - 检查日志: `~/.claude/qqbot-gateway/gateway.log`
+
+3. **自动回复不工作**
+   - 验证项目已注册
+   - 检查 `--cwd` 路径是否正确
+   - 确保 Claude Code 可用
+
+---
+
+## 技能清单
+
+### /qqbot-service - 后台服务管理
+
+| 命令 | 描述 |
+|------|------|
+| `start [--mode auto/notify]` | 启动后台服务 |
+| `stop` | 停止后台服务 |
+| `restart` | 重启后台服务 |
+| `status` | 查看服务状态 |
+| `list` | 查看项目列表 |
+| `switch <name>` | 切换默认项目 |
+
+### /qqbot-set-hook - Hook 配置
+
+| 命令 | 描述 |
+|------|------|
+| (无参数) | 交互式配置 Hook |
+| `--list` | 查看已配置的 Hook |
+| `--remove <id>` | 删除指定 Hook |
+| `--clear` | 清除所有 Hook |
+| `--test <id>` | 测试发送 Hook 消息 |
+
+---
+
+## 许可证
+
+MIT License - 详见 [LICENSE](LICENSE)
+
+---
+
+## 原始项目
+
+本项目 fork 自 [sliverp/qqbot](https://github.com/sliverp/qqbot)。原版文档请参阅 [README.old.zh.md](README.old.zh.md)。
