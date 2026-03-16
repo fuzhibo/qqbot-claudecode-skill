@@ -16,7 +16,8 @@
 
 - **MCP 集成** - 完整的 MCP 服务器，包含 5 个核心工具
 - **后台网关** - WebSocket 守护进程，实时处理 QQ 消息
-- **多项目支持** - 注册多个项目，独立会话管理
+- **多项目支持** - 注册多个项目，独立会话管理和机器人凭证
+- **项目级配置** - 每个项目可配置独立的 QQ Bot 凭证
 - **智能消息解析** - 自动识别项目名称、工具权限、权限模式
 - **Hook 系统** - 配置项目级 Hook，推送 QQ 通知
 - **自动回复模式** - 自动调用 Claude Code 无头模式
@@ -53,26 +54,60 @@
 
 ---
 
-## 快速开始
+## 快速开始 (5 分钟)
 
-### 1. 安装为 Claude Code 插件
+### 前置条件
+
+1. 已安装 **Claude Code CLI**
+2. 拥有 [QQ 开放平台](https://q.qq.com/) 机器人凭证
+
+### 步骤 1: 安装插件
+
+**方式 A: 从 Marketplace 安装 (推荐)**
 
 ```bash
-# 添加到 Claude Code 插件
+# 在 Claude Code CLI 中执行
+/plugin marketplace add https://github.com/fuzhibo/qqbot-claudecode-skill
+```
+
+**方式 B: 从本地目录安装**
+
+```bash
+# 克隆并构建
+git clone https://github.com/fuzhibo/qqbot-claudecode-skill.git
+cd qqbot-claudecode-skill
+npm install && npm run build
+
+# 添加到 Claude Code
 claude plugin add /path/to/qqbot-claudecode-skill
 ```
 
-### 2. 配置环境变量
+### 步骤 2: 配置项目凭证
+
+在项目目录下创建 `.env` 文件（不是插件目录）：
 
 ```bash
-# 复制示例配置
-cp .env.example .env
-
-# 编辑填入 QQ 机器人凭证
-# 从 https://q.qq.com/ 获取凭证
+# 在你的项目根目录
+cat > .env << 'EOF'
+QQBOT_APP_ID=your-app-id-here
+QQBOT_CLIENT_SECRET=your-client-secret-here
+QQBOT_IMAGE_SERVER_BASE_URL=http://your-server:18765
+EOF
 ```
 
-### 3. 启动网关
+> **注意**: 每个项目可以有自己的 QQ Bot 凭证。配置存储在 `~/.claude/qqbot-gateway/projects.json`。
+
+### 步骤 3: 注册项目
+
+```bash
+# 注册当前项目
+node /path/to/qqbot-claudecode-skill/scripts/qqbot-gateway.js register $(pwd) --name my-project
+
+# 或使用技能命令
+/qqbot-service register $(pwd) --name my-project
+```
+
+### 步骤 4: 启动网关
 
 ```bash
 # 通知模式（仅桌面通知）
@@ -82,11 +117,92 @@ npm run gateway:start
 npm run gateway:start -- --auto
 ```
 
-### 4. 查看状态
+### 步骤 5: 测试
+
+在 QQ 发送消息给你的机器人，Claude Code 将自动响应（自动模式）或显示桌面通知（通知模式）。
+
+---
+
+## 安装详情
+
+### 从 Marketplace 安装
 
 ```bash
-npm run gateway:status
+# 从 GitHub 添加插件
+/plugin marketplace add https://github.com/fuzhibo/qqbot-claudecode-skill
 ```
+
+### 从本地安装
+
+```bash
+git clone https://github.com/fuzhibo/qqbot-claudecode-skill.git
+cd qqbot-claudecode-skill
+npm install
+npm run build
+claude plugin add $(pwd)
+```
+
+### 更新插件
+
+```bash
+# 从 marketplace 更新
+claude plugin update qqbot-mcp
+
+# 或从本地更新
+cd /path/to/qqbot-claudecode-skill
+git pull
+npm install && npm run build
+```
+
+---
+
+## 配置说明
+
+### 项目级配置
+
+每个项目维护自己的 QQ Bot 凭证，存储在 `~/.claude/qqbot-gateway/projects.json`：
+
+```json
+{
+  "projects": [
+    {
+      "path": "/path/to/project-a",
+      "name": "project-a",
+      "botConfig": {
+        "appId": "xxx",
+        "clientSecret": "xxx"
+      }
+    },
+    {
+      "path": "/path/to/project-b",
+      "name": "project-b",
+      "botConfig": {
+        "appId": "yyy",
+        "clientSecret": "yyy"
+      }
+    }
+  ]
+}
+```
+
+### 环境变量
+
+| 变量 | 必需 | 描述 |
+|------|------|------|
+| `QQBOT_APP_ID` | 是 | QQ 机器人 AppID |
+| `QQBOT_CLIENT_SECRET` | 是 | QQ 机器人 Client Secret |
+| `QQBOT_IMAGE_SERVER_BASE_URL` | 否 | 图床服务器 URL |
+| `QQBOT_TEST_TARGET_ID` | 否 | 测试目标 ID (格式: `G_群号`, `U_用户ID`, `C_频道ID`) |
+
+### 配置文件
+
+| 文件 | 位置 | 用途 |
+|------|------|------|
+| 项目配置 | `~/.claude/qqbot-gateway/projects.json` | 已注册项目和机器人配置 |
+| 会话数据 | `~/.claude/qqbot-gateway/sessions/` | 会话信息 |
+| Hook 配置 | `~/.claude/qqbot-gateway/hooks.json` | Hook 配置 |
+| 日志 | `~/.claude/qqbot-gateway/gateway.log` | 网关日志 |
+| PID | `~/.claude/qqbot-gateway/gateway.pid` | 进程 ID 文件 |
 
 ---
 
@@ -245,25 +361,28 @@ node scripts/qqbot-hooks.js add
 
 ---
 
-## 配置文件
+## 技能清单
 
-| 文件 | 位置 | 用途 |
-|------|------|------|
-| 项目配置 | `~/.claude/qqbot-gateway/projects.json` | 已注册项目 |
-| 会话数据 | `~/.claude/qqbot-gateway/sessions/` | 会话信息 |
-| Hook 配置 | `~/.claude/qqbot-gateway/hooks.json` | Hook 配置 |
-| 日志 | `~/.claude/qqbot-gateway/gateway.log` | 网关日志 |
+### /qqbot-service - 后台服务管理
 
----
+| 命令 | 描述 |
+|------|------|
+| `start [--mode auto/notify]` | 启动后台服务 |
+| `stop` | 停止后台服务 |
+| `restart` | 重启后台服务 |
+| `status` | 查看服务状态 |
+| `list` | 查看项目列表 |
+| `switch <name>` | 切换默认项目 |
 
-## 环境变量
+### /qqbot-set-hook - Hook 配置
 
-| 变量 | 必需 | 描述 |
-|------|------|------|
-| `QQBOT_APP_ID` | 是 | QQ 机器人 AppID |
-| `QQBOT_CLIENT_SECRET` | 是 | QQ 机器人 Client Secret |
-| `QQBOT_IMAGE_SERVER_BASE_URL` | 否 | 图床服务器 URL |
-| `QQBOT_TEST_TARGET_ID` | 否 | 测试目标 ID |
+| 命令 | 描述 |
+|------|------|
+| (无参数) | 交互式配置 Hook |
+| `--list` | 查看已配置的 Hook |
+| `--remove <id>` | 删除指定 Hook |
+| `--clear` | 清除所有 Hook |
+| `--test <id>` | 测试发送 Hook 消息 |
 
 ---
 
@@ -278,7 +397,7 @@ npm run doctor
 ### 常见问题
 
 1. **网关无法启动**
-   - 检查 `.env` 中的凭证
+   - 检查项目 `.env` 中的凭证
    - 验证网络连接
    - 运行 `npm run doctor`
 
@@ -290,6 +409,11 @@ npm run doctor
    - 验证项目已注册
    - 检查 `--cwd` 路径是否正确
    - 确保 Claude Code 可用
+
+4. **多项目使用不同机器人**
+   - 每个项目应有自己的 `.env` 文件
+   - 使用 `register` 命令添加每个项目
+   - 使用 `switch` 命令在项目间切换
 
 ---
 
@@ -335,31 +459,6 @@ npm run upgrade:rollback -- backup-2026-03-13T10-30-00-000Z
 
 ---
 
-## 技能清单
-
-### /qqbot-service - 后台服务管理
-
-| 命令 | 描述 |
-|------|------|
-| `start [--mode auto/notify]` | 启动后台服务 |
-| `stop` | 停止后台服务 |
-| `restart` | 重启后台服务 |
-| `status` | 查看服务状态 |
-| `list` | 查看项目列表 |
-| `switch <name>` | 切换默认项目 |
-
-### /qqbot-set-hook - Hook 配置
-
-| 命令 | 描述 |
-|------|------|
-| (无参数) | 交互式配置 Hook |
-| `--list` | 查看已配置的 Hook |
-| `--remove <id>` | 删除指定 Hook |
-| `--clear` | 清除所有 Hook |
-| `--test <id>` | 测试发送 Hook 消息 |
-
----
-
 ## 许可证
 
 MIT License - 详见 [LICENSE](LICENSE)
@@ -368,4 +467,4 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 ## 原始项目
 
-本项目 fork 自 [sliverp/qqbot](https://github.com/fuzhibo/qqbot-claudecode-skill)。原版文档请参阅 [README.old.zh.md](README.old.zh.md)。
+本项目 fork 自 [sliverp/qqbot](https://github.com/sliverp/qqbot)。原版文档请参阅 [README.old.zh.md](README.old.zh.md)。

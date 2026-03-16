@@ -16,7 +16,8 @@ A Claude Code plugin that enables bidirectional communication between Claude Cod
 
 - **MCP Integration** - Full MCP server with 5 core tools
 - **Background Gateway** - WebSocket daemon for real-time QQ message handling
-- **Multi-Project Support** - Register multiple projects with independent sessions
+- **Multi-Project Support** - Register multiple projects with independent sessions and bot credentials
+- **Project-Level Configuration** - Each project can have its own QQ Bot credentials
 - **Smart Message Parsing** - Auto-detect project names, tool permissions, and modes
 - **Hook System** - Configure project-level hooks for QQ notifications
 - **Auto-Reply Mode** - Automatic Claude Code headless mode integration
@@ -53,53 +54,60 @@ A Claude Code plugin that enables bidirectional communication between Claude Cod
 
 ---
 
-## Quick Start
+## Quick Start (5 Minutes)
 
-### 1. Install as Claude Code Plugin
+### Prerequisites
 
-**Option A: Install from GitHub (Recommended)**
+1. **Claude Code CLI** installed
+2. **QQ Bot credentials** from [QQ Open Platform](https://q.qq.com/)
+
+### Step 1: Install Plugin
+
+**Option A: Install from Marketplace (Recommended)**
+
 ```bash
-# Install directly from GitHub
-claude plugin add https://github.com/fuzhibo/qqbot-claudecode-skill
+# In Claude Code CLI
+/plugin marketplace add https://github.com/fuzhibo/qqbot-claudecode-skill
 ```
 
 **Option B: Install from Local Directory**
+
 ```bash
-# Clone the repository
+# Clone and build
 git clone https://github.com/fuzhibo/qqbot-claudecode-skill.git
-cd qqbot
-
-# Install dependencies and build
-npm install
-npm run build
-
-# Add to Claude Code plugins
-claude plugin add /path/to/qqbot
-```
-
-### Updating the Plugin
-
-```bash
-# Update to latest version
-claude plugin update qqbot-mcp
-
-# Or update from local directory after git pull
-cd /path/to/qqbot
-git pull
+cd qqbot-claudecode-skill
 npm install && npm run build
+
+# Add to Claude Code
+claude plugin add /path/to/qqbot-claudecode-skill
 ```
 
-### 2. Configure Environment
+### Step 2: Configure Project Credentials
+
+Create a `.env` file in your project directory (not the plugin directory):
 
 ```bash
-# Copy example config
-cp .env.example .env
-
-# Edit with your QQ Bot credentials
-# Get credentials from https://q.qq.com/
+# In your project root
+cat > .env << 'EOF'
+QQBOT_APP_ID=your-app-id-here
+QQBOT_CLIENT_SECRET=your-client-secret-here
+QQBOT_IMAGE_SERVER_BASE_URL=http://your-server:18765
+EOF
 ```
 
-### 3. Start the Gateway
+> **Note**: Each project can have its own QQ Bot credentials. Configuration is stored in `~/.claude/qqbot-gateway/projects.json`.
+
+### Step 3: Register Your Project
+
+```bash
+# Register current project
+node /path/to/qqbot-claudecode-skill/scripts/qqbot-gateway.js register $(pwd) --name my-project
+
+# Or use the skill
+/qqbot-service register $(pwd) --name my-project
+```
+
+### Step 4: Start Gateway
 
 ```bash
 # Notify mode (desktop notifications only)
@@ -109,11 +117,92 @@ npm run gateway:start
 npm run gateway:start -- --auto
 ```
 
-### 4. Check Status
+### Step 5: Test
+
+Send a message to your QQ Bot, Claude Code will respond automatically (in auto mode) or show a desktop notification (in notify mode).
+
+---
+
+## Installation Details
+
+### Install from Marketplace
 
 ```bash
-npm run gateway:status
+# Add plugin from GitHub
+/plugin marketplace add https://github.com/fuzhibo/qqbot-claudecode-skill
 ```
+
+### Install from Local
+
+```bash
+git clone https://github.com/fuzhibo/qqbot-claudecode-skill.git
+cd qqbot-claudecode-skill
+npm install
+npm run build
+claude plugin add $(pwd)
+```
+
+### Update Plugin
+
+```bash
+# Update from marketplace
+claude plugin update qqbot-mcp
+
+# Or update from local
+cd /path/to/qqbot-claudecode-skill
+git pull
+npm install && npm run build
+```
+
+---
+
+## Configuration
+
+### Project-Level Configuration
+
+Each project maintains its own QQ Bot credentials, stored in `~/.claude/qqbot-gateway/projects.json`:
+
+```json
+{
+  "projects": [
+    {
+      "path": "/path/to/project-a",
+      "name": "project-a",
+      "botConfig": {
+        "appId": "xxx",
+        "clientSecret": "xxx"
+      }
+    },
+    {
+      "path": "/path/to/project-b",
+      "name": "project-b",
+      "botConfig": {
+        "appId": "yyy",
+        "clientSecret": "yyy"
+      }
+    }
+  ]
+}
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `QQBOT_APP_ID` | Yes | QQ Bot AppID |
+| `QQBOT_CLIENT_SECRET` | Yes | QQ Bot Client Secret |
+| `QQBOT_IMAGE_SERVER_BASE_URL` | No | Image server URL |
+| `QQBOT_TEST_TARGET_ID` | No | Test target ID (format: `G_群号`, `U_用户ID`, `C_频道ID`) |
+
+### Configuration Files
+
+| File | Location | Purpose |
+|------|----------|---------|
+| Projects | `~/.claude/qqbot-gateway/projects.json` | Registered projects and bot configs |
+| Sessions | `~/.claude/qqbot-gateway/sessions/` | Session data |
+| Hooks | `~/.claude/qqbot-gateway/hooks.json` | Hook configurations |
+| Logs | `~/.claude/qqbot-gateway/gateway.log` | Gateway logs |
+| PID | `~/.claude/qqbot-gateway/gateway.pid` | Process ID file |
 
 ---
 
@@ -272,25 +361,28 @@ node scripts/qqbot-hooks.js add
 
 ---
 
-## Configuration Files
+## Skills
 
-| File | Location | Purpose |
-|------|----------|---------|
-| Projects | `~/.claude/qqbot-gateway/projects.json` | Registered projects |
-| Sessions | `~/.claude/qqbot-gateway/sessions/` | Session data |
-| Hooks | `~/.claude/qqbot-gateway/hooks.json` | Hook configurations |
-| Logs | `~/.claude/qqbot-gateway/gateway.log` | Gateway logs |
+### /qqbot-service - Background Service Management
 
----
+| Command | Description |
+|---------|-------------|
+| `start [--mode auto/notify]` | Start background service |
+| `stop` | Stop background service |
+| `restart` | Restart background service |
+| `status` | View service status |
+| `list` | View project list |
+| `switch <name>` | Switch default project |
 
-## Environment Variables
+### /qqbot-set-hook - Hook Configuration
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `QQBOT_APP_ID` | Yes | QQ Bot AppID |
-| `QQBOT_CLIENT_SECRET` | Yes | QQ Bot Client Secret |
-| `QQBOT_IMAGE_SERVER_BASE_URL` | No | Image server URL |
-| `QQBOT_TEST_TARGET_ID` | No | Test target ID |
+| Command | Description |
+|---------|-------------|
+| (no args) | Interactive hook configuration |
+| `--list` | View configured hooks |
+| `--remove <id>` | Remove specified hook |
+| `--clear` | Clear all hooks |
+| `--test <id>` | Test send hook message |
 
 ---
 
@@ -305,7 +397,7 @@ npm run doctor
 ### Common Issues
 
 1. **Gateway won't start**
-   - Check credentials in `.env`
+   - Check credentials in project `.env`
    - Verify network connectivity
    - Run `npm run doctor`
 
@@ -317,6 +409,11 @@ npm run doctor
    - Verify project is registered
    - Check `--cwd` path is correct
    - Ensure Claude Code is available
+
+4. **Multiple projects with different bots**
+   - Each project should have its own `.env` file
+   - Use `register` command to add each project
+   - Switch between projects with `switch` command
 
 ---
 
