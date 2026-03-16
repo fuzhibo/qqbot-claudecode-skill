@@ -1,3 +1,9 @@
+---
+name: qqbot-set-hook
+description: 配置项目级 Hook，在 Claude Code 触发 hook 事件时自动推送消息到 QQ。当用户需要配置消息推送通知时使用此技能。
+version: 1.0.0
+---
+
 # /qqbot-set-hook
 
 配置项目级 Hook，在 Claude Code 触发 hook 事件时自动推送消息到 QQ。

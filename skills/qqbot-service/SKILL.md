@@ -1,3 +1,9 @@
+---
+name: qqbot-service
+description: QQ Bot 后台服务管理技能 - 管理全局 QQ Bot 网关守护进程。支持 start/stop/restart/status 命令。当用户需要管理 QQ Bot 服务时使用此技能。
+version: 1.0.0
+---
+
 # /qqbot-service
 
 QQ Bot 后台服务管理技能 - 管理全局 QQ Bot 网关守护进程。

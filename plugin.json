@@ -19,16 +19,6 @@
   "commands": [
     "./commands/"
   ],
-  "skills": {
-    "qqbot-service": {
-      "path": "./skills/qqbot-service/SKILL.md",
-      "description": "QQ Bot 后台服务管理 - start/stop/restart/status"
-    },
-    "qqbot-set-hook": {
-      "path": "./skills/qqbot-set-hook/SKILL.md",
-      "description": "配置项目级 Hook 用于消息推送"
-    }
-  },
   "mcpServers": {
     "qqbot": {
       "command": "node",
