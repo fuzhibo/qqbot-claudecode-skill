@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.2.0] - 2026-03-16
+
+### 功能更新
+
+  - d710024 docs(build-release): 强调插件安装方式，移除 npm 发布提示
+  - 92576b5 docs: 完善 README 快速实践指南，更新项目级配置说明
+  - dad72cb fix: 移除 plugin.json 中不支持的 category 字段
+  - d5821fb chore: 更新 plugin.json author 为 fuzhibo
+  - cede48b chore: 更新 marketplace owner 为 fuzhibo
+  - 35c3da5 refactor: 移除全局 .env，简化配置架构
+  - 305fe6a feat: 项目级配置独立存储，不覆盖全局配置
+  - c09c074 feat: 项目级配置自动同步到全局
+  - af094a4 fix: 环境变量优先从全局配置加载
+  - dbdb3dc feat: 网关启动时检查是否已有实例运行
+
 ## [1.1.0] - 2026-03-13
 
 ### 功能更新
