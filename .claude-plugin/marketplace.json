@@ -6,27 +6,38 @@
   },
   "metadata": {
     "description": "QQ Bot MCP integration for Claude Code - send messages, files, and receive tasks from QQ",
-    "version": "1.2.7"
+    "version": "1.2.8"
   },
   "plugins": [
     {
       "name": "qqbot-mcp",
       "source": "./",
       "description": "QQ Bot MCP integration - bidirectional communication between Claude Code and QQ",
-      "version": "1.2.7",
+      "version": "1.2.8",
       "author": {
         "name": "fuzhibo"
       },
       "homepage": "https://github.com/fuzhibo/qqbot-claudecode-skill",
       "repository": "https://github.com/fuzhibo/qqbot-claudecode-skill",
       "license": "MIT",
-      "keywords": ["qq", "bot", "mcp", "messaging", "chinese", "communication"],
+      "keywords": [
+        "qq",
+        "bot",
+        "mcp",
+        "messaging",
+        "chinese",
+        "communication"
+      ],
       "category": "communication",
-      "commands": ["./commands/"],
+      "commands": [
+        "./commands/"
+      ],
       "mcpServers": {
         "qqbot": {
           "command": "node",
-          "args": ["${CLAUDE_PLUGIN_ROOT}/dist/src/mcp/index.js"],
+          "args": [
+            "${CLAUDE_PLUGIN_ROOT}/dist/src/mcp/index.js"
+          ],
           "env": {
             "QQBOT_APP_ID": "${QQBOT_APP_ID}",
             "QQBOT_CLIENT_SECRET": "${QQBOT_CLIENT_SECRET}",
