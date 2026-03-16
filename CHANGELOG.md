@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.2.9] - 2026-03-16
+
+### 问题修复
+
+  - 83b9a64 chore: release v1.2.8
+  - e17be93 fix: build-release 现在自动更新 marketplace.json 版本号
+  - 7a86fec chore: release v1.2.7
+  - 575acc5 feat: 添加 /qqbot-doctor 技能命令
+  - 2cc192e chore: release v1.2.6
+  - abba8bf feat(doctor): 增强 doctor 自动修复功能
+  - 9b7dcaf chore: release v1.2.5
+  - f2c757f feat: 增强 setup-wizard 环境检查功能
+  - 6a72670 chore: release v1.2.4
+  - 00f1708 fix: 修复命令执行路径
+
 ## [1.2.8] - 2026-03-16
 
 ### 问题修复
