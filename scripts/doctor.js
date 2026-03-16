@@ -279,10 +279,15 @@ async function runDiagnostics() {
 async function autoFix() {
   log('cyan', '\n🔧 自动修复模式\n');
 
+  const pluginRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
+  let fixed = 0;
+  let failed = 0;
+
   // 1. 创建配置目录
   if (!fs.existsSync(CONFIG_DIR)) {
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
     log('green', '  ✅ 创建配置目录');
+    fixed++;
   }
 
   // 2. 创建默认配置文件
@@ -294,38 +299,98 @@ async function autoFix() {
     };
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(defaultConfig, null, 2));
     log('green', '  ✅ 创建默认配置文件');
+    fixed++;
   }
 
-  // 3. 检查是否需要构建
-  const pluginRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
-  const distPath = path.join(pluginRoot, 'dist', 'src', 'mcp');
+  // 3. 检查并安装依赖
+  const nodeModulesPath = path.join(pluginRoot, 'node_modules');
 
-  if (!fs.existsSync(distPath)) {
-    log('yellow', '  ⚠️  需要运行构建: npm run build');
+  if (!fs.existsSync(nodeModulesPath)) {
+    log('yellow', '  ⚠️  node_modules 不存在，正在安装所有依赖...');
+    try {
+      execSync('npm install', { cwd: pluginRoot, stdio: 'inherit' });
+      log('green', '  ✅ 依赖安装完成');
+      fixed++;
+    } catch (e) {
+      log('red', '  ❌ 安装失败，请手动运行: npm install');
+      failed++;
+    }
+  } else {
+    // 检查缺失的依赖并逐个安装
+    for (const dep of REQUIRED_DEPENDENCIES) {
+      const depPath = path.join(nodeModulesPath, dep.name.replace('@', '').replace('/', path.sep));
+      const exists = fs.existsSync(depPath) || fs.existsSync(path.join(nodeModulesPath, dep.name));
+
+      if (!exists) {
+        log('yellow', `  ⚠️  ${dep.name} 未安装，正在安装...`);
+        try {
+          execSync(`npm install ${dep.name}`, { cwd: pluginRoot, stdio: 'inherit' });
+          log('green', `  ✅ ${dep.name} 安装完成`);
+          fixed++;
+        } catch (e) {
+          log('red', `  ❌ ${dep.name} 安装失败，请手动运行: npm install ${dep.name}`);
+          failed++;
+        }
+      }
+    }
+  }
+
+  // 4. 检查并执行构建
+  const distPath = path.join(pluginRoot, 'dist', 'src', 'mcp');
+  const needsBuild = !fs.existsSync(distPath) ||
+    !fs.existsSync(path.join(distPath, 'index.js'));
+
+  if (needsBuild) {
+    log('yellow', '  ⚠️  需要构建项目...');
     try {
       log('dim', '  正在构建...');
       execSync('npm run build', { cwd: pluginRoot, stdio: 'inherit' });
       log('green', '  ✅ 构建完成');
+      fixed++;
     } catch (e) {
-      log('red', '  ❌ 构建失败，请手动运行 npm run build');
+      log('red', '  ❌ 构建失败，请手动运行: npm run build');
+      failed++;
     }
   }
 
-  // 4. 检查依赖
-  const nodeModulesPath = path.join(pluginRoot, 'node_modules');
-  if (!fs.existsSync(nodeModulesPath)) {
-    log('yellow', '  ⚠️  需要安装依赖: npm install');
+  // 5. 检查 proactive.js 是否存在（send-proactive.ts 需要）
+  const proactiveJs = path.join(pluginRoot, 'dist', 'src', 'proactive.js');
+  if (!fs.existsSync(proactiveJs)) {
+    log('yellow', '  ⚠️  proactive.js 不存在，尝试重新构建...');
     try {
-      log('dim', '  正在安装依赖...');
-      execSync('npm install', { cwd: pluginRoot, stdio: 'inherit' });
-      log('green', '  ✅ 依赖安装完成');
+      execSync('npm run build', { cwd: pluginRoot, stdio: 'inherit' });
+      log('green', '  ✅ 重新构建完成');
+      fixed++;
     } catch (e) {
-      log('red', '  ❌ 安装失败，请手动运行 npm install');
+      log('red', '  ❌ 构建失败');
+      failed++;
     }
   }
 
-  log('\n' + colors.green + '✅ 自动修复完成！' + colors.reset);
-  log('dim', '请运行 doctor 再次检查状态\n');
+  // 输出摘要
+  log('\n' + '═'.repeat(50));
+  log('bold', '\n📊 修复摘要\n');
+
+  if (fixed > 0) {
+    log('green', `  ✅ 已修复: ${fixed} 项`);
+  }
+  if (failed > 0) {
+    log('red', `  ❌ 失败: ${failed} 项`);
+  }
+  if (fixed === 0 && failed === 0) {
+    log('green', '  ✅ 所有检查通过，无需修复');
+  }
+
+  if (failed > 0) {
+    log('\n' + colors.yellow + '手动修复命令:' + colors.reset);
+    log('dim', `  cd ${pluginRoot}`);
+    log('dim', '  npm install');
+    log('dim', '  npm run build');
+  }
+
+  log('\n' + colors.dim + '请运行 doctor 再次检查状态\n' + colors.reset);
+
+  return failed === 0;
 }
 
 // 主入口
