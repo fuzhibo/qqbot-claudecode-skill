@@ -24,6 +24,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.dirname(__dirname);
 const PACKAGE_JSON = path.join(ROOT_DIR, 'package.json');
 const PLUGIN_JSON = path.join(ROOT_DIR, 'plugin.json');
+const MARKETPLACE_JSON = path.join(ROOT_DIR, '.claude-plugin', 'marketplace.json');
 const CHANGELOG_PATH = path.join(ROOT_DIR, 'CHANGELOG.md');
 
 // 颜色输出
@@ -86,6 +87,30 @@ function updatePluginJson(newVersion) {
   plugin.version = newVersion;
   fs.writeFileSync(PLUGIN_JSON, JSON.stringify(plugin, null, 2) + '\n', 'utf-8');
   log('green', `  ✅ plugin.json 更新到 ${newVersion}`);
+}
+
+function updateMarketplaceJson(newVersion) {
+  if (!fs.existsSync(MARKETPLACE_JSON)) {
+    log('yellow', '  ⚠️  marketplace.json 不存在，跳过');
+    return;
+  }
+
+  const marketplace = JSON.parse(fs.readFileSync(MARKETPLACE_JSON, 'utf-8'));
+
+  // 更新 metadata 版本
+  if (marketplace.metadata) {
+    marketplace.metadata.version = newVersion;
+  }
+
+  // 更新每个插件的版本
+  if (marketplace.plugins && Array.isArray(marketplace.plugins)) {
+    marketplace.plugins.forEach(plugin => {
+      plugin.version = newVersion;
+    });
+  }
+
+  fs.writeFileSync(MARKETPLACE_JSON, JSON.stringify(marketplace, null, 2) + '\n', 'utf-8');
+  log('green', `  ✅ marketplace.json 更新到 ${newVersion}`);
 }
 
 function runBuild() {
@@ -247,6 +272,7 @@ async function release(type) {
   log('bold', '\n📝 更新版本号\n');
   updatePackageJson(newVersion);
   updatePluginJson(newVersion);
+  updateMarketplaceJson(newVersion);
 
   // 5. 更新 CHANGELOG
   log('bold', '\n📋 更新变更日志\n');
