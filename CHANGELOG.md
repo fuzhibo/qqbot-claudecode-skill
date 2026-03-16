@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.2.11] - 2026-03-16
+
+### 问题修复
+
+  - f399171 fix: correct import paths in send-proactive.ts
+  - e0d0fdb chore: release v1.2.10
+  - 33ba982 fix: add send command to CLI and create send-message.js
+  - fc3f44f chore: release v1.2.9
+  - 83b9a64 chore: release v1.2.8
+  - e17be93 fix: build-release 现在自动更新 marketplace.json 版本号
+  - 7a86fec chore: release v1.2.7
+  - 575acc5 feat: 添加 /qqbot-doctor 技能命令
+  - 2cc192e chore: release v1.2.6
+  - abba8bf feat(doctor): 增强 doctor 自动修复功能
+
 ## [1.2.10] - 2026-03-16
 
 ### 问题修复
