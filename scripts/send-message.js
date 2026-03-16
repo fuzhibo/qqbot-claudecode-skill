@@ -141,9 +141,37 @@ async function sendMessage(accessToken, openid, message, type) {
   return await response.json();
 }
 
+// 显示帮助信息
+function showHelp() {
+  console.log(`
+${colors.cyan}QQ Bot 发送消息 CLI${colors.reset}
+
+用法:
+  node send-message.js <targetId> <message> [options]
+
+参数:
+  ${colors.green}targetId${colors.reset}  目标 ID (G_群号/U_用户ID/C_频道ID)
+  ${colors.green}message${colors.reset}   消息内容
+
+选项:
+  ${colors.green}--bot <name>${colors.reset}   使用指定的机器人配置
+  ${colors.green}--type <type>${colors.reset}  消息类型: c2c, group, channel
+
+示例:
+  node send-message.js G_123456789 "你好，群消息"
+  node send-message.js U_abc123 "私聊消息" --bot my-bot
+`);
+}
+
 // 主函数
 async function main() {
   const args = process.argv.slice(2);
+
+  // 处理帮助请求
+  if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
+    showHelp();
+    process.exit(0);
+  }
 
   // 解析参数
   let targetId = null;

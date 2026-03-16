@@ -280,6 +280,30 @@ async function sendMessage(args) {
   const __dirname = path.dirname(decodeURIComponent(new URL(import.meta.url).pathname));
   const scriptPath = path.join(__dirname, '..', 'scripts', 'send-message.js');
 
+  // 处理帮助请求
+  if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
+    console.log(`
+${colors.cyan}发送消息到 QQ${colors.reset}
+
+用法:
+  qqbot-mcp-cli send <targetId> <message> [options]
+
+参数:
+  ${colors.green}targetId${colors.reset}  目标 ID (G_群号/U_用户ID/C_频道ID)
+  ${colors.green}message${colors.reset}   消息内容
+
+选项:
+  ${colors.green}--bot <name>${colors.reset}   使用指定的机器人配置
+  ${colors.green}--type <type>${colors.reset}  消息类型: c2c, group, channel
+
+示例:
+  qqbot-mcp-cli send G_123456789 "你好，群消息"
+  qqbot-mcp-cli send U_abc123 "私聊消息" --bot my-bot
+  qqbot-mcp-cli send C_channel123 "频道消息"
+`);
+    process.exit(0);
+  }
+
   if (args.length < 2) {
     log('red', '❌ 参数不完整');
     log('dim', '用法: qqbot-mcp-cli send <targetId> <message> [--bot <name>]');
