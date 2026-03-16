@@ -19,13 +19,13 @@
  *   npx ts-node scripts/send-proactive.ts --broadcast --text "系统公告" --type c2c --limit 10
  */
 
-import { 
+import {
   sendProactiveMessageDirect,
-  listKnownUsers, 
+  listKnownUsers,
   getKnownUsersStats,
   broadcastMessage,
-} from "../src/proactive.js";
-import type { ResolvedQQBotAccount } from "../src/types.js";
+} from "../dist/src/proactive.js";
+import type { ResolvedQQBotAccount } from "../dist/src/types.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
