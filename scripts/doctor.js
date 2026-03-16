@@ -61,6 +61,13 @@ function warn(condition, name, message) {
   }
 }
 
+// 脚本所需的依赖列表
+const REQUIRED_DEPENDENCIES = [
+  { name: 'dotenv', import: 'dotenv', scripts: ['qqbot-hooks.js', 'qqbot-gateway.js', 'qqbot-parser.js'] },
+  { name: 'ws', import: 'ws', scripts: ['qqbot-gateway.js'] },
+  { name: '@modelcontextprotocol/sdk', import: '@modelcontextprotocol/sdk', scripts: ['MCP Server'] },
+];
+
 // 诊断检查
 async function runDiagnostics() {
   log('cyan', '\n🔍 QQ Bot MCP 诊断工具\n');
@@ -78,6 +85,8 @@ async function runDiagnostics() {
   );
 
   // 2. 依赖检查
+  log('');
+  log('bold', '📚 依赖检查');
   try {
     const pluginRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
     const nodeModulesPath = path.join(pluginRoot, 'node_modules');
@@ -89,13 +98,30 @@ async function runDiagnostics() {
       '运行 npm install 安装依赖'
     );
 
-    // 检查 MCP SDK
-    check(
-      fs.existsSync(path.join(nodeModulesPath, '@modelcontextprotocol')),
-      'MCP SDK 已安装',
-      '@modelcontextprotocol/sdk 未安装',
-      '运行 npm install @modelcontextprotocol/sdk'
-    );
+    // 检查所有必需依赖
+    let missingDeps = [];
+    for (const dep of REQUIRED_DEPENDENCIES) {
+      const depPath = path.join(nodeModulesPath, dep.name.replace('@', '').replace('/', path.sep));
+      const exists = fs.existsSync(depPath) || fs.existsSync(path.join(nodeModulesPath, dep.name));
+
+      if (!exists) {
+        missingDeps.push(dep.name);
+        results.errors.push({
+          name: `${dep.name} 依赖`,
+          message: `未安装，影响: ${dep.scripts.join(', ')}`,
+          fix: `运行 npm install ${dep.name}`
+        });
+        log('red', `  ❌ ${dep.name}: 未安装 (影响: ${dep.scripts.join(', ')})`);
+      } else {
+        results.passed.push({ name: `${dep.name} 依赖`, message: '已安装' });
+        log('green', `  ✅ ${dep.name}: 已安装`);
+      }
+    }
+
+    // 存储缺失依赖供自动修复使用
+    if (missingDeps.length > 0) {
+      results.missingDependencies = missingDeps;
+    }
   } catch (e) {
     results.errors.push({ name: '依赖检查', message: e.message });
   }

@@ -73,6 +73,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "dotenv": "^16.4.0",
     "mpg123-decoder": "^1.0.3",
     "silk-wasm": "^3.7.1",
     "ws": "^8.18.0"
