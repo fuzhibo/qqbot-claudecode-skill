@@ -11,7 +11,7 @@
 ## 执行
 
 ```bash
-qqbot-mcp-cli list
+node ${CLAUDE_PLUGIN_ROOT}/bin/qqbot-mcp-cli.js list
 ```
 
 ## 输出示例

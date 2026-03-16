@@ -21,7 +21,7 @@
 ## 执行
 
 ```bash
-qqbot-mcp-cli setup ${botName}
+node ${CLAUDE_PLUGIN_ROOT}/bin/qqbot-mcp-cli.js setup ${botName}
 ```
 
 ## 说明
