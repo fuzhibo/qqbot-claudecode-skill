@@ -15,9 +15,15 @@
  *   --type <type> - 消息类型: c2c, group, channel (自动从 targetId 前缀检测)
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import https from 'https';
+import http from 'http';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 配置目录
 const CONFIG_DIR = path.join(os.homedir(), '.claude', 'qqbot-mcp');
@@ -88,17 +94,54 @@ function parseTargetId(targetId) {
   return { type: 'c2c', openid: targetId };
 }
 
-// 获取 Access Token
+// 通用 HTTP 请求函数 (替代 fetch，解决 Node.js 24 兼容问题)
+function httpRequest(urlString, options = {}) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(urlString);
+    const isHttps = url.protocol === 'https:';
+    const client = isHttps ? https : http;
+
+    const reqOptions = {
+      hostname: url.hostname,
+      port: url.port || (isHttps ? 443 : 80),
+      path: url.pathname + url.search,
+      method: options.method || 'GET',
+      headers: options.headers || {},
+    };
+
+    const req = client.request(reqOptions, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          status: res.statusCode,
+          statusText: res.statusMessage,
+          json: async () => JSON.parse(data),
+          text: async () => data,
+        });
+      });
+    });
+
+    req.on('error', reject);
+
+    if (options.body) {
+      req.write(options.body);
+    }
+    req.end();
+  });
+}
+
+// 获取 Access Token (使用新 API)
 async function getAccessToken(appId, clientSecret) {
-  const response = await fetch('https://bots.qq.com/openapi/v1/oauth2/token', {
+  const response = await httpRequest('https://bots.qq.com/app/getAppAccessToken', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      grant_type: 'client_credentials',
-      client_id: appId,
-      client_secret: clientSecret,
+      appId: appId,
+      clientSecret: clientSecret,
     }),
   });
 
@@ -111,24 +154,25 @@ async function getAccessToken(appId, clientSecret) {
   return data.access_token;
 }
 
-// 发送消息
+// 发送消息 (使用新 API: api.sgroup.qq.com)
 async function sendMessage(accessToken, openid, message, type) {
-  const url = type === 'group'
-    ? 'https://bots.qq.com/openapi/v2/groups/messages'
-    : 'https://bots.qq.com/openapi/v2/users/messages';
+  // 新 API 端点
+  const url =
+    type === 'group'
+      ? `https://api.sgroup.qq.com/v2/groups/${openid}/messages`
+      : `https://api.sgroup.qq.com/v2/users/${openid}/messages`;
 
-  // 构建消息内容
+  // 构建消息内容 (新 API 格式)
   const content = {
     content: message,
     msg_type: 0, // 文本消息
   };
 
-  const response = await fetch(`${url}?openid=${openid}`, {
+  const response = await httpRequest(url, {
     method: 'POST',
     headers: {
-      'Authorization': `QQBot ${accessToken}`,
+      Authorization: `QQBot ${accessToken}`,
       'Content-Type': 'application/json',
-      'X-Union-Appid': process.env.QQBOT_APP_ID || '',
     },
     body: JSON.stringify(content),
   });
@@ -231,7 +275,6 @@ async function main() {
 
     log('green', '\n✅ 发送成功！');
     log('dim', `  消息 ID: ${result.id || 'N/A'}`);
-
   } catch (error) {
     log('red', `\n❌ 发送失败: ${error.message}`);
     process.exit(1);

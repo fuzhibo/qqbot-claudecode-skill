@@ -28,7 +28,12 @@ const colors = {
 };
 
 function log(color, message) {
-  console.log(`${colors[color]}${message}${colors.reset}`);
+  // 支持只传一个参数作为纯文本输出
+  if (message === undefined) {
+    console.log(color || '');
+    return;
+  }
+  console.log(`${colors[color] || ''}${message}${colors.reset}`);
 }
 
 // 诊断结果
