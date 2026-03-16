@@ -146,6 +146,14 @@ async function runDiagnostics() {
       'dist/src/mcp/index.js 不存在',
       '运行 npm run build'
     );
+
+    // 检查 send-message.js
+    check(
+      fs.existsSync(path.join(pluginRoot, 'scripts', 'send-message.js')),
+      'send-message.js 存在',
+      'scripts/send-message.js 不存在，无法使用 /qqbot-send',
+      '请更新插件到最新版本'
+    );
   } catch (e) {
     results.errors.push({ name: '构建检查', message: e.message });
   }

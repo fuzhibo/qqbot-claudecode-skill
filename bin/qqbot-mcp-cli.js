@@ -206,6 +206,7 @@ ${colors.cyan}QQ Bot MCP CLI - 命令行管理工具${colors.reset}
   ${colors.green}remove <botName>${colors.reset}   删除机器人配置
   ${colors.green}status${colors.reset}             检查配置状态
   ${colors.green}doctor${colors.reset}             诊断和修复插件问题
+  ${colors.green}send <target> <msg>${colors.reset} 发送消息到 QQ
   ${colors.green}help${colors.reset}               显示此帮助信息
 
 选项:
@@ -223,6 +224,10 @@ ${colors.cyan}QQ Bot MCP CLI - 命令行管理工具${colors.reset}
 
   # 检查配置状态
   qqbot-mcp-cli status
+
+  # 发送消息
+  qqbot-mcp-cli send G_123456789 "你好，这是测试消息"
+  qqbot-mcp-cli send U_abc123 "私聊消息"
 
   # 诊断问题
   qqbot-mcp-cli doctor
@@ -270,6 +275,24 @@ async function runDoctorFix() {
   }
 }
 
+async function sendMessage(args) {
+  const { execSync } = await import('child_process');
+  const __dirname = path.dirname(decodeURIComponent(new URL(import.meta.url).pathname));
+  const scriptPath = path.join(__dirname, '..', 'scripts', 'send-message.js');
+
+  if (args.length < 2) {
+    log('red', '❌ 参数不完整');
+    log('dim', '用法: qqbot-mcp-cli send <targetId> <message> [--bot <name>]');
+    process.exit(1);
+  }
+
+  try {
+    execSync(`node "${scriptPath}" ${args.join(' ')}`, { stdio: 'inherit' });
+  } catch (error) {
+    process.exit(error.status || 1);
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
@@ -304,6 +327,10 @@ async function main() {
       } else {
         await runDoctor();
       }
+      break;
+
+    case 'send':
+      await sendMessage(args.slice(1));
       break;
 
     case 'help':
