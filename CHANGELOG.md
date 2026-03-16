@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.2.2] - 2026-03-16
+
+### 问题修复
+
+  - 60df79b docs: 完善README指令详解和使用场景
+  - e617029 docs: 简化 README，专注于 Claude Code 使用方式
+  - 3a9d6d9 chore: release v1.2.1
+  - dbf2451 fix: 修复 plugin.json manifest 验证错误
+  - 250f4fe chore: release v1.2.0
+  - d710024 docs(build-release): 强调插件安装方式，移除 npm 发布提示
+  - 92576b5 docs: 完善 README 快速实践指南，更新项目级配置说明
+  - dad72cb fix: 移除 plugin.json 中不支持的 category 字段
+  - d5821fb chore: 更新 plugin.json author 为 fuzhibo
+  - cede48b chore: 更新 marketplace owner 为 fuzhibo
+
 ## [1.2.1] - 2026-03-16
 
 ### 问题修复
