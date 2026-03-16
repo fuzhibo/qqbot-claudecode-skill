@@ -1,470 +1,150 @@
-# QQ Bot MCP for Claude Code
+# QQ Bot for Claude Code
 
-> **Original Documentation**: [README.old.md](README.old.md) | **[简体中文](README.zh.md)**
+> 在 Claude Code 中通过 QQ 远程控制和接收通知
 
-A Claude Code plugin that enables bidirectional communication between Claude Code and QQ through the Model Context Protocol (MCP).
-
-[![npm version](https://img.shields.io/npm/v/@sliverp/qqbot-mcp?color=blue&label=npm)](https://www.npmjs.com/package/@sliverp/qqbot-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js->=18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 
-**[简体中文](README.zh.md) | English**
+## 快速开始
 
----
+### 1. 安装插件
 
-## Features
-
-- **MCP Integration** - Full MCP server with 5 core tools
-- **Background Gateway** - WebSocket daemon for real-time QQ message handling
-- **Multi-Project Support** - Register multiple projects with independent sessions and bot credentials
-- **Project-Level Configuration** - Each project can have its own QQ Bot credentials
-- **Smart Message Parsing** - Auto-detect project names, tool permissions, and modes
-- **Hook System** - Configure project-level hooks for QQ notifications
-- **Auto-Reply Mode** - Automatic Claude Code headless mode integration
-
----
-
-## Architecture
+在 Claude Code 中运行：
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   QQ Client     │────▶│  QQ Bot Gateway  │────▶│  Claude Code    │
-│   (User)        │     │  (WebSocket)     │     │  (Headless)     │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-                               │
-                               ▼
-                        ┌──────────────────┐
-                        │  Message Parser  │
-                        │  - Project name  │
-                        │  - Tool perms    │
-                        │  - Permission    │
-                        └──────────────────┘
-```
-
-### Core Components
-
-| Component | File | Description |
-|-----------|------|-------------|
-| MCP Server | `src/mcp/` | MCP protocol implementation with 5 tools |
-| Gateway Daemon | `scripts/qqbot-gateway.js` | WebSocket daemon for QQ Bot |
-| Message Parser | `scripts/qqbot-parser.js` | Smart message parsing |
-| Hook Manager | `scripts/qqbot-hooks.js` | Project-level hook configuration |
-| Doctor | `scripts/doctor.js` | Diagnostic tool |
-| Setup Wizard | `scripts/setup-wizard.js` | Interactive configuration |
-
----
-
-## Quick Start (5 Minutes)
-
-### Prerequisites
-
-1. **Claude Code CLI** installed
-2. **QQ Bot credentials** from [QQ Open Platform](https://q.qq.com/)
-
-### Step 1: Install Plugin
-
-**Option A: Install from Marketplace (Recommended)**
-
-```bash
-# In Claude Code CLI
 /plugin marketplace add https://github.com/fuzhibo/qqbot-claudecode-skill
 ```
 
-**Option B: Install from Local Directory**
+### 2. 配置 QQ Bot 凭证
+
+在**你的项目目录**下创建 `.env` 文件：
 
 ```bash
-# Clone and build
-git clone https://github.com/fuzhibo/qqbot-claudecode-skill.git
-cd qqbot-claudecode-skill
-npm install && npm run build
-
-# Add to Claude Code
-claude plugin add /path/to/qqbot-claudecode-skill
+# 项目根目录/.env
+QQBOT_APP_ID=你的AppID
+QQBOT_CLIENT_SECRET=你的ClientSecret
 ```
 
-### Step 2: Configure Project Credentials
+> 凭证获取：[QQ 开放平台](https://q.qq.com/) → 创建机器人 → 获取 AppID 和 ClientSecret
 
-Create a `.env` file in your project directory (not the plugin directory):
+### 3. 启动服务
 
-```bash
-# In your project root
-cat > .env << 'EOF'
-QQBOT_APP_ID=your-app-id-here
-QQBOT_CLIENT_SECRET=your-client-secret-here
-QQBOT_IMAGE_SERVER_BASE_URL=http://your-server:18765
-EOF
+```
+/qqbot-service start
 ```
 
-> **Note**: Each project can have its own QQ Bot credentials. Configuration is stored in `~/.claude/qqbot-gateway/projects.json`.
-
-### Step 3: Register Your Project
-
-```bash
-# Register current project
-node /path/to/qqbot-claudecode-skill/scripts/qqbot-gateway.js register $(pwd) --name my-project
-
-# Or use the skill
-/qqbot-service register $(pwd) --name my-project
-```
-
-### Step 4: Start Gateway
-
-```bash
-# Notify mode (desktop notifications only)
-npm run gateway:start
-
-# Auto-reply mode (AI responds automatically)
-npm run gateway:start -- --auto
-```
-
-### Step 5: Test
-
-Send a message to your QQ Bot, Claude Code will respond automatically (in auto mode) or show a desktop notification (in notify mode).
+完成！现在你可以：
+- 从 QQ 发消息给 Claude Code，获得 AI 回复
+- Claude Code 的事件会推送到 QQ
 
 ---
 
-## Installation Details
+## 可用技能
 
-### Install from Marketplace
+### /qqbot-service - 服务管理
 
-```bash
-# Add plugin from GitHub
-/plugin marketplace add https://github.com/fuzhibo/qqbot-claudecode-skill
+| 命令 | 说明 |
+|------|------|
+| `/qqbot-service start` | 启动 QQ Bot 服务（自动回复模式） |
+| `/qqbot-service start --mode notify` | 启动服务（仅通知模式） |
+| `/qqbot-service stop` | 停止服务 |
+| `/qqbot-service status` | 查看状态 |
+| `/qqbot-service list` | 查看已注册项目 |
+
+### /qqbot-set-hook - 事件通知
+
+配置 Claude Code 事件推送到 QQ：
+
+```
+/qqbot-set-hook
 ```
 
-### Install from Local
-
-```bash
-git clone https://github.com/fuzhibo/qqbot-claudecode-skill.git
-cd qqbot-claudecode-skill
-npm install
-npm run build
-claude plugin add $(pwd)
-```
-
-### Update Plugin
-
-```bash
-# Update from marketplace
-claude plugin update qqbot-mcp
-
-# Or update from local
-cd /path/to/qqbot-claudecode-skill
-git pull
-npm install && npm run build
-```
+按提示选择要监听的事件（如 SessionStart、PostToolUse 等），配置通知目标。
 
 ---
 
-## Configuration
+## QQ 消息格式
 
-### Project-Level Configuration
+从 QQ 发送消息时，可以使用以下格式：
 
-Each project maintains its own QQ Bot credentials, stored in `~/.claude/qqbot-gateway/projects.json`:
-
-```json
-{
-  "projects": [
-    {
-      "path": "/path/to/project-a",
-      "name": "project-a",
-      "botConfig": {
-        "appId": "xxx",
-        "clientSecret": "xxx"
-      }
-    },
-    {
-      "path": "/path/to/project-b",
-      "name": "project-b",
-      "botConfig": {
-        "appId": "yyy",
-        "clientSecret": "yyy"
-      }
-    }
-  ]
-}
+### 基本消息
+```
+帮我检查一下代码有没有问题
 ```
 
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `QQBOT_APP_ID` | Yes | QQ Bot AppID |
-| `QQBOT_CLIENT_SECRET` | Yes | QQ Bot Client Secret |
-| `QQBOT_IMAGE_SERVER_BASE_URL` | No | Image server URL |
-| `QQBOT_TEST_TARGET_ID` | No | Test target ID (format: `G_群号`, `U_用户ID`, `C_频道ID`) |
-
-### Configuration Files
-
-| File | Location | Purpose |
-|------|----------|---------|
-| Projects | `~/.claude/qqbot-gateway/projects.json` | Registered projects and bot configs |
-| Sessions | `~/.claude/qqbot-gateway/sessions/` | Session data |
-| Hooks | `~/.claude/qqbot-gateway/hooks.json` | Hook configurations |
-| Logs | `~/.claude/qqbot-gateway/gateway.log` | Gateway logs |
-| PID | `~/.claude/qqbot-gateway/gateway.pid` | Process ID file |
-
----
-
-## Available Commands
-
-### Service Management
-
-| Command | Description |
-|---------|-------------|
-| `npm run gateway:start` | Start gateway (notify mode) |
-| `npm run gateway:start -- --auto` | Start gateway (auto-reply mode) |
-| `npm run gateway:stop` | Stop gateway |
-| `npm run gateway:status` | View gateway status |
-| `npm run doctor` | Run diagnostics |
-| `npm run hooks` | Manage hook configurations |
-
-### CLI Commands
-
-```bash
-# Register a project
-node scripts/qqbot-gateway.js register /path/to/project --name my-project
-
-# Switch default project
-node scripts/qqbot-gateway.js switch my-project
-
-# Initialize session
-node scripts/qqbot-gateway.js init-session my-project
-
-# Configure hooks
-node scripts/qqbot-hooks.js add
-node scripts/qqbot-hooks.js list
+### 指定项目
+```
+[项目名] 帮我修复这个 bug
 ```
 
----
-
-## MCP Tools
-
-| Tool | Description |
-|------|-------------|
-| `get_active_bots` | Get list of configured bots |
-| `send_qq_message` | Send text message to QQ |
-| `upload_qq_media` | Upload files/images/videos |
-| `fetch_unread_tasks` | Get unread messages |
-| `get_qq_context` | Get message history |
-
----
-
-## QQ Message Communication Guide
-
-### Message Format
-
-When sending messages to QQ, the gateway intelligently parses your input:
-
-#### 1. Project Selection
-
-```
-[project-name] Your message here
-```
-or
-```
-project:project-name Your message here
-```
-
-If no project is specified, the default project is used.
-
-#### 2. Tool Permissions
-
-```
-allowedTools: Read, Write, Bash
-disallowedTools: WebFetch
-```
-
-**Available Tools:**
-- **File Operations**: `Read`, `Write`, `Edit`, `NotebookEdit`
-- **Network Tools**: `WebFetch`, `WebSearch`
-- **Execution Tools**: `Bash`, `Glob`, `Grep`, `BashOutput`, `KillShell`
-- **Task Management**: `Task`, `TodoWrite`
-- **Others**: `SlashCommand`, `Skill`, `ExitPlanMode`
-
-#### 3. Permission Modes
-
+### 设置权限模式
 ```
 permission-mode: acceptEdits
+帮我重构这个函数
 ```
 
-| Mode | Description |
-|------|-------------|
-| `default` | Manual confirmation for unauthorized operations |
-| `acceptEdits` | Auto-approve file edits |
-| `bypassPermissions` | Skip all permission checks (use carefully) |
-| `plan` | Planning mode only, no execution |
+| 模式 | 说明 |
+|------|------|
+| `default` | 需要手动确认（默认） |
+| `acceptEdits` | 自动批准文件编辑 |
+| `bypassPermissions` | 跳过所有权限检查 |
 
-### Example QQ Messages
-
+### 限制可用工具
 ```
-# Simple message (uses default project)
-Hello, can you help me fix a bug?
-
-# Specify project
-[my-app] Check the authentication module
-
-# With tool permissions
 allowedTools: Read, Grep
-Search for all TODO comments in the codebase
-
-# With permission mode
-permission-mode: acceptEdits
-[my-app] Refactor the API handlers
-
-# Combined
-[backend] allowedTools: Read, Write, Bash
-Update the configuration file with new settings
-```
-
-### Response Format
-
-All responses include a project prefix:
-
-```
-[project-name] AI response content here...
+搜索所有 TODO 注释
 ```
 
 ---
 
-## Hook Configuration
+## 富媒体消息
 
-Configure hooks to receive QQ notifications when Claude Code events occur.
+### 发送图片
+```
+<qqimg>/绝对路径/图片.jpg</qqimg>
+```
 
-### Available Hooks
+### 发送文件
+```
+<qqfile>/绝对路径/文件.pdf</qqfile>
+```
 
-| Hook | Trigger |
-|------|---------|
-| `SessionStart` | Session begins |
-| `SessionEnd` | Session ends |
-| `PreToolUse` | Before tool execution |
-| `PostToolUse` | After tool execution |
-| `UserPromptSubmit` | User submits prompt |
-| `PreCompact` | Before context compression |
-| `PermissionRequest` | Permission request |
-
-### Template Variables
-
-| Variable | Description |
-|----------|-------------|
-| `{{project}}` | Project name |
-| `{{event}}` | Event name |
-| `{{tool}}` | Tool name |
-| `{{timestamp}}` | Timestamp |
-| `{{cwd}}` | Working directory |
-
-### Configure Hook
-
-```bash
-node scripts/qqbot-hooks.js add
+### 发送语音
+```
+<qqvoice>/绝对路径/语音.mp3</qqvoice>
 ```
 
 ---
 
-## Skills
+## 定时提醒
 
-### /qqbot-service - Background Service Management
+用户说："5分钟后提醒我喝水"
 
-| Command | Description |
-|---------|-------------|
-| `start [--mode auto/notify]` | Start background service |
-| `stop` | Stop background service |
-| `restart` | Restart background service |
-| `status` | View service status |
-| `list` | View project list |
-| `switch <name>` | Switch default project |
-
-### /qqbot-set-hook - Hook Configuration
-
-| Command | Description |
-|---------|-------------|
-| (no args) | Interactive hook configuration |
-| `--list` | View configured hooks |
-| `--remove <id>` | Remove specified hook |
-| `--clear` | Clear all hooks |
-| `--test <id>` | Test send hook message |
+Claude 会自动创建定时提醒，到时间后发送 QQ 消息。
 
 ---
 
-## Troubleshooting
+## 常见问题
 
-### Run Diagnostics
+### 服务启动失败
+1. 检查 `.env` 文件中的凭证是否正确
+2. 确保网络可以访问 QQ API
 
-```bash
-npm run doctor
-```
+### 收不到消息
+1. 确认服务正在运行：`/qqbot-service status`
+2. 检查 QQ Bot 是否已上线
 
-### Common Issues
-
-1. **Gateway won't start**
-   - Check credentials in project `.env`
-   - Verify network connectivity
-   - Run `npm run doctor`
-
-2. **Messages not received**
-   - Ensure gateway is running: `npm run gateway:status`
-   - Check logs: `~/.claude/qqbot-gateway/gateway.log`
-
-3. **Auto-reply not working**
-   - Verify project is registered
-   - Check `--cwd` path is correct
-   - Ensure Claude Code is available
-
-4. **Multiple projects with different bots**
-   - Each project should have its own `.env` file
-   - Use `register` command to add each project
-   - Switch between projects with `switch` command
+### 推送消息失败
+1. 确认机器人有主动消息权限
+2. 用户需在 24 小时内与机器人有过互动
 
 ---
 
-## Version Upgrades
+## 更多信息
 
-### Automatic Upgrade Handling
-
-The plugin automatically checks for version changes during SessionStart and performs cleanup:
-
-```bash
-# Manually trigger upgrade check
-npm run upgrade
-```
-
-### Automatic Upgrade Actions
-
-| Action | Description |
-|--------|-------------|
-| Stop Service | Automatically stops running gateway |
-| Backup Config | Backs up projects.json, hooks.json, sessions/ |
-| Cleanup Sessions | Removes sessions older than 7 days |
-| Cleanup Logs | Trims logs exceeding 10MB |
-| Migrate Config | Handles config format changes between versions |
-
-### Rollback Operations
-
-```bash
-# List available backups
-npm run upgrade:backups
-
-# Rollback to specific backup
-npm run upgrade:rollback -- backup-2026-03-13T10-30-00-000Z
-```
-
-### Handling Upgrade Exceptions
-
-| Scenario | Solution |
-|----------|----------|
-| Service won't stop | Check PID file, manually kill process |
-| Config migration failed | Restore from backup directory |
-| Session data lost | Restore from backup-*/sessions/ |
-| Permission issues | Check ~/.claude/qqbot-gateway/ directory permissions |
-
----
+- [完整文档](README.old.md)
+- [变更日志](CHANGELOG.md)
+- [问题反馈](https://github.com/fuzhibo/qqbot-claudecode-skill/issues)
 
 ## License
 
-MIT License - see [LICENSE](LICENSE)
-
----
-
-## Original Project
-
-This project is forked from [sliverp/qqbot](https://github.com/sliverp/qqbot). See [README.old.md](README.old.md) for original documentation.
+MIT
