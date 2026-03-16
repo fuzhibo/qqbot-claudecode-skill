@@ -3,15 +3,30 @@
 /**
  * QQ Bot MCP Setup Wizard
  * 首次安装后自动运行的配置向导
+ *
+ * 功能:
+ *   - 检查并安装依赖
+ *   - 检查并执行构建
+ *   - 配置机器人凭证
  */
 
 import * as readline from 'readline';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { execSync } from 'child_process';
 
 const CONFIG_DIR = path.join(os.homedir(), '.claude', 'qqbot-mcp');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+
+// 获取插件根目录
+const PLUGIN_ROOT = path.dirname(path.dirname(new URL(import.meta.url).pathname));
+
+// 必需的依赖列表
+const REQUIRED_DEPENDENCIES = [
+  { name: 'dotenv', package: 'dotenv' },
+  { name: 'ws', package: 'ws' },
+];
 
 // 颜色输出
 const colors = {
@@ -26,6 +41,151 @@ const colors = {
 
 function log(color, message) {
   console.log(`${colors[color]}${message}${colors.reset}`);
+}
+
+// ============ 环境检查函数 ============
+
+/**
+ * 检查依赖是否已安装
+ */
+function checkDependencies() {
+  const issues = [];
+  const nodeModulesPath = path.join(PLUGIN_ROOT, 'node_modules');
+
+  if (!fs.existsSync(nodeModulesPath)) {
+    issues.push({
+      type: 'critical',
+      message: 'node_modules 不存在',
+      fix: 'npm install'
+    });
+    return issues;
+  }
+
+  for (const dep of REQUIRED_DEPENDENCIES) {
+    const depPath = path.join(nodeModulesPath, dep.name);
+    if (!fs.existsSync(depPath)) {
+      issues.push({
+        type: 'critical',
+        message: `依赖 ${dep.name} 未安装`,
+        fix: `npm install ${dep.package}`
+      });
+    }
+  }
+
+  return issues;
+}
+
+/**
+ * 检查构建输出是否存在
+ */
+function checkBuild() {
+  const issues = [];
+  const distPath = path.join(PLUGIN_ROOT, 'dist');
+
+  if (!fs.existsSync(distPath)) {
+    issues.push({
+      type: 'critical',
+      message: 'dist 目录不存在，项目未构建',
+      fix: 'npm run build'
+    });
+    return issues;
+  }
+
+  // 检查关键文件
+  const criticalFiles = [
+    'dist/src/mcp/index.js',
+    'dist/src/proactive.js',
+    'dist/src/gateway.js',
+  ];
+
+  for (const file of criticalFiles) {
+    if (!fs.existsSync(path.join(PLUGIN_ROOT, file))) {
+      issues.push({
+        type: 'warning',
+        message: `${file} 不存在`,
+        fix: 'npm run build'
+      });
+    }
+  }
+
+  return issues;
+}
+
+/**
+ * 自动修复环境问题
+ */
+function autoFixEnvironment() {
+  log('cyan', '\n🔧 正在检查并修复环境...\n');
+
+  const nodeModulesPath = path.join(PLUGIN_ROOT, 'node_modules');
+
+  // 1. 安装依赖
+  if (!fs.existsSync(nodeModulesPath)) {
+    log('yellow', '  📦 安装依赖...');
+    try {
+      execSync('npm install', { cwd: PLUGIN_ROOT, stdio: 'inherit' });
+      log('green', '  ✅ 依赖安装完成');
+    } catch (e) {
+      log('red', '  ❌ 依赖安装失败，请手动运行: npm install');
+      return false;
+    }
+  } else {
+    // 检查是否有缺失的依赖
+    for (const dep of REQUIRED_DEPENDENCIES) {
+      const depPath = path.join(nodeModulesPath, dep.name);
+      if (!fs.existsSync(depPath)) {
+        log('yellow', `  📦 安装缺失的依赖: ${dep.name}...`);
+        try {
+          execSync(`npm install ${dep.package}`, { cwd: PLUGIN_ROOT, stdio: 'inherit' });
+          log('green', `  ✅ ${dep.name} 安装完成`);
+        } catch (e) {
+          log('red', `  ❌ ${dep.name} 安装失败`);
+          return false;
+        }
+      }
+    }
+  }
+
+  // 2. 构建项目
+  const distPath = path.join(PLUGIN_ROOT, 'dist');
+  if (!fs.existsSync(distPath)) {
+    log('yellow', '  🔨 构建项目...');
+    try {
+      execSync('npm run build', { cwd: PLUGIN_ROOT, stdio: 'inherit' });
+      log('green', '  ✅ 构建完成');
+    } catch (e) {
+      log('red', '  ❌ 构建失败，请手动运行: npm run build');
+      return false;
+    }
+  }
+
+  log('green', '\n✅ 环境检查完成！\n');
+  return true;
+}
+
+/**
+ * 运行完整的环境检查
+ */
+function runEnvironmentCheck() {
+  log('cyan', '\n🔍 环境检查\n');
+
+  const depIssues = checkDependencies();
+  const buildIssues = checkBuild();
+  const allIssues = [...depIssues, ...buildIssues];
+
+  if (allIssues.length === 0) {
+    log('green', '  ✅ 所有检查通过\n');
+    return true;
+  }
+
+  log('yellow', `  发现 ${allIssues.length} 个问题:\n`);
+  allIssues.forEach((issue, i) => {
+    const icon = issue.type === 'critical' ? '❌' : '⚠️';
+    log('red', `  ${icon} ${issue.message}`);
+    log('dim', `     修复: ${issue.fix}`);
+  });
+
+  return false;
 }
 
 function ensureConfigDir() {
@@ -192,6 +352,34 @@ async function main() {
       });
     }
     process.exit(0);
+  }
+
+  // 环境检查模式
+  if (args.includes('--env-check')) {
+    const success = runEnvironmentCheck();
+    process.exit(success ? 0 : 1);
+  }
+
+  // 自动修复模式
+  if (args.includes('--fix')) {
+    const success = autoFixEnvironment();
+    process.exit(success ? 0 : 1);
+  }
+
+  // 运行配置向导前先检查环境
+  log('cyan', '\n🔍 检查运行环境...\n');
+
+  const envOk = runEnvironmentCheck();
+  if (!envOk) {
+    log('yellow', '\n⚠️  检测到环境问题，正在尝试自动修复...\n');
+    const fixed = autoFixEnvironment();
+    if (!fixed) {
+      log('red', '\n❌ 自动修复失败，请手动运行以下命令:');
+      log('dim', '   cd ' + PLUGIN_ROOT);
+      log('dim', '   npm install');
+      log('dim', '   npm run build\n');
+      process.exit(1);
+    }
   }
 
   // 运行配置向导
