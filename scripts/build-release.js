@@ -3,10 +3,16 @@
 /**
  * QQ Bot MCP Build Release Script
  *
+ * 本项目是 Claude Code 插件，通过 Marketplace 或本地安装使用，不需要发布到 npm。
+ *
  * 用法:
  *   node scripts/build-release.js [major|minor|patch]
  *   node scripts/build-release.js --check      # 检查当前版本状态
  *   node scripts/build-release.js --changelog  # 更新 CHANGELOG
+ *
+ * 安装方式:
+ *   - Marketplace: /plugin marketplace add https://github.com/fuzhibo/qqbot-claudecode-skill
+ *   - 本地安装: claude plugin add /path/to/qqbot-claudecode-skill
  */
 
 import * as fs from 'fs';
@@ -195,6 +201,10 @@ function showStatus() {
   log('dim', `  minor: ${bumpVersion(currentVersion, 'minor')} (新功能)`);
   log('dim', `  patch: ${bumpVersion(currentVersion, 'patch')} (小修复)`);
 
+  log('cyan', '\n📌 插件安装方式 (无需 npm 发布)\n');
+  log('dim', `  Marketplace: /plugin marketplace add https://github.com/fuzhibo/qqbot-claudecode-skill`);
+  log('dim', `  本地安装: claude plugin add /path/to/qqbot-claudecode-skill`);
+
   const gitStatus = getGitStatus();
   if (gitStatus) {
     log('yellow', '\n⚠️  有未提交的变更:\n');
@@ -248,11 +258,16 @@ async function release(type) {
 
   // 完成
   log('green', '\n✅ 发布准备完成！\n');
+  log('cyan', '📌 本项目是 Claude Code 插件，无需发布到 npm');
+  log('cyan', '   用户通过 Marketplace 或本地安装使用\n');
   log('cyan', '后续步骤:');
   log('dim', '  1. 检查变更: git diff');
   log('dim', '  2. 提交变更: git add . && git commit -m "chore: release v' + newVersion + '"');
-  log('dim', '  3. 推送标签: git push origin v' + newVersion);
-  log('dim', '  4. 发布到 npm: npm publish\n');
+  log('dim', '  3. 推送代码: git push origin main');
+  log('dim', '  4. 推送标签: git push origin v' + newVersion);
+  log('cyan', '\n用户更新方式:');
+  log('dim', '  - Marketplace: claude plugin update qqbot-mcp');
+  log('dim', '  - 本地安装: git pull && npm install && npm run build\n');
 }
 
 // 主入口
@@ -279,6 +294,7 @@ async function main() {
     log('dim', '选项:');
     log('dim', '  --check     检查当前版本状态');
     log('dim', '  --changelog 仅更新 CHANGELOG\n');
+    log('cyan', '📌 本项目是 Claude Code 插件，无需发布到 npm\n');
     showStatus();
     process.exit(1);
   }
