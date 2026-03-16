@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.2.7] - 2026-03-16
+
+### 问题修复
+
+  - 575acc5 feat: 添加 /qqbot-doctor 技能命令
+  - 2cc192e chore: release v1.2.6
+  - abba8bf feat(doctor): 增强 doctor 自动修复功能
+  - 9b7dcaf chore: release v1.2.5
+  - f2c757f feat: 增强 setup-wizard 环境检查功能
+  - 6a72670 chore: release v1.2.4
+  - 00f1708 fix: 修复命令执行路径
+  - fb8f961 chore: release v1.2.3
+  - 1af3a64 fix: 添加 dotenv 依赖并增强 doctor 依赖检查
+  - e488fad chore: release v1.2.2
+
 ## [1.2.6] - 2026-03-16
 
 ### 问题修复
