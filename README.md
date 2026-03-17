@@ -4,7 +4,180 @@
 
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
-## 快速开始
+## 📋 使用场景导航
+
+根据你的需求选择合适的使用方式：
+
+| 场景 | 需要后台服务 | 能否接收消息 | 指令复杂度 |
+|------|-------------|-------------|-----------|
+| [场景1: 只发送通知](#场景1只发送通知最简单) | ❌ 否 | ❌ 否 | ⭐ 简单 |
+| [场景2: 接收消息+手动处理](#场景2接收消息--手动处理) | ✅ 是 | ✅ 是 | ⭐⭐ 中等 |
+| [场景3: QQ用户作为协作者](#场景3qq用户作为协作者全自动) | ✅ 是 | ✅ 自动 | ⭐⭐⭐ 完整 |
+
+---
+
+### 场景1：只发送通知（最简单）
+
+**适用场景**
+- 只需要从 Claude Code 发送消息到 QQ
+- 不需要接收 QQ 用户的回复
+- 构建完成、部署成功等通知
+
+**使用流程**
+```bash
+# 1. 首次配置（只需一次）
+/qqbot-setup my-bot
+
+# 2. 直接发送消息（无需后台服务）
+/qqbot-send G_123456 "部署成功！"
+/qqbot-send U_abc123 "代码审查完成"
+```
+
+**特点**
+- ✅ 无需启动后台服务
+- ✅ 响应速度快
+- ❌ 无法接收消息
+- ❌ 无法知道消息是否被阅读
+
+---
+
+### 场景2：接收消息 + 手动处理
+
+**适用场景**
+- 需要接收 QQ 用户的任务请求
+- 希望手动控制处理时机
+- 不想 AI 自动回复（安全考虑）
+
+**使用流程**
+```bash
+# 1. 配置机器人
+/qqbot-setup my-bot
+
+# 2. 启动后台服务（notify 模式）
+/qqbot-service start --mode notify
+
+# 3. 检查接收能力
+/qqbot-check --receive
+
+# 4. 获取未读任务
+/qqbot-tasks
+
+# 5. 手动回复结果
+/qqbot-send G_123456 "分析完成，结果是..."
+```
+
+**工作流程**
+```
+QQ 用户发消息 → WebSocket → 后台服务入队 → 等待获取
+                                              ↓
+Claude: /qqbot-tasks 获取 ←─────────────────────┘
+Claude: 处理任务
+Claude: /qqbot-send 回复
+```
+
+**特点**
+- ✅ 可控的消息处理
+- ✅ 可以审核后再回复
+- ⚠️ 需要定期检查任务
+- ⚠️ 延迟取决于检查频率
+
+---
+
+### 场景3：QQ 用户作为协作者（全自动）
+
+**适用场景**
+- 让 QQ 用户像协作者一样参与项目
+- 远程控制 Claude Code
+- 自动响应 QQ 消息
+
+**使用流程**
+```bash
+# 1. 配置机器人
+/qqbot-setup my-bot
+
+# 2. 启动自动回复模式
+/qqbot-service start --mode auto --init-prompt "你是一个代码审查助手"
+
+# 3. 检查状态
+/qqbot-check
+
+# 4. QQ 用户直接对话，AI 自动回复
+# 5. 查看协作者状态
+/qqbot-service status
+
+# 6. 暂停自动回复（临时切换）
+/qqbot-service stop
+```
+
+**工作流程**
+```
+QQ 用户发消息 → WebSocket → 后台服务 → Claude Code Headless → AI 回复 → QQ
+                                      ↓
+                                自动处理消息
+```
+
+**特点**
+- ✅ 全自动响应
+- ✅ 保持会话上下文
+- ✅ 支持复杂任务
+- ⚠️ 消耗 API 配额
+- ⚠️ 需要监控状态
+
+---
+
+## 🎯 快速决策树
+
+不知道选哪种模式？按以下步骤决策：
+
+```
+你需要接收 QQ 消息吗？
+├── 否 → 使用 [场景1: 只发送通知]
+│       └── /qqbot-setup + /qqbot-send
+│
+└── 是 → 你需要 AI 自动回复吗？
+        ├── 否 → 使用 [场景2: 手动处理]
+        │       └── /qqbot-service start --mode notify
+        │       └── 定期运行 /qqbot-tasks
+        │
+        └── 是 → 使用 [场景3: 自动协作]
+                └── /qqbot-service start --mode auto
+                └── QQ 用户直接对话
+```
+
+---
+
+## ⚡ 异常处理速查表
+
+| 现象 | 快速诊断 | 解决方案 |
+|------|---------|---------|
+| **无法发送消息** | `/qqbot-check --send` | 按提示修复凭证或网络 |
+| **收不到消息** | `/qqbot-check --receive` | 检查后台服务是否运行 |
+| **自动回复停止** | `/qqbot-service status` | `/qqbot-service restart` |
+| **发送失败** | `/qqbot-doctor` | 运行诊断工具获取修复建议 |
+| **权限被拒绝** | `/qqbot-check` | 检查 AppID/Client Secret |
+| **连接超时** | `/qqbot-check` | 检查网络连接 |
+
+### 详细故障排除
+
+#### 服务启动失败
+1. 检查凭证：`/qqbot-list`
+2. 环境诊断：`/qqbot-doctor`
+3. 查看日志：`~/.claude/qqbot-gateway/gateway.log`
+
+#### 收不到消息
+1. 确认服务运行：`/qqbot-service status`
+2. 检查接收能力：`/qqbot-check --receive`
+3. 确认 QQ Bot 已上线（QQ 开放平台查看状态）
+4. 确认用户在 24 小时内与机器人有过互动
+
+#### 自动回复异常
+1. 查看服务状态：`/qqbot-service status`
+2. 检查日志：`tail -f ~/.claude/qqbot-gateway/gateway.log`
+3. 重启服务：`/qqbot-service restart`
+
+---
+
+## 🚀 快速开始
 
 ### 1. 安装插件
 
@@ -35,11 +208,13 @@ QQBOT_CLIENT_SECRET=你的ClientSecret
 
 > 凭证获取：[QQ 开放平台](https://q.qq.com/) → 创建机器人 → 获取 AppID 和 ClientSecret
 
-### 3. 启动服务
+### 3. 选择使用场景
 
-```
-/qqbot-service start
-```
+根据上方的 [使用场景导航](#-使用场景导航) 选择适合你的模式：
+
+- **只发通知** → 跳过启动服务，直接使用 `/qqbot-send`
+- **接收消息** → 运行 `/qqbot-service start`
+- **自动协作** → 运行 `/qqbot-service start --mode auto`
 
 完成！现在你可以：
 - 从 QQ 发消息给 Claude Code，获得 AI 回复
@@ -48,6 +223,59 @@ QQBOT_CLIENT_SECRET=你的ClientSecret
 ---
 
 ## 指令详解
+
+### 状态检查
+
+#### /qqbot-check - 统一状态检查（推荐）
+
+**用法**
+```
+/qqbot-check [--receive] [--send]
+```
+
+**选项**
+- `--receive` - 检查消息接收能力
+- `--send` - 检查消息发送能力
+- 无选项 - 执行完整检查
+
+**输出示例**
+```
+🤖 QQ Bot 状态检查工具
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 环境检查
+  ✅ Node.js 版本: v20.11.0
+  ✅ 依赖: ws: 已安装
+
+📋 凭证配置
+  ✅ 机器人配置: 1 个机器人 (my-bot)
+  ✅ AppID: 12345678...
+
+📤 发送能力
+  ✅ 可以发送消息
+
+📥 接收能力
+  ✅ 后台服务: 运行中 (PID: 12345)
+  ✅ 可以接收消息
+
+💡 修复建议
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. /qqbot-setup my-bot
+```
+
+**使用场景**
+- 使用前的快速检查
+- 排查接收/发送问题
+- 自动化脚本中使用
+
+**与其他指令的关系**
+| 指令 | 用途 | 推荐度 |
+|------|------|--------|
+| `/qqbot-check` | 统一状态检查 | ⭐⭐⭐ 推荐 |
+| `/qqbot-service status` | 仅服务状态 | ⭐⭐ 子集 |
+| `/qqbot-doctor` | 环境诊断 | ⭐⭐ 故障排查 |
+
+---
 
 ### 配置管理
 
@@ -144,6 +372,42 @@ QQBOT_CLIENT_SECRET=你的ClientSecret
 | 配置 AI 角色 | `/qqbot-service start --init-prompt "你是一个代码审查助手"` |
 | 查看服务是否运行 | `/qqbot-service status` |
 | 切换工作项目 | `/qqbot-service switch project-a` |
+
+**status 输出示例（增强版）**
+```
+🤖 QQ Bot 网关状态
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+服务状态
+  ✅ 运行中 (PID: 12345)
+  运行时间: 2小时 30分钟
+
+日志状态
+  文件大小: 0.15 MB
+  最后更新: 2024/1/15 10:30:00
+
+已注册项目 (2)
+
+  my-project (★ 默认, ▶ 当前)
+    路径: /home/user/my-project
+    会话: sess_abc123
+    消息序号: 42
+    最后连接: 2024/1/15 10:25:00
+
+  other-project
+    路径: /home/user/other-project
+    会话: 无
+
+当前目录状态
+  ✅ 已注册为 "my-project"
+
+快速操作
+  • 查看任务: /qqbot-tasks
+  • 发送消息: /qqbot-send <targetId> <message>
+  • 停止服务: /qqbot-service stop
+  • 诊断问题: /qqbot-doctor
+  • 检查状态: /qqbot-check
+```
 
 ---
 
@@ -378,29 +642,6 @@ Claude Code 事件 → Hook → QQ 通知
 ```
 /qqbot-service list
 ```
-
----
-
-## 常见问题
-
-### 服务启动失败
-1. 检查凭证是否正确：`/qqbot-list`
-2. 确保网络可以访问 QQ API
-3. 检查日志：`~/.claude/qqbot-gateway/gateway.log`
-
-### 收不到消息
-1. 确认服务正在运行：`/qqbot-service status`
-2. 检查 QQ Bot 是否已上线
-3. 确认用户在 24 小时内与机器人有过互动
-
-### 推送消息失败
-1. 确认机器人有主动消息权限
-2. 在 [QQ 开放平台](https://q.qq.com/) 申请主动消息权限
-
-### Hook 不生效
-1. 确认服务已启动
-2. 检查 Hook 配置：`/qqbot-set-hook --list`
-3. 测试 Hook：`/qqbot-set-hook --test <id>`
 
 ---
 

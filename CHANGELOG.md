@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.3.0] - 2026-03-17
+
+### 功能更新
+
+  - b4e29f6 fix: update send-message.js to use correct QQ Bot API endpoints
+  - cfb49be chore: release v1.2.12
+  - 60976ef fix: add --help support to send command
+  - dde9c8d chore: release v1.2.11
+  - f399171 fix: correct import paths in send-proactive.ts
+  - e0d0fdb chore: release v1.2.10
+  - 33ba982 fix: add send command to CLI and create send-message.js
+  - fc3f44f chore: release v1.2.9
+  - 83b9a64 chore: release v1.2.8
+  - e17be93 fix: build-release 现在自动更新 marketplace.json 版本号
+
 ## [1.2.13] - 2026-03-16
 
 ### 问题修复

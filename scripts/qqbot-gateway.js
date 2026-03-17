@@ -689,38 +689,131 @@ switch (command) {
     }
     break;
 
-  case 'status':
+  case 'status': {
     console.log('\n🤖 QQ Bot 网关状态');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
+    const colors = {
+      reset: '\x1b[0m',
+      green: '\x1b[32m',
+      yellow: '\x1b[33m',
+      red: '\x1b[31m',
+      cyan: '\x1b[36m',
+      dim: '\x1b[2m',
+      bold: '\x1b[1m'
+    };
+
+    let pid = null;
+    let isRunning = false;
+    let uptime = null;
+
+    // 服务状态
     if (fs.existsSync(PID_FILE)) {
-      const pid = parseInt(fs.readFileSync(PID_FILE, 'utf-8'));
+      pid = parseInt(fs.readFileSync(PID_FILE, 'utf-8'));
       try {
         process.kill(pid, 0);
-        console.log(`状态: ✅ 运行中 (PID: ${pid})`);
+        isRunning = true;
+        // 获取 PID 文件创建时间作为启动时间
+        const pidStat = fs.statSync(PID_FILE);
+        uptime = Date.now() - pidStat.birthtimeMs;
       } catch (e) {
-        console.log('状态: ❌ 已停止 (PID 文件存在但进程不存在)');
+        isRunning = false;
+      }
+    }
+
+    console.log(`${colors.bold}服务状态${colors.reset}`);
+    if (isRunning) {
+      console.log(`  ${colors.green}✅ 运行中${colors.reset} (PID: ${pid})`);
+      if (uptime) {
+        const hours = Math.floor(uptime / 3600000);
+        const minutes = Math.floor((uptime % 3600000) / 60000);
+        console.log(`  ${colors.dim}运行时间: ${hours}小时 ${minutes}分钟${colors.reset}`);
       }
     } else {
-      console.log('状态: ❌ 已停止');
+      console.log(`  ${colors.red}❌ 已停止${colors.reset}`);
+      if (pid) {
+        console.log(`  ${colors.yellow}⚠️  PID 文件存在但进程不存在（僵尸状态）${colors.reset}`);
+      }
     }
 
+    // 日志状态
+    console.log(`\n${colors.bold}日志状态${colors.reset}`);
+    if (fs.existsSync(LOG_FILE)) {
+      const logStat = fs.statSync(LOG_FILE);
+      const logSizeMB = (logStat.size / 1024 / 1024).toFixed(2);
+      const lastModified = new Date(logStat.mtime).toLocaleString();
+      console.log(`  文件大小: ${logSizeMB} MB`);
+      console.log(`  ${colors.dim}最后更新: ${lastModified}${colors.reset}`);
+    } else {
+      console.log(`  ${colors.yellow}⚠️  日志文件不存在${colors.reset}`);
+    }
+
+    // 项目状态
     const data = loadProjects();
-    console.log(`\n已注册项目 (${Object.keys(data.projects).length}):`);
+    const currentCwd = process.cwd();
+    console.log(`\n${colors.bold}已注册项目 (${Object.keys(data.projects).length})${colors.reset}`);
 
-    for (const [name, project] of Object.entries(data.projects)) {
-      const isDefault = data.defaultProject === name;
-      const session = loadSession(name);
-      console.log(`  ${isDefault ? '★' : ' '} ${name}`);
-      console.log(`    路径: ${project.path}`);
-      console.log(`    会话: ${session ? session.sessionId : '无'}`);
+    if (Object.keys(data.projects).length === 0) {
+      console.log(`  ${colors.dim}暂无注册项目${colors.reset}`);
+    } else {
+      for (const [name, project] of Object.entries(data.projects)) {
+        const isDefault = data.defaultProject === name;
+        const isCurrent = project.path === currentCwd;
+        const session = loadSession(name);
+
+        const markers = [];
+        if (isDefault) markers.push('★ 默认');
+        if (isCurrent) markers.push('▶ 当前');
+
+        console.log(`\n  ${colors.cyan}${name}${colors.reset} ${markers.length > 0 ? colors.yellow + '(' + markers.join(', ') + ')' + colors.reset : ''}`);
+        console.log(`    路径: ${project.path}`);
+
+        if (session) {
+          console.log(`    会话: ${session.sessionId || '未建立'}`);
+          if (session.lastSeq !== undefined) {
+            console.log(`    ${colors.dim}消息序号: ${session.lastSeq}${colors.reset}`);
+          }
+          if (session.lastConnectedAt) {
+            const lastConn = new Date(session.lastConnectedAt).toLocaleString();
+            console.log(`    ${colors.dim}最后连接: ${lastConn}${colors.reset}`);
+          }
+        } else {
+          console.log(`    会话: ${colors.dim}无${colors.reset}`);
+        }
+      }
     }
 
-    if (data.defaultProject) {
-      console.log(`\n默认项目: ${data.defaultProject}`);
+    // 当前目录项目提示
+    const currentProject = Object.entries(data.projects || {}).find(([_, p]) => p.path === currentCwd);
+    console.log(`\n${colors.bold}当前目录状态${colors.reset}`);
+    if (currentProject) {
+      const isDefault = data.defaultProject === currentProject[0];
+      console.log(`  ${colors.green}✅ 已注册为 "${currentProject[0]}"${colors.reset}`);
+      if (!isDefault) {
+        console.log(`  ${colors.yellow}💡 运行 "/qqbot-service switch ${currentProject[0]}" 设为默认${colors.reset}`);
+      }
+    } else {
+      console.log(`  ${colors.yellow}⚠️  当前项目未注册${colors.reset}`);
+      if (isRunning) {
+        console.log(`  ${colors.dim}💡 运行 "/qqbot-service start" 注册当前项目${colors.reset}`);
+      }
     }
+
+    // 快速操作提示
+    console.log(`\n${colors.bold}快速操作${colors.reset}`);
+    if (!isRunning) {
+      console.log(`  • 启动服务: /qqbot-service start`);
+    } else {
+      console.log(`  • 查看任务: /qqbot-tasks`);
+      console.log(`  • 发送消息: /qqbot-send <targetId> <message>`);
+      console.log(`  • 停止服务: /qqbot-service stop`);
+    }
+    console.log(`  • 诊断问题: /qqbot-doctor`);
+    console.log(`  • 检查状态: /qqbot-check`);
+
     console.log('');
     break;
+  }
 
   case 'register':
     const projectPath = args[0];
