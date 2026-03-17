@@ -24,6 +24,7 @@ import WebSocket from 'ws';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as https from 'https';
 import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
 import { parseMessage as parseMessageFromParser, buildClaudeArgs } from './qqbot-parser.js';
@@ -303,15 +304,111 @@ function parseMessage(message) {
   return parseMessageFromParser(message, data.projects, data.defaultProject);
 }
 
+// ============ HTTPS 请求辅助函数 ============
+function httpsPost(url, data, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const postData = JSON.stringify(data);
+
+    const options = {
+      hostname: urlObj.hostname,
+      port: 443,
+      path: urlObj.pathname + urlObj.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+        ...headers,
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let responseData = '';
+      res.on('data', (chunk) => {
+        responseData += chunk;
+      });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(responseData);
+          resolve({ status: res.statusCode, data: parsed });
+        } catch (e) {
+          resolve({ status: res.statusCode, data: responseData });
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.write(postData);
+    req.end();
+  });
+}
+
+function httpsGet(url, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+
+    const options = {
+      hostname: urlObj.hostname,
+      port: 443,
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers,
+    };
+
+    const req = https.request(options, (res) => {
+      let responseData = '';
+      res.on('data', (chunk) => {
+        responseData += chunk;
+      });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(responseData);
+          resolve({ status: res.statusCode, data: parsed });
+        } catch (e) {
+          resolve({ status: res.statusCode, data: responseData });
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.end();
+  });
+}
+
 // ============ QQ API ============
 async function getAccessToken() {
-  const resp = await fetch('https://bots.qq.com/app/getAppAccessToken', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ appId: APP_ID, clientSecret: CLIENT_SECRET }),
-  });
-  const data = await resp.json();
-  return data.access_token;
+  // 获取默认项目的机器人配置
+  const data = loadProjects();
+  const defaultProject = data.defaultProject;
+  const botConfig = defaultProject ? getProjectBotConfig(defaultProject) : null;
+
+  // 使用项目配置或回退到全局环境变量
+  const appId = botConfig?.appId || process.env.QQBOT_APP_ID;
+  const clientSecret = botConfig?.clientSecret || process.env.QQBOT_CLIENT_SECRET;
+
+  if (!appId || !clientSecret) {
+    throw new Error('未找到 QQ Bot 配置。请设置 QQBOT_APP_ID 和 QQBOT_CLIENT_SECRET 环境变量，或在项目 .env 文件中配置。');
+  }
+
+  try {
+    const result = await httpsPost('https://bots.qq.com/app/getAppAccessToken', {
+      appId,
+      clientSecret,
+    });
+
+    if (!result.data.access_token) {
+      throw new Error(`获取 access token 失败: ${JSON.stringify(result.data)}`);
+    }
+    return result.data.access_token;
+  } catch (error) {
+    throw new Error(`请求 access token 失败: ${error.message}`);
+  }
 }
 
 async function sendC2CMessage(token, openid, content, msgId = null) {
@@ -322,16 +419,15 @@ async function sendC2CMessage(token, openid, content, msgId = null) {
     ...(msgId ? { msg_id: msgId } : {}),
   };
 
-  const resp = await fetch(`https://api.sgroup.qq.com/v2/users/${openid}/messages`, {
-    method: 'POST',
-    headers: {
+  const result = await httpsPost(
+    `https://api.sgroup.qq.com/v2/users/${openid}/messages`,
+    body,
+    {
       Authorization: `QQBot ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+    }
+  );
 
-  return resp.json();
+  return result.data;
 }
 
 // ============ 网关核心 ============
@@ -356,14 +452,10 @@ async function startGateway(gatewayMode = 'notify') {
   log('green', '✅ Access Token 获取成功');
 
   // 获取 Gateway URL
-  const gwResp = await fetch('https://api.sgroup.qq.com/gateway', {
-    headers: {
-      Authorization: `QQBot ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
+  const gwResult = await httpsGet('https://api.sgroup.qq.com/gateway', {
+    Authorization: `QQBot ${accessToken}`,
   });
-  const gwData = await gwResp.json();
-  const gatewayUrl = gwData.url;
+  const gatewayUrl = gwResult.data.url;
   log('green', `✅ Gateway URL: ${gatewayUrl}`);
 
   // 连接 WebSocket

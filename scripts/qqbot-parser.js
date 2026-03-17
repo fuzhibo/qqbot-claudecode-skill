@@ -251,10 +251,8 @@ export function buildClaudeArgs(parsed) {
   // 输出格式
   args.push('--output-format', 'stream-json');
 
-  // 工作目录
-  if (parsed.cwd) {
-    args.push('--cwd', parsed.cwd);
-  }
+  // 注意：工作目录 (cwd) 通过 spawn 的 options.cwd 设置
+  // 不要添加 --cwd 参数，因为 claude CLI 不支持
 
   // 允许的工具
   if (parsed.allowedTools.length > 0) {
