@@ -248,8 +248,9 @@ export function parseMessage(message, projects = {}, defaultProject = null) {
 export function buildClaudeArgs(parsed) {
   const args = ['-p'];
 
-  // 输出格式
+  // 输出格式 (stream-json 需要 --verbose)
   args.push('--output-format', 'stream-json');
+  args.push('--verbose');
 
   // 注意：工作目录 (cwd) 通过 spawn 的 options.cwd 设置
   // 不要添加 --cwd 参数，因为 claude CLI 不支持

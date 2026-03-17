@@ -24,10 +24,22 @@ import WebSocket from 'ws';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import * as https from 'https';
 import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
 import { parseMessage as parseMessageFromParser, buildClaudeArgs } from './qqbot-parser.js';
+
+// 复用 src/api.ts 的完善实现
+// 注意：源码目录是 dist/src/api.js，但插件安装目录是 dist/api.js
+import {
+  getAccessToken as apiGetAccessToken,
+  sendC2CMessage as apiSendC2CMessage,
+  uploadC2CMedia,
+  sendC2CMediaMessage,
+  sendC2CImageMessage as apiSendC2CImageMessage,
+  sendC2CFileMessage as apiSendC2CFileMessage,
+  getGatewayUrl,
+  MediaFileType
+} from '../dist/api.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GATEWAY_DIR = path.join(os.homedir(), '.claude', 'qqbot-gateway');
@@ -304,91 +316,16 @@ function parseMessage(message) {
   return parseMessageFromParser(message, data.projects, data.defaultProject);
 }
 
-// ============ HTTPS 请求辅助函数 ============
-function httpsPost(url, data, headers = {}) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-    const postData = JSON.stringify(data);
+// ============ QQ API (复用 src/api.ts) ============
 
-    const options = {
-      hostname: urlObj.hostname,
-      port: 443,
-      path: urlObj.pathname + urlObj.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData),
-        ...headers,
-      },
-    };
-
-    const req = https.request(options, (res) => {
-      let responseData = '';
-      res.on('data', (chunk) => {
-        responseData += chunk;
-      });
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(responseData);
-          resolve({ status: res.statusCode, data: parsed });
-        } catch (e) {
-          resolve({ status: res.statusCode, data: responseData });
-        }
-      });
-    });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    req.write(postData);
-    req.end();
-  });
-}
-
-function httpsGet(url, headers = {}) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-
-    const options = {
-      hostname: urlObj.hostname,
-      port: 443,
-      path: urlObj.pathname + urlObj.search,
-      method: 'GET',
-      headers,
-    };
-
-    const req = https.request(options, (res) => {
-      let responseData = '';
-      res.on('data', (chunk) => {
-        responseData += chunk;
-      });
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(responseData);
-          resolve({ status: res.statusCode, data: parsed });
-        } catch (e) {
-          resolve({ status: res.statusCode, data: responseData });
-        }
-      });
-    });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    req.end();
-  });
-}
-
-// ============ QQ API ============
+/**
+ * 获取 Access Token - 包装器，自动从项目配置获取凭证
+ */
 async function getAccessToken() {
-  // 获取默认项目的机器人配置
   const data = loadProjects();
   const defaultProject = data.defaultProject;
   const botConfig = defaultProject ? getProjectBotConfig(defaultProject) : null;
 
-  // 使用项目配置或回退到全局环境变量
   const appId = botConfig?.appId || process.env.QQBOT_APP_ID;
   const clientSecret = botConfig?.clientSecret || process.env.QQBOT_CLIENT_SECRET;
 
@@ -396,38 +333,444 @@ async function getAccessToken() {
     throw new Error('未找到 QQ Bot 配置。请设置 QQBOT_APP_ID 和 QQBOT_CLIENT_SECRET 环境变量，或在项目 .env 文件中配置。');
   }
 
-  try {
-    const result = await httpsPost('https://bots.qq.com/app/getAppAccessToken', {
-      appId,
-      clientSecret,
-    });
+  return apiGetAccessToken(appId, clientSecret);
+}
 
-    if (!result.data.access_token) {
-      throw new Error(`获取 access token 失败: ${JSON.stringify(result.data)}`);
+/**
+ * 发送 C2C 消息 - 包装器
+ */
+async function sendC2CMessage(token, openid, content, msgId = null) {
+  return apiSendC2CMessage(token, openid, content, msgId);
+}
+
+// ============ 富媒体消息支持 ============
+
+/**
+ * 发送 C2C 图片消息 - 处理本地文件后调用 API
+ * @param {string} token - Access Token
+ * @param {string} openid - 用户 OpenID
+ * @param {string} imageUrl - 图片路径或 URL
+ * @param {string} [msgId] - 回复的消息 ID
+ * @param {string} [content] - 附加文本内容
+ * @param {boolean} [strictValidation=true] - 是否启用严格验证（用户明确指定路径时为 true）
+ */
+async function sendC2CImageMessage(token, openid, imageUrl, msgId = null, content = null, strictValidation = true) {
+  // 如果是本地文件，先进行安全检查并转换为 Data URL
+  if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !imageUrl.startsWith('data:')) {
+    try {
+      const imageData = await loadImageAsDataUrl(imageUrl, strictValidation);
+      const sizeKB = Math.round(imageData.size / 1024);
+      const sizeDisplay = sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)}MB` : `${sizeKB}KB`;
+
+      log('cyan', `   🖼️ 图片信息:`);
+      log('cyan', `      名称: ${imageData.fileName}`);
+      log('cyan', `      格式: ${imageData.mimeType}`);
+      log('cyan', `      大小: ${sizeDisplay}`);
+
+      return apiSendC2CImageMessage(token, openid, imageData.dataUrl, msgId, content);
+    } catch (error) {
+      log('red', `   ❌ 图片安全检查失败: ${error.message}`);
+      throw error;
     }
-    return result.data.access_token;
-  } catch (error) {
-    throw new Error(`请求 access token 失败: ${error.message}`);
+  }
+
+  // HTTP URL 或 Data URL 直接调用
+  return apiSendC2CImageMessage(token, openid, imageUrl, msgId, content);
+}
+
+/**
+ * 发送 C2C 文件消息 - 处理本地文件后调用 API
+ * @param {string} token - Access Token
+ * @param {string} openid - 用户 OpenID
+ * @param {string} fileUrl - 文件路径或 URL
+ * @param {string} [msgId] - 回复的消息 ID
+ * @param {string} [content] - 附加文本内容
+ * @param {string} [projectPath] - 项目路径（用于模糊搜索）
+ */
+async function sendC2CFileMessage(token, openid, fileUrl, msgId = null, content = null, projectPath = null) {
+  // 如果是本地文件，先读取为 Base64
+  if (!fileUrl.startsWith('http://') && !fileUrl.startsWith('https://')) {
+    try {
+      const fileData = await loadFileAsBase64(fileUrl, projectPath);
+      const sizeKB = Math.round(fileData.size / 1024);
+      const sizeDisplay = sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)}MB` : `${sizeKB}KB`;
+
+      log('cyan', `   📎 文件信息:`);
+      log('cyan', `      名称: ${fileData.fileName}`);
+      log('cyan', `      类型: ${fileData.typeInfo.description}`);
+      log('cyan', `      大小: ${sizeDisplay} (${Math.round(fileData.base64.length / 1024)}KB base64)`);
+
+      return apiSendC2CFileMessage(token, openid, fileData.base64, null, msgId, fileData.fileName);
+    } catch (error) {
+      // 检查是否是多文件匹配的情况
+      if (error.message.startsWith('MULTIPLE_MATCHES:')) {
+        const fileList = error.message.replace('MULTIPLE_MATCHES:', '');
+        throw new Error(`找到多个匹配的文件，请明确指定文件名：\n${fileList}`);
+      }
+      throw error;
+    }
+  } else {
+    // HTTP URL 直接调用
+    log('cyan', `   📎 文件 URL: ${fileUrl}`);
+    return apiSendC2CFileMessage(token, openid, null, fileUrl, msgId);
   }
 }
 
-async function sendC2CMessage(token, openid, content, msgId = null) {
-  const body = {
-    content,
-    msg_type: 0,
-    msg_seq: Math.floor(Math.random() * 1000000),
-    ...(msgId ? { msg_id: msgId } : {}),
+/**
+ * 图片安全配置
+ */
+const IMAGE_SECURITY_CONFIG = {
+  maxSizeBytes: 100 * 1024 * 1024, // 100MB
+  allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'],
+  mimeTypes: {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+  },
+  // 图片文件头魔数（用于验证真实的图片格式）
+  magicNumbers: {
+    'image/jpeg': [0xff, 0xd8, 0xff],
+    'image/png': [0x89, 0x50, 0x4e, 0x47],
+    'image/gif': [0x47, 0x49, 0x46, 0x38],
+    'image/webp': [0x52, 0x49, 0x46, 0x46], // WebP 以 RIFF 开头
+    'image/bmp': [0x42, 0x4d],
+  },
+};
+
+/**
+ * 验证图片格式有效性（通过文件头魔数）
+ */
+function validateImageFormat(buffer, expectedMimeType) {
+  const magicNumbers = IMAGE_SECURITY_CONFIG.magicNumbers[expectedMimeType];
+  if (!magicNumbers) return true; // 未知类型跳过验证
+
+  for (let i = 0; i < magicNumbers.length; i++) {
+    if (buffer[i] !== magicNumbers[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * 读取本地图片并转换为 Base64 Data URL
+ * @param {string} imagePath - 图片路径
+ * @param {boolean} strictValidation - 是否启用严格验证（用户明确指定路径时为 true）
+ * @returns {Promise<{dataUrl: string, fileName: string, size: number, mimeType: string}>}
+ */
+async function loadImageAsDataUrl(imagePath, strictValidation = true) {
+  const fs = await import('fs');
+  const path = await import('path');
+
+  if (!fs.existsSync(imagePath)) {
+    throw new Error(`图片文件不存在: ${imagePath}`);
+  }
+
+  const ext = path.extname(imagePath).toLowerCase();
+  const fileName = path.basename(imagePath);
+
+  // 安全检查：验证文件扩展名
+  if (strictValidation && !IMAGE_SECURITY_CONFIG.allowedExtensions.includes(ext)) {
+    throw new Error(`不支持的图片格式: ${ext}。支持的格式: ${IMAGE_SECURITY_CONFIG.allowedExtensions.join(', ')}`);
+  }
+
+  // 获取 MIME 类型
+  const mimeType = IMAGE_SECURITY_CONFIG.mimeTypes[ext];
+  if (!mimeType) {
+    throw new Error(`无法识别的图片类型: ${ext}`);
+  }
+
+  // 读取文件
+  const buffer = fs.readFileSync(imagePath);
+  const fileSize = buffer.length;
+
+  // 安全检查：文件大小
+  if (fileSize > IMAGE_SECURITY_CONFIG.maxSizeBytes) {
+    const sizeMB = (fileSize / 1024 / 1024).toFixed(2);
+    const limitMB = (IMAGE_SECURITY_CONFIG.maxSizeBytes / 1024 / 1024).toFixed(0);
+    throw new Error(`图片文件过大: ${sizeMB}MB，最大允许: ${limitMB}MB`);
+  }
+
+  // 验证图片格式有效性（通过文件头魔数）
+  if (!validateImageFormat(buffer, mimeType)) {
+    throw new Error(`图片格式无效: 文件扩展名是 ${ext}，但文件内容不是有效的 ${mimeType} 格式`);
+  }
+
+  const base64 = buffer.toString('base64');
+
+  return {
+    dataUrl: `data:${mimeType};base64,${base64}`,
+    fileName,
+    size: fileSize,
+    mimeType,
+  };
+}
+
+/**
+ * 获取文件类型信息
+ */
+function getFileTypeInfo(fileName) {
+  const ext = path.extname(fileName).toLowerCase();
+  const typeInfo = {
+    category: 'file',
+    mimeType: 'application/octet-stream',
+    description: '文件',
   };
 
-  const result = await httpsPost(
-    `https://api.sgroup.qq.com/v2/users/${openid}/messages`,
-    body,
-    {
-      Authorization: `QQBot ${token}`,
-    }
-  );
+  // 文档类型
+  if (['.md', '.txt', '.rst'].includes(ext)) {
+    typeInfo.category = 'document';
+    typeInfo.mimeType = ext === '.md' ? 'text/markdown' : 'text/plain';
+    typeInfo.description = ext === '.md' ? 'Markdown 文档' : '文本文件';
+  } else if (['.pdf'].includes(ext)) {
+    typeInfo.category = 'document';
+    typeInfo.mimeType = 'application/pdf';
+    typeInfo.description = 'PDF 文档';
+  } else if (['.doc', '.docx'].includes(ext)) {
+    typeInfo.category = 'document';
+    typeInfo.mimeType = 'application/msword';
+    typeInfo.description = 'Word 文档';
+  } else if (['.json'].includes(ext)) {
+    typeInfo.category = 'code';
+    typeInfo.mimeType = 'application/json';
+    typeInfo.description = 'JSON 文件';
+  } else if (['.js', '.ts', '.jsx', '.tsx'].includes(ext)) {
+    typeInfo.category = 'code';
+    typeInfo.mimeType = 'text/javascript';
+    typeInfo.description = ext.startsWith('.ts') ? 'TypeScript 文件' : 'JavaScript 文件';
+  } else if (['.py'].includes(ext)) {
+    typeInfo.category = 'code';
+    typeInfo.mimeType = 'text/x-python';
+    typeInfo.description = 'Python 文件';
+  } else if (['.zip', '.tar', '.gz'].includes(ext)) {
+    typeInfo.category = 'archive';
+    typeInfo.description = '压缩文件';
+  }
 
-  return result.data;
+  return typeInfo;
+}
+
+/**
+ * 模糊匹配文件 - 当路径不完整时搜索可能的文件
+ */
+async function findMatchingFiles(basePath, pattern, projectPath) {
+  const fs = await import('fs');
+  const path = await import('path');
+
+  // 如果是完整路径且文件存在，直接返回
+  if (fs.existsSync(basePath)) {
+    return [{ path: basePath, exact: true }];
+  }
+
+  // 尝试在项目目录下搜索
+  const searchDir = projectPath || process.cwd();
+  const results = [];
+
+  try {
+    const files = fs.readdirSync(searchDir, { recursive: true });
+    const patternLower = pattern.toLowerCase();
+
+    for (const file of files) {
+      const fullPath = path.join(searchDir, file);
+      try {
+        const stat = fs.statSync(fullPath);
+        if (stat.isFile()) {
+          const fileName = path.basename(file);
+          const fileNameLower = fileName.toLowerCase();
+
+          // 模糊匹配
+          if (fileNameLower.includes(patternLower) || patternLower.includes(fileNameLower.replace(/\.[^.]+$/, ''))) {
+            results.push({
+              path: fullPath,
+              fileName,
+              size: stat.size,
+              exact: false,
+            });
+          }
+        }
+      } catch (e) {
+        // 忽略无法访问的文件
+      }
+    }
+  } catch (e) {
+    // 忽略搜索错误
+  }
+
+  return results.slice(0, 10); // 最多返回10个匹配
+}
+
+/**
+ * 读取本地文件并转换为 Base64
+ * @param {string} filePath - 文件路径
+ * @param {string} [projectPath] - 项目路径（用于模糊搜索）
+ * @returns {Promise<{base64: string, fileName: string, size: number, typeInfo: object}>}
+ */
+async function loadFileAsBase64(filePath, projectPath = null) {
+  const fs = await import('fs');
+  const path = await import('path');
+
+  // 检查文件是否存在
+  if (!fs.existsSync(filePath)) {
+    // 尝试模糊匹配
+    const matches = await findMatchingFiles(filePath, path.basename(filePath).replace(/\.[^.]+$/, ''), projectPath);
+
+    if (matches.length === 0) {
+      throw new Error(`File not found: ${filePath}`);
+    } else if (matches.length === 1 && !matches[0].exact) {
+      // 找到一个模糊匹配，使用它
+      log('cyan', `   🔍 文件路径模糊匹配: ${path.basename(filePath)} → ${matches[0].fileName}`);
+      filePath = matches[0].path;
+    } else if (matches.length > 1) {
+      // 多个匹配，抛出错误让调用者处理
+      const fileList = matches.map((m, i) => `${i + 1}. ${m.fileName} (${Math.round(m.size / 1024)}KB)`).join('\n');
+      throw new Error(`MULTIPLE_MATCHES:${fileList}`);
+    }
+  }
+
+  const fileName = path.basename(filePath);
+  const buffer = fs.readFileSync(filePath);
+  const base64 = buffer.toString('base64');
+  const typeInfo = getFileTypeInfo(fileName);
+
+  return {
+    base64,
+    fileName,
+    size: buffer.length,
+    typeInfo,
+  };
+}
+
+/**
+ * 解析并发送富媒体消息
+ * @param {string} token - Access Token
+ * @param {string} openid - 用户 OpenID
+ * @param {string} text - 包含富媒体标签的文本
+ * @param {string} [msgId] - 回复的消息 ID
+ * @param {string} [projectName] - 项目名称（用于前缀）
+ */
+async function sendRichMessage(token, openid, text, msgId = null, projectName = null) {
+  // 预处理：纠正常见标签格式问题
+  text = text.replace(/<qqimg>/gi, '<qqimg>')
+             .replace(/<\/img>/gi, '</qqimg>')
+             .replace(/<(qqimg)([^>]*?)\/>/gi, '<qqimg>$2</qqimg>');
+
+  // 匹配富媒体标签
+  const mediaTagRegex = /<(qqimg|qqvoice|qqvideo|qqfile)>([^<>]+)<\/(?:qqimg|qqvoice|qqvideo|qqfile|img)>/gi;
+  const matches = text.match(mediaTagRegex);
+
+  if (!matches || matches.length === 0) {
+    // 没有富媒体标签，发送纯文本
+    const finalText = projectName ? `[${projectName}] ${text}` : text;
+    return sendC2CMessage(token, openid, finalText, msgId);
+  }
+
+  log('cyan', `   检测到 ${matches.length} 个富媒体标签，分批发送...`);
+
+  // 构建发送队列
+  const sendQueue = [];
+  let lastIndex = 0;
+  const regexWithIndex = /<(qqimg|qqvoice|qqvideo|qqfile)>([^<>]+)<\/(?:qqimg|qqvoice|qqvideo|qqfile|img)>/gi;
+  let match;
+
+  while ((match = regexWithIndex.exec(text)) !== null) {
+    // 添加标签前的文本
+    const textBefore = text.slice(lastIndex, match.index).replace(/\n{3,}/g, '\n\n').trim();
+    if (textBefore) {
+      sendQueue.push({ type: 'text', content: textBefore });
+    }
+
+    const tagName = match[1].toLowerCase();
+    let mediaPath = match[2].trim();
+
+    // 展开路径
+    if (mediaPath.startsWith('~')) {
+      const os = await import('os');
+      mediaPath = os.homedir() + mediaPath.slice(1);
+    }
+
+    if (tagName === 'qqimg') {
+      sendQueue.push({ type: 'image', content: mediaPath });
+    } else if (tagName === 'qqvoice') {
+      sendQueue.push({ type: 'voice', content: mediaPath });
+    } else if (tagName === 'qqvideo') {
+      sendQueue.push({ type: 'video', content: mediaPath });
+    } else if (tagName === 'qqfile') {
+      sendQueue.push({ type: 'file', content: mediaPath });
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // 添加最后一个标签后的文本
+  const textAfter = text.slice(lastIndex).replace(/\n{3,}/g, '\n\n').trim();
+  if (textAfter) {
+    sendQueue.push({ type: 'text', content: textAfter });
+  }
+
+  log('cyan', `   发送队列: ${sendQueue.map(i => i.type).join(' -> ')}`);
+
+  // 按顺序发送
+  let lastResult = null;
+  let isFirstMessage = true;
+
+  for (const item of sendQueue) {
+    try {
+      if (item.type === 'text') {
+        const content = isFirstMessage && projectName ? `[${projectName}] ${item.content}` : item.content;
+        lastResult = await sendC2CMessage(token, openid, content, isFirstMessage ? msgId : null);
+        log('green', `   ✅ 文本消息已发送`);
+      } else if (item.type === 'image') {
+        const imagePath = item.content;
+        const isHttpUrl = imagePath.startsWith('http://') || imagePath.startsWith('https://');
+
+        let imageUrl;
+        if (isHttpUrl) {
+          imageUrl = imagePath;
+        } else if (imagePath.startsWith('data:')) {
+          imageUrl = imagePath;
+        } else {
+          // 本地文件
+          imageUrl = await loadImageAsDataUrl(imagePath);
+          log('cyan', `   已读取本地图片: ${imagePath}`);
+        }
+
+        lastResult = await sendC2CImageMessage(token, openid, imageUrl, isFirstMessage ? msgId : null);
+        log('green', `   ✅ 图片消息已发送`);
+      } else if (item.type === 'file') {
+        // 发送文件
+        const filePath = item.content;
+        const isHttpUrl = filePath.startsWith('http://') || filePath.startsWith('https://');
+
+        let fileUrl;
+        if (isHttpUrl) {
+          fileUrl = filePath;
+        } else {
+          // 本地文件 - sendC2CFileMessage 会处理
+          fileUrl = filePath;
+        }
+
+        lastResult = await sendC2CFileMessage(token, openid, fileUrl, isFirstMessage ? msgId : null);
+        log('green', `   ✅ 文件消息已发送`);
+      } else if (item.type === 'voice' || item.type === 'video') {
+        // 语音和视频暂不支持，发送提示文本
+        const tipText = `[${item.type === 'voice' ? '语音' : '视频'}暂不支持]`;
+        lastResult = await sendC2CMessage(token, openid, tipText, isFirstMessage ? msgId : null);
+        log('yellow', `   ⚠️ ${item.type} 暂不支持，已发送提示`);
+      }
+
+      isFirstMessage = false;
+
+      // 发送间隔，避免频率限制
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      log('red', `   ❌ 发送 ${item.type} 失败: ${error.message}`);
+    }
+  }
+
+  return lastResult;
 }
 
 // ============ 网关核心 ============
@@ -451,11 +794,8 @@ async function startGateway(gatewayMode = 'notify') {
   accessToken = await getAccessToken();
   log('green', '✅ Access Token 获取成功');
 
-  // 获取 Gateway URL
-  const gwResult = await httpsGet('https://api.sgroup.qq.com/gateway', {
-    Authorization: `QQBot ${accessToken}`,
-  });
-  const gatewayUrl = gwResult.data.url;
+  // 获取 Gateway URL (使用 src/api.ts 的完善实现)
+  const gatewayUrl = await getGatewayUrl(accessToken);
   log('green', `✅ Gateway URL: ${gatewayUrl}`);
 
   // 连接 WebSocket
@@ -619,6 +959,7 @@ ${originalContent}
     child.stdin.end();
 
     const timeout = setTimeout(() => {
+      log('yellow', `   ⏰ 处理超时 (2分钟)，终止进程...`);
       child.kill();
     }, 120000);
 
@@ -635,33 +976,92 @@ ${originalContent}
           const contents = [];
           for (const line of lines) {
             const json = JSON.parse(line);
-            if (json.type === 'content' && json.content) {
-              contents.push(json.content);
+
+            // 处理不同类型的 stream-json 消息
+            if (json.type === 'content') {
+              // 内容消息，可能有 text 或 content 字段
+              if (json.text) {
+                contents.push(json.text);
+              } else if (json.content) {
+                contents.push(json.content);
+              }
+            } else if (json.type === 'result' && json.result) {
+              // 最终结果消息
+              contents.push(json.result);
             }
           }
           if (contents.length > 0) {
             replyContent = contents.join('');
           }
         } catch (e) {
-          // 使用原始输出
+          // 解析失败，检查是否是纯文本
+          // 如果 stdout 不是有效 JSON，直接使用原始输出
+          if (!stdout.startsWith('{')) {
+            replyContent = stdout.trim();
+          }
         }
 
-        // 添加项目前缀
-        const finalReply = `[${projectName}] ${replyContent}`;
+        // 清理可能的多余空白
+        replyContent = replyContent.trim();
 
-        log('green', `   生成回复: "${finalReply.slice(0, 80)}..."`);
+        // 如果回复内容为空或太短，发送默认回复
+        if (!replyContent || replyContent.length < 2) {
+          replyContent = '消息已收到，处理完成。';
+        }
 
-        // 发送回复
+        // 注意：不再截断，因为 sendRichMessage 会分批发送
+        // 但如果没有任何富媒体标签且内容超长，仍需截断
+        const hasMediaTags = /<(qqimg|qqvoice|qqvideo|qqfile)>/i.test(replyContent);
+        if (!hasMediaTags && replyContent.length > 2000) {
+          replyContent = replyContent.slice(0, 1997) + '...';
+        }
+
+        log('green', `   生成回复: "${replyContent.slice(0, 80)}..."`);
+
+        // 检测是否是权限问题
+        if (replyContent.includes('权限尚未授权') || replyContent.includes('工具权限')) {
+          log('yellow', `   ⚠️ 检测到权限问题，发送授权指引...`);
+
+          // 发送权限说明和授权指引
+          const permissionGuide = `⚠️ 需要授权工具权限
+
+${replyContent}
+
+📝 如何授权：
+1. 发送 "允许工具: mcp" 来授权 MCP 工具
+2. 或发送 "权限模式: 跳过权限" 来跳过权限检查
+3. 授权后重新发送您的请求
+
+💡 示例：
+• "允许工具: mcp" - 授权所有 MCP 工具
+• "权限模式: 跳过权限" - 完全跳过权限检查`;
+
+          const token = await getAccessToken();
+          await sendC2CMessage(token, authorId, permissionGuide, msgId);
+          log('green', `   ✅ 权限指引已发送`);
+          return;
+        }
+
+        // 发送回复（支持富媒体）
         const token = await getAccessToken();
-        const result = await sendC2CMessage(token, authorId, finalReply, msgId);
+        const result = await sendRichMessage(token, authorId, replyContent, msgId, projectName);
 
-        if (result.id) {
+        if (result && result.id) {
           log('green', `   ✅ 回复已发送`);
         } else {
           log('yellow', `   ⚠️ 回复发送失败: ${JSON.stringify(result)}`);
         }
       } else {
-        log('yellow', `   ⚠️ 处理失败: ${stderr.slice(0, 200)}`);
+        // 详细记录失败原因
+        log('yellow', `   ⚠️ 处理失败 (code=${code}):`);
+        if (stdout.trim()) {
+          log('yellow', `   stdout: ${stdout.slice(0, 500)}`);
+        } else {
+          log('yellow', `   stdout: (空)`);
+        }
+        if (stderr.trim()) {
+          log('yellow', `   stderr: ${stderr.slice(0, 500)}`);
+        }
 
         // 发送默认回复
         const token = await getAccessToken();
