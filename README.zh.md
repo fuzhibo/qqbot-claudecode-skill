@@ -84,18 +84,33 @@ claude plugin add /path/to/qqbot-claudecode-skill
 
 ### 步骤 2: 配置项目凭证
 
-在项目目录下创建 `.env` 文件（不是插件目录）：
+**推荐方式：使用 .env 文件 + --from-env 参数（最安全）**
+
+1. 在项目目录下创建 `.env` 文件（不是插件目录）：
 
 ```bash
 # 在你的项目根目录
 cat > .env << 'EOF'
 QQBOT_APP_ID=your-app-id-here
 QQBOT_CLIENT_SECRET=your-client-secret-here
-QQBOT_IMAGE_SERVER_BASE_URL=http://your-server:18765
+QQBOT_TEST_TARGET_ID=U_your-target-id
 EOF
 ```
 
-> **注意**: 每个项目可以有自己的 QQ Bot 凭证。配置存储在 `~/.claude/qqbot-gateway/projects.json`。
+2. 使用 `--from-env` 参数配置（AI 不接触凭证）：
+
+```bash
+node bin/qqbot-mcp-cli.js setup my-bot --from-env
+```
+
+> ✅ **优势**：凭证由脚本直接读取，AI 模型完全不接触敏感数据，避免泄露到对话历史
+
+**其他方式**
+
+- **交互式配置**：`node bin/qqbot-mcp-cli.js setup my-bot`（适合本地终端）
+- **命令行参数**：`node bin/qqbot-mcp-cli.js setup my-bot --appId <id> --secret <secret>`（不推荐，有泄露风险）
+
+> **注意**: 每个项目可以有自己的 QQ Bot 凭证。配置存储在 `~/.claude/qqbot-mcp/config.json`。
 
 ### 步骤 3: 注册项目
 
@@ -194,6 +209,70 @@ npm install && npm run build
 | `QQBOT_IMAGE_SERVER_BASE_URL` | 否 | 图床服务器 URL |
 | `QQBOT_TEST_TARGET_ID` | 否 | 测试目标 ID (格式: `G_群号`, `U_用户ID`, `C_频道ID`) |
 
+### 配置机器人凭证 (setup 命令)
+
+使用 `qqbot-mcp-cli setup` 命令配置机器人凭证：
+
+```bash
+# 方式1: 从 .env 文件读取（推荐，AI不接触凭证）
+node bin/qqbot-mcp-cli.js setup <botName> --from-env
+
+# 方式2: 交互式配置（手动输入）
+node bin/qqbot-mcp-cli.js setup <botName>
+
+# 方式3: 命令行参数（不推荐，凭证可能记录在 shell 历史）
+node bin/qqbot-mcp-cli.js setup <botName> --appId <id> --secret <secret>
+```
+
+#### 推荐配置流程
+
+**Step 1: 创建 .env 文件**
+
+在项目根目录创建 `.env` 文件：
+
+```bash
+cat > .env << 'EOF'
+QQBOT_APP_ID=your-app-id-here
+QQBOT_CLIENT_SECRET=your-client-secret-here
+QQBOT_TEST_TARGET_ID=U_your-target-id
+EOF
+```
+
+**Step 2: 使用 --from-env 配置**
+
+```bash
+node bin/qqbot-mcp-cli.js setup my-bot --from-env
+```
+
+输出示例：
+```
+🔧 配置机器人: my-bot
+
+📄 从 .env 读取配置...
+✅ 从 .env 文件读取配置成功
+   AppID: 19033970...
+   Secret: ****
+   默认目标: U_9C420731A85BB53B6B9D7D45BDCD20F2
+
+✅ 机器人 "my-bot" 配置成功！
+配置文件位置: ~/.claude/qqbot-mcp/config.json
+```
+
+#### 配置方式对比
+
+| 方式 | 命令 | 适用场景 | 安全性 |
+|-----|------|---------|-------|
+| **从 .env 读取（推荐）** | `setup <name> --from-env` | Claude Code / 自动化脚本 | ⭐⭐⭐ 最高，AI不接触凭证 |
+| **交互式手动配置** | `setup <name>` | 用户在自己的终端运行 | ⭐⭐ 凭证不经过网络 |
+| **命令行参数** | `setup <name> --appId <id> --secret <s>` | CI/CD 自动化 | ⭐ 可能记录在 shell 历史 |
+
+#### 安全建议
+
+1. **优先使用 `--from-env`**：凭证由脚本直接读取，AI 模型完全不接触敏感数据
+2. **避免在命令行中使用 `--secret`**：凭证可能被记录在 shell 历史文件中
+3. **将 `.env` 添加到 `.gitignore`**：确保凭证不会被意外提交到代码仓库
+4. **定期轮换凭证**：在 QQ 开放平台定期重置 AppSecret
+
 ### 配置文件
 
 | 文件 | 位置 | 用途 |
@@ -222,6 +301,9 @@ npm install && npm run build
 ### CLI 命令
 
 ```bash
+# 配置机器人凭证（推荐 --from-env 方式）
+node bin/qqbot-mcp-cli.js setup my-bot --from-env
+
 # 注册项目
 node scripts/qqbot-gateway.js register /path/to/project --name my-project
 
@@ -234,6 +316,9 @@ node scripts/qqbot-gateway.js init-session my-project
 # 配置 Hook
 node scripts/qqbot-hooks.js add
 node scripts/qqbot-hooks.js list
+
+# 发送测试消息
+node bin/qqbot-mcp-cli.js send U_userId "测试消息" --bot my-bot
 ```
 
 ---

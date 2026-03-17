@@ -189,7 +189,24 @@ QQ 用户发消息 → WebSocket → 后台服务 → Claude Code Headless → A
 
 ### 2. 配置 QQ Bot 凭证
 
-**方式一：交互式配置（推荐）**
+**方式一：从 .env 文件读取（推荐，最安全）**
+
+1. 在项目目录创建 `.env` 文件：
+
+```bash
+QQBOT_APP_ID=your-app-id
+QQBOT_CLIENT_SECRET=your-client-secret
+```
+
+2. 运行 setup 命令：
+
+```
+/qqbot-setup my-bot --from-env
+```
+
+> ✅ **优势**：AI 完全不接触凭证，避免敏感数据泄露到对话历史
+
+**方式二：交互式配置**
 
 ```
 /qqbot-setup my-bot
@@ -197,14 +214,11 @@ QQ 用户发消息 → WebSocket → 后台服务 → Claude Code Headless → A
 
 按提示输入 AppID 和 Client Secret。
 
-**方式二：环境变量**
+> 适用于用户在本地终端直接运行
 
-在项目目录创建 `.env` 文件：
+**方式三：环境变量（自动检测）**
 
-```bash
-QQBOT_APP_ID=你的AppID
-QQBOT_CLIENT_SECRET=你的ClientSecret
-```
+如果设置了环境变量 `QQBOT_APP_ID` 和 `QQBOT_CLIENT_SECRET`，setup 会自动检测并提供使用选项。
 
 > 凭证获取：[QQ 开放平台](https://q.qq.com/) → 创建机器人 → 获取 AppID 和 ClientSecret
 
@@ -283,27 +297,67 @@ QQBOT_CLIENT_SECRET=你的ClientSecret
 
 **用法**
 ```
-/qqbot-setup <botName>
+/qqbot-setup <botName> [--from-env] [--appId <id>] [--secret <secret>]
 ```
 
 **参数**
 - `botName` - 机器人名称（自定义，用于区分多个机器人）
+- `--from-env` - 从 .env 文件读取配置（推荐，最安全）
+- `--appId <id>` - 直接指定 AppID（不推荐）
+- `--secret <secret>` - 直接指定 Client Secret（不推荐，有泄露风险）
 
-**交互流程**
+**配置方式对比**
+
+| 方式 | 命令 | 适用场景 | 安全性 |
+|-----|------|---------|-------|
+| **从 .env 读取（推荐）** | `/qqbot-setup <name> --from-env` | Claude Code / 自动化脚本 | ⭐⭐⭐ 最高，AI不接触凭证 |
+| **交互式配置** | `/qqbot-setup <name>` | 用户在终端手动输入 | ⭐⭐ 凭证不经过网络 |
+| **命令行参数** | `/qqbot-setup <name> --appId <id> --secret <s>` | CI/CD 自动化 | ⭐ 可能记录在 shell 历史 |
+
+**推荐配置流程（--from-env）**
+
+1. **创建 .env 文件**（在项目根目录）：
+   ```bash
+   QQBOT_APP_ID=your-app-id
+   QQBOT_CLIENT_SECRET=your-client-secret
+   QQBOT_TEST_TARGET_ID=U_your-target-id
+   ```
+
+2. **运行 setup 命令**：
+   ```
+   /qqbot-setup my-bot --from-env
+   ```
+
+3. **完成** - 凭证由脚本直接读取，AI 完全不接触敏感数据
+
+**交互流程（手动模式）**
 1. 输入 AppID
-2. 输入 Client Secret
+2. 输入 Client Secret（隐藏输入）
 3. 设置默认目标 ID（可选）
 4. 设置图床服务器地址（可选）
 
 **使用场景**
 - 首次使用时配置机器人
 - 添加新的机器人（支持多机器人）
+- 通过 .env 文件安全地管理凭证
 
 **示例**
 ```
+# 推荐：从 .env 读取（AI 不接触凭证）
+/qqbot-setup my-bot --from-env
+
+# 交互式配置
 /qqbot-setup my-bot
-/qqbot-setup work-bot
+
+# 命令行参数（不推荐用于手动输入）
+/qqbot-setup work-bot --appId 123456 --secret abcdef
 ```
+
+**安全建议**
+- ✅ **优先使用 `--from-env`**：凭证由脚本直接读取，AI 模型完全不接触敏感数据
+- ⚠️ **避免在命令行中使用 `--secret`**：凭证可能被记录在 shell 历史文件中
+- ✅ **将 `.env` 添加到 `.gitignore`**：确保凭证不会被意外提交到代码仓库
+- ✅ **定期轮换凭证**：在 QQ 开放平台定期重置 AppSecret
 
 ---
 
