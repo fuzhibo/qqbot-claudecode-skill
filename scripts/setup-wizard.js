@@ -264,24 +264,30 @@ async function runSetupWizard() {
     }
 
     // 隐藏输入 Secret
-    process.stdout.write('请输入 Client Secret: ');
-    process.stdin.setRawMode(true);
     let clientSecret = '';
-    await new Promise((resolve) => {
-      process.stdin.on('data', (char) => {
-        if (char === '\n' || char === '\r') {
-          process.stdin.setRawMode(false);
-          process.stdout.write('\n');
-          resolve();
-        } else if (char === '\u0003') {
-          process.exit();
-        } else if (char === '\u007F') {
-          clientSecret = clientSecret.slice(0, -1);
-        } else {
-          clientSecret += char;
-        }
+    if (process.stdin.isTTY) {
+      // TTY 模式：使用 setRawMode 隐藏输入
+      process.stdout.write('请输入 Client Secret: ');
+      process.stdin.setRawMode(true);
+      await new Promise((resolve) => {
+        process.stdin.on('data', (char) => {
+          if (char === '\n' || char === '\r') {
+            process.stdin.setRawMode(false);
+            process.stdout.write('\n');
+            resolve();
+          } else if (char === '\u0003') {
+            process.exit();
+          } else if (char === '\u007F') {
+            clientSecret = clientSecret.slice(0, -1);
+          } else {
+            clientSecret += char;
+          }
+        });
       });
-    });
+    } else {
+      // 非 TTY 模式：使用普通 readline 输入
+      clientSecret = await prompt(rl, '请输入 Client Secret: ');
+    }
 
     if (!clientSecret.trim()) {
       log('red', '❌ Client Secret 不能为空');

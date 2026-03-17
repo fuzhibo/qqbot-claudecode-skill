@@ -59,8 +59,8 @@ function writeConfig(config) {
 
 function prompt(rl, question, hidden = false) {
   return new Promise((resolve) => {
-    if (hidden) {
-      // 隐藏输入（用于密码）
+    if (hidden && process.stdin.isTTY) {
+      // 隐藏输入（用于密码）- 仅在 TTY 模式下使用
       process.stdout.write(question);
       process.stdin.setRawMode(true);
       process.stdin.resume();
@@ -90,13 +90,16 @@ function prompt(rl, question, hidden = false) {
         }
       };
       process.stdin.on('data', onData);
+    } else if (hidden && !process.stdin.isTTY) {
+      // 非 TTY 模式：直接使用 readline（无法隐藏输入）
+      rl.question(question, resolve);
     } else {
       rl.question(question, resolve);
     }
   });
 }
 
-async function setupBot(botName) {
+async function setupBot(botName, options = {}) {
   log('cyan', `\n🔧 配置机器人: ${botName}\n`);
 
   const rl = readline.createInterface({
@@ -111,25 +114,25 @@ async function setupBot(botName) {
       log('yellow', `⚠️  机器人 "${botName}" 已存在，将更新配置`);
     }
 
-    // 获取 AppID
-    const appId = await prompt(rl, '请输入 AppID: ');
+    // 获取 AppID（优先使用命令行参数）
+    const appId = options.appId || await prompt(rl, '请输入 AppID: ');
     if (!appId.trim()) {
       log('red', '❌ AppID 不能为空');
       return;
     }
 
-    // 获取 Secret（隐藏输入）
-    const clientSecret = await prompt(rl, '请输入 Client Secret: ', true);
+    // 获取 Secret（隐藏输入，优先使用命令行参数）
+    const clientSecret = options.secret || await prompt(rl, '请输入 Client Secret: ', true);
     if (!clientSecret.trim()) {
       log('red', '❌ Client Secret 不能为空');
       return;
     }
 
-    // 可选：默认目标 ID
-    const defaultTargetId = await prompt(rl, '默认目标 ID（可选，按回车跳过）: ');
+    // 可选：默认目标 ID（优先使用命令行参数）
+    const defaultTargetId = options.defaultTarget || await prompt(rl, '默认目标 ID（可选，按回车跳过）: ');
 
     // 可选：图床服务器地址
-    const imageServerBaseUrl = await prompt(rl, '图床服务器地址（可选，按回车跳过）: ');
+    const imageServerBaseUrl = options.imageServer || await prompt(rl, '图床服务器地址（可选，按回车跳过）: ');
 
     // 保存配置
     const botConfig = {
@@ -325,10 +328,33 @@ async function main() {
     case 'setup':
       if (!args[1]) {
         log('red', '❌ 请指定机器人名称');
-        log('dim', '用法: qqbot-mcp-cli setup <botName>');
+        log('dim', '用法: qqbot-mcp-cli setup <botName> [--appId <id>] [--secret <secret>] [--default-target <id>]');
         process.exit(1);
       }
-      await setupBot(args[1]);
+
+      // 解析 setup 命令的参数
+      const setupOptions = {};
+      for (let i = 2; i < args.length; i++) {
+        switch (args[i]) {
+          case '--appId':
+          case '--app-id':
+            setupOptions.appId = args[++i];
+            break;
+          case '--secret':
+            setupOptions.secret = args[++i];
+            break;
+          case '--default-target':
+          case '--defaultTarget':
+            setupOptions.defaultTarget = args[++i];
+            break;
+          case '--image-server':
+          case '--imageServer':
+            setupOptions.imageServer = args[++i];
+            break;
+        }
+      }
+
+      await setupBot(args[1], setupOptions);
       break;
 
     case 'list':
