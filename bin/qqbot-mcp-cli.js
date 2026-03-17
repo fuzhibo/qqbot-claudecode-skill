@@ -19,6 +19,51 @@ import * as os from 'os';
 const CONFIG_DIR = path.join(os.homedir(), '.claude', 'qqbot-mcp');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
+// 查找 .env 文件
+function findEnvFile() {
+  const candidates = [
+    '.env',
+    '.env.local',
+    '.env.development',
+    '.env.production',
+    path.join(process.cwd(), '.env'),
+    path.join(process.cwd(), '.env.local'),
+    path.join(os.homedir(), '.claude', 'qqbot-mcp', '.env'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+// 解析 .env 文件
+function parseEnvFile(filePath) {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const env = {};
+
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const match = trimmed.match(/^([^=]+)=(.*)$/);
+    if (match) {
+      const key = match[1].trim();
+      let value = match[2].trim();
+      // 去除引号
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      env[key] = value;
+    }
+  }
+
+  return env;
+}
+
 // 颜色输出
 const colors = {
   reset: '\x1b[0m',
@@ -114,25 +159,99 @@ async function setupBot(botName, options = {}) {
       log('yellow', `⚠️  机器人 "${botName}" 已存在，将更新配置`);
     }
 
-    // 获取 AppID（优先使用命令行参数）
-    const appId = options.appId || await prompt(rl, '请输入 AppID: ');
-    if (!appId.trim()) {
-      log('red', '❌ AppID 不能为空');
+    let appId, clientSecret, defaultTargetId, imageServerBaseUrl;
+
+    // 模式1: 命令行参数直接指定（非交互式）
+    if (options.appId && options.secret) {
+      appId = options.appId;
+      clientSecret = options.secret;
+      defaultTargetId = options.defaultTarget || '';
+      imageServerBaseUrl = options.imageServer || '';
+    }
+    // 模式2: 从 .env 文件读取
+    else if (options.fromEnv) {
+      const envPath = findEnvFile();
+      if (!envPath) {
+        log('red', '❌ 未找到 .env 文件');
+        log('dim', '请在项目根目录创建 .env 文件，包含 QQBOT_APP_ID 和 QQBOT_CLIENT_SECRET');
+        return;
+      }
+
+      log('cyan', `📄 从 ${envPath} 读取配置...`);
+      const env = parseEnvFile(envPath);
+
+      appId = env.QQBOT_APP_ID;
+      clientSecret = env.QQBOT_CLIENT_SECRET;
+      defaultTargetId = env.QQBOT_TEST_TARGET_ID || env.QQBOT_DEFAULT_TARGET_ID || '';
+      imageServerBaseUrl = env.QQBOT_IMAGE_SERVER_BASE_URL || '';
+
+      if (!appId || !clientSecret) {
+        log('red', '❌ .env 文件中缺少 QQBOT_APP_ID 或 QQBOT_CLIENT_SECRET');
+        return;
+      }
+
+      log('green', '✅ 从 .env 文件读取配置成功');
+      log('dim', `   AppID: ${appId.slice(0, 8)}...`);
+      log('dim', `   Secret: ****`);
+      if (defaultTargetId) log('dim', `   默认目标: ${defaultTargetId}`);
+    }
+    // 模式3: TTY 交互式配置（推荐用于手动配置）
+    else if (process.stdin.isTTY && process.stdout.isTTY) {
+      // 检测是否存在 .env 文件
+      const envPath = findEnvFile();
+
+      if (envPath) {
+        log('cyan', `\n📄 检测到 ${envPath} 文件`);
+        const useEnv = await prompt(rl, '是否从 .env 文件读取配置？(Y/n): ');
+
+        if (useEnv.trim().toLowerCase() !== 'n') {
+          log('cyan', `📄 从 ${envPath} 读取配置...`);
+          const env = parseEnvFile(envPath);
+
+          appId = env.QQBOT_APP_ID;
+          clientSecret = env.QQBOT_CLIENT_SECRET;
+          defaultTargetId = env.QQBOT_TEST_TARGET_ID || env.QQBOT_DEFAULT_TARGET_ID || '';
+          imageServerBaseUrl = env.QQBOT_IMAGE_SERVER_BASE_URL || '';
+
+          if (!appId || !clientSecret) {
+            log('red', '❌ .env 文件中缺少 QQBOT_APP_ID 或 QQBOT_CLIENT_SECRET');
+            log('yellow', '⚠️  将切换到手动输入模式');
+            appId = null; // 重置，进入手动模式
+          } else {
+            log('green', '✅ 从 .env 文件读取配置成功');
+          }
+        }
+      }
+
+      // 手动输入模式（未从 .env 读取或读取失败）
+      if (!appId) {
+        log('cyan', '\n📝 手动输入配置（凭证不会显示在对话中）');
+        log('dim', '提示：为安全起见，建议在 .env 文件中配置凭证\n');
+
+        appId = await prompt(rl, '请输入 AppID: ');
+        if (!appId.trim()) {
+          log('red', '❌ AppID 不能为空');
+          return;
+        }
+
+        clientSecret = await prompt(rl, '请输入 Client Secret: ', true);
+        if (!clientSecret.trim()) {
+          log('red', '❌ Client Secret 不能为空');
+          return;
+        }
+
+        defaultTargetId = await prompt(rl, '默认目标 ID（可选，按回车跳过）: ');
+        imageServerBaseUrl = await prompt(rl, '图床服务器地址（可选，按回车跳过）: ');
+      }
+    }
+    // 模式4: 非 TTY 且无参数 - 报错
+    else {
+      log('red', '❌ 非交互式环境需要使用 --from-env 参数或提供 --appId 和 --secret');
+      log('dim', '用法:');
+      log('dim', '  qqbot-mcp-cli setup <botName> --from-env');
+      log('dim', '  qqbot-mcp-cli setup <botName> --appId <id> --secret <secret>');
       return;
     }
-
-    // 获取 Secret（隐藏输入，优先使用命令行参数）
-    const clientSecret = options.secret || await prompt(rl, '请输入 Client Secret: ', true);
-    if (!clientSecret.trim()) {
-      log('red', '❌ Client Secret 不能为空');
-      return;
-    }
-
-    // 可选：默认目标 ID（优先使用命令行参数）
-    const defaultTargetId = options.defaultTarget || await prompt(rl, '默认目标 ID（可选，按回车跳过）: ');
-
-    // 可选：图床服务器地址
-    const imageServerBaseUrl = options.imageServer || await prompt(rl, '图床服务器地址（可选，按回车跳过）: ');
 
     // 保存配置
     const botConfig = {
@@ -214,13 +333,20 @@ ${colors.cyan}QQ Bot MCP CLI - 命令行管理工具${colors.reset}
 
 选项:
   setup 命令:
+    --from-env             从 .env 文件读取配置（推荐）
     --appId <id>           直接指定 AppID（跳过交互）
-    --secret <secret>      直接指定 Secret（不推荐）
+    --secret <secret>      直接指定 Secret（不推荐，有泄露风险）
     --default-target <id>  设置默认目标 ID
 
 示例:
-  # 交互式配置
+  # 方式1: 从 .env 文件读取（推荐，AI不接触凭证）
+  qqbot-mcp-cli setup my-bot --from-env
+
+  # 方式2: 交互式配置（手动输入）
   qqbot-mcp-cli setup my-bot
+
+  # 方式3: 命令行参数（不推荐，凭证可能记录在 shell 历史）
+  qqbot-mcp-cli setup my-bot --appId <id> --secret <secret>
 
   # 列出所有机器人
   qqbot-mcp-cli list
@@ -240,6 +366,11 @@ ${colors.cyan}QQ Bot MCP CLI - 命令行管理工具${colors.reset}
 
   # 删除机器人
   qqbot-mcp-cli remove old-bot
+
+安全配置建议:
+  1. 将凭证写入 .env 文件（不会被提交到 Git）
+  2. 使用 --from-env 参数让脚本直接读取
+  3. 避免在命令行中直接输入 --secret（会记录在 shell 历史）
 
 环境变量:
   QQBOT_APP_ID            默认机器人的 AppID
@@ -328,7 +459,10 @@ async function main() {
     case 'setup':
       if (!args[1]) {
         log('red', '❌ 请指定机器人名称');
-        log('dim', '用法: qqbot-mcp-cli setup <botName> [--appId <id>] [--secret <secret>] [--default-target <id>]');
+        log('dim', '用法:');
+        log('dim', '  qqbot-mcp-cli setup <botName> --from-env          # 推荐：从 .env 读取');
+        log('dim', '  qqbot-mcp-cli setup <botName>                     # 交互式配置');
+        log('dim', '  qqbot-mcp-cli setup <botName> --appId <id> --secret <secret>');
         process.exit(1);
       }
 
@@ -336,6 +470,10 @@ async function main() {
       const setupOptions = {};
       for (let i = 2; i < args.length; i++) {
         switch (args[i]) {
+          case '--from-env':
+          case '--fromEnv':
+            setupOptions.fromEnv = true;
+            break;
           case '--appId':
           case '--app-id':
             setupOptions.appId = args[++i];
