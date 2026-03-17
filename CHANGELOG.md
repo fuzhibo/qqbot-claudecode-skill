@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.3.1] - 2026-03-17
+
+### 问题修复
+
+  - 0b4fe32 fix: resolve setRawMode error in non-TTY environments and add CLI args support
+  - 833aa8f feat: add unified check command and enhance service status
+  - b4e29f6 fix: update send-message.js to use correct QQ Bot API endpoints
+  - cfb49be chore: release v1.2.12
+  - 60976ef fix: add --help support to send command
+  - dde9c8d chore: release v1.2.11
+  - f399171 fix: correct import paths in send-proactive.ts
+  - e0d0fdb chore: release v1.2.10
+  - 33ba982 fix: add send command to CLI and create send-message.js
+  - fc3f44f chore: release v1.2.9
+
 ## [1.3.0] - 2026-03-17
 
 ### 功能更新
