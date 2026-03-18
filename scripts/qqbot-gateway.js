@@ -30,6 +30,7 @@ import { parseMessage as parseMessageFromParser, buildClaudeArgs } from './qqbot
 
 // 复用 src/api.ts 的完善实现
 // 注意：源码目录是 dist/src/api.js，但插件安装目录是 dist/api.js
+// 开发环境使用 dist/src/api.js，插件安装后使用 dist/api.js
 import {
   getAccessToken as apiGetAccessToken,
   sendC2CMessage as apiSendC2CMessage,
@@ -39,7 +40,7 @@ import {
   sendC2CFileMessage as apiSendC2CFileMessage,
   getGatewayUrl,
   MediaFileType
-} from '../dist/api.js';
+} from '../dist/src/api.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GATEWAY_DIR = path.join(os.homedir(), '.claude', 'qqbot-gateway');
@@ -876,6 +877,45 @@ async function handleEvent(payload) {
     log('cyan', `   模式: ${mode === 'auto' ? '自动回复' : '通知'}`);
     log('cyan', `   PID: ${process.pid}`);
     log('yellow', '\n📱 等待 QQ 消息...\n');
+
+    // 发送启动完成通知到 QQ（带指数退避重试)
+    const sendStartupNotification = async (retryCount = 0) => {
+      const maxRetries = 3;
+      const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // 1s, 2s, 4s, 8s, 10s
+
+      try {
+        const projectsData = loadProjects();
+        const defaultProject = projectsData.defaultProject;
+        if (!defaultProject) {
+          return;
+        }
+        const botConfig = getProjectBotConfig(defaultProject);
+        if (!botConfig?.testTargetId) {
+          return;
+        }
+        const modeText = mode === 'auto' ? '自动回复' : '通知';
+        const notification = `✅ QQ Bot 网关已启动\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `🤖 机器人: ${data.user?.username || '未知'}\n` +
+          `📁 项目: ${defaultProject}\n` +
+          `⚙️ 模式: ${modeText}\n` +
+          `🔢 PID: ${process.pid}`;
+        await sendC2CMessage(accessToken, botConfig.testTargetId, notification);
+        log('green', `   ✅ 启动通知已发送到 QQ`);
+      } catch (notifyErr) {
+        if (retryCount < maxRetries) {
+          log('yellow', `   ⚠️ 发送启动通知失败 (尝试 ${retryCount + 1}/${maxRetries}): ${notifyErr.message}`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          await sendStartupNotification(retryCount + 1);
+        } else {
+          log('yellow', `   ⚠️ 发送启动通知最终失败， ${notifyErr.message}`);
+        }
+      }
+    };
+    // 启动通知（不阻塞主流程）
+    sendStartupNotification(0).catch(err => {
+      log('yellow', `   ⚠️ 启动通知异常: ${err.message}`);
+    });
     return;
   }
 
@@ -1157,7 +1197,10 @@ switch (command) {
       }
     }
 
-    const startMode = args.includes('--auto') ? 'auto' : 'notify';
+    // 支持 --auto 或 --mode auto 两种形式
+    const modeIndex = args.indexOf('--mode');
+    const modeValue = modeIndex !== -1 ? args[modeIndex + 1] : null;
+    const startMode = (args.includes('--auto') || modeValue === 'auto') ? 'auto' : 'notify';
     startGateway(startMode).catch(err => {
       log('red', `❌ 启动失败: ${err.message}`);
       process.exit(1);
