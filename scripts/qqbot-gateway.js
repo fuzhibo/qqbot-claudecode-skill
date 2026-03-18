@@ -27,6 +27,26 @@ import * as os from 'os';
 import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
 import { parseMessage as parseMessageFromParser, buildClaudeArgs } from './qqbot-parser.js';
+import {
+  loadActivationState,
+  saveActivationState,
+  getGatewayStatus,
+  setGatewayStatus,
+  getUserActivation,
+  getUserActivationStatus,
+  updateUserActivation,
+  incrementMsgIdUsage,
+  hasActiveUsers,
+  getActiveUsers,
+  getExpiringUsers,
+  addPendingMessage,
+  getPendingMessages,
+  removePendingMessage,
+  getPendingMessageCount,
+  cleanupExpiredUsers,
+  getActivationStats,
+  CONSTANTS,
+} from './activation-state.js';
 
 // 复用 src/api.ts 的完善实现
 // 注意：源码目录是 dist/src/api.js，但插件安装目录是 dist/api.js
@@ -792,6 +812,12 @@ async function startGateway(gatewayMode = 'notify') {
   // 写入 PID
   fs.writeFileSync(PID_FILE, process.pid.toString());
 
+  // 初始化激活状态
+  initActivationState();
+
+  // 启动过期检查定时器
+  startExpirationChecker();
+
   accessToken = await getAccessToken();
   log('green', '✅ Access Token 获取成功');
 
@@ -872,50 +898,64 @@ async function handleEvent(payload) {
   const { t: eventType, d: data } = payload;
 
   if (eventType === 'READY') {
-    log('green', `\n🎉 网关就绪！`);
-    log('cyan', `   机器人: ${data.user?.username || '未知'}`);
-    log('cyan', `   模式: ${mode === 'auto' ? '自动回复' : '通知'}`);
-    log('cyan', `   PID: ${process.pid}`);
-    log('yellow', '\n📱 等待 QQ 消息...\n');
+    const botUsername = data.user?.username || '未知';
+    log('green', `\n═══════════════════════════════════════════`);
+    log('green', `🚀 QQ Bot 网关已启动 (PID: ${process.pid})`);
+    log('green', `═══════════════════════════════════════════`);
+    log('cyan', `   🤖 机器人: ${botUsername}`);
+    log('cyan', `   📁 项目: ${loadProjects().defaultProject || '无'}`);
+    log('cyan', `   ⚙️  模式: ${mode === 'auto' ? '自动回复' : '通知'}`);
 
-    // 发送启动完成通知到 QQ（带指数退避重试)
-    const sendStartupNotification = async (retryCount = 0) => {
-      const maxRetries = 3;
-      const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // 1s, 2s, 4s, 8s, 10s
+    // 检查是否有有效激活用户
+    const activeUsers = getActiveUsers();
+    if (activeUsers.length === 0) {
+      // 无激活用户，显示激活引导
+      log('yellow', `\n──────────────────────────────────────────`);
+      log('yellow', `📱 等待激活`);
+      log('yellow', `──────────────────────────────────────────`);
+      log('cyan', `\n   请使用 QQ 向机器人发送任意消息以激活网关`);
+      log('cyan', `   激活后即可发送通知消息`);
+      log('cyan', `\n   💡 提示: 发送 "hello" 或任意文字即可\n`);
+      log('green', `═══════════════════════════════════════════\n`);
 
-      try {
-        const projectsData = loadProjects();
-        const defaultProject = projectsData.defaultProject;
-        if (!defaultProject) {
-          return;
-        }
+      // 设置网关状态为待激活
+      setGatewayStatus('pending_activation');
+
+      // 缓存启动通知，等待激活后发送
+      const projectsData = loadProjects();
+      const defaultProject = projectsData.defaultProject;
+      if (defaultProject) {
         const botConfig = getProjectBotConfig(defaultProject);
-        if (!botConfig?.testTargetId) {
-          return;
-        }
-        const modeText = mode === 'auto' ? '自动回复' : '通知';
-        const notification = `✅ QQ Bot 网关已启动\n` +
-          `━━━━━━━━━━━━━━━━━━━━\n` +
-          `🤖 机器人: ${data.user?.username || '未知'}\n` +
-          `📁 项目: ${defaultProject}\n` +
-          `⚙️ 模式: ${modeText}\n` +
-          `🔢 PID: ${process.pid}`;
-        await sendC2CMessage(accessToken, botConfig.testTargetId, notification);
-        log('green', `   ✅ 启动通知已发送到 QQ`);
-      } catch (notifyErr) {
-        if (retryCount < maxRetries) {
-          log('yellow', `   ⚠️ 发送启动通知失败 (尝试 ${retryCount + 1}/${maxRetries}): ${notifyErr.message}`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          await sendStartupNotification(retryCount + 1);
-        } else {
-          log('yellow', `   ⚠️ 发送启动通知最终失败， ${notifyErr.message}`);
+        if (botConfig?.testTargetId) {
+          const modeText = mode === 'auto' ? '自动回复' : '通知';
+          const notification = `✅ QQ Bot 网关已启动\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `🤖 机器人: ${botUsername}\n` +
+            `📁 项目: ${defaultProject}\n` +
+            `⚙️ 模式: ${modeText}\n` +
+            `🔢 PID: ${process.pid}`;
+          addPendingMessage({
+            targetOpenid: botConfig.testTargetId,
+            content: notification,
+            source: 'startup_notification',
+            priority: 1, // 高优先级
+          });
+          log('cyan', `   📬 启动通知已缓存，等待激活后发送`);
         }
       }
-    };
-    // 启动通知（不阻塞主流程）
-    sendStartupNotification(0).catch(err => {
-      log('yellow', `   ⚠️ 启动通知异常: ${err.message}`);
-    });
+    } else {
+      // 已有激活用户
+      log('green', `\n──────────────────────────────────────────`);
+      log('green', `✅ 已有 ${activeUsers.length} 个激活用户`);
+      log('green', `──────────────────────────────────────────`);
+      setGatewayStatus('activated');
+
+      // 尝试发送启动通知（使用被动回复机制）
+      sendStartupNotificationWithRetry(data.user?.username).catch(err => {
+        log('yellow', `   ⚠️ 启动通知异常: ${err.message}`);
+      });
+    }
+
     return;
   }
 
@@ -935,10 +975,39 @@ async function handleMessage(type, data) {
   const content = data.content;
   const authorId = type === 'private' ? data.author?.id : data.author?.member_openid;
   const groupId = type === 'group' ? data.group_openid : null;
+  const authorNickname = type === 'private' ? data.author?.username : data.author?.nick;
 
   log('green', `\n📬 收到${type === 'private' ? '私聊' : '群聊'}消息！`);
-  log('cyan', `   发送者: ${authorId}`);
+  log('cyan', `   发送者: ${authorId} (${authorNickname || '未知昵称'})`);
   log('cyan', `   内容: ${content}`);
+
+  // 更新用户激活状态（关键：获取 msg_id 用于后续被动回复）
+  const userActivation = updateUserActivation({
+    openid: authorId,
+    msgId: msgId,
+    type: type === 'private' ? 'c2c' : 'group',
+    nickname: authorNickname,
+  });
+
+  log('green', `   ✅ 用户激活成功 (msg_id 有效期至 ${new Date(userActivation.msgIdExpiresAt).toLocaleTimeString()})`);
+
+  // 检查网关状态，如果是从待激活变为激活，显示成功提示
+  const currentStatus = getGatewayStatus();
+  if (currentStatus === 'activated') {
+    const pendingCount = getPendingMessageCount(authorId);
+    if (pendingCount > 0) {
+      log('yellow', `\n──────────────────────────────────────────`);
+      log('green', `✅ 用户激活成功`);
+      log('yellow', `──────────────────────────────────────────`);
+      log('cyan', `   👤 用户: ${authorNickname || authorId}`);
+      log('cyan', `   🕐 时间: ${new Date().toLocaleTimeString()}`);
+      log('cyan', `   📤 待发送消息: ${pendingCount} 条`);
+      log('cyan', `\n   正在发送待发送消息...`);
+
+      // 处理待发送消息队列
+      await processPendingMessages(authorId, msgId);
+    }
+  }
 
   // 解析消息
   const parsed = parseMessage(content);
@@ -1058,6 +1127,28 @@ ${originalContent}
 
         log('green', `   生成回复: "${replyContent.slice(0, 80)}..."`);
 
+        // 检查用户激活状态，获取被动回复额度
+        const usageInfo = incrementMsgIdUsage(authorId);
+
+        if (!usageInfo.canUse) {
+          // 无法使用被动回复，缓存消息
+          log('yellow', `   ⚠️ 被动回复额度已用完或已过期，消息已缓存`);
+          addPendingMessage({
+            targetOpenid: authorId,
+            content: `[${projectName}] ${replyContent}`,
+            source: 'user_message',
+            priority: 10,
+          });
+
+          // 发送提示
+          if (usageInfo.reason === 'expired') {
+            log('yellow', `   📬 会话已过期，请用户发送新消息激活`);
+          } else {
+            log('yellow', `   📬 已达被动回复上限，请用户发送新消息`);
+          }
+          return;
+        }
+
         // 检测是否是权限问题
         if (replyContent.includes('权限尚未授权') || replyContent.includes('工具权限')) {
           log('yellow', `   ⚠️ 检测到权限问题，发送授权指引...`);
@@ -1077,17 +1168,17 @@ ${replyContent}
 • "权限模式: 跳过权限" - 完全跳过权限检查`;
 
           const token = await getAccessToken();
-          await sendC2CMessage(token, authorId, permissionGuide, msgId);
-          log('green', `   ✅ 权限指引已发送`);
+          await sendC2CMessage(token, authorId, permissionGuide, usageInfo.msgId);
+          log('green', `   ✅ 权限指引已发送 (剩余被动回复次数: ${usageInfo.remaining})`);
           return;
         }
 
         // 发送回复（支持富媒体）
         const token = await getAccessToken();
-        const result = await sendRichMessage(token, authorId, replyContent, msgId, projectName);
+        const result = await sendRichMessage(token, authorId, replyContent, usageInfo.msgId, projectName);
 
         if (result && result.id) {
-          log('green', `   ✅ 回复已发送`);
+          log('green', `   ✅ 回复已发送 (剩余被动回复次数: ${usageInfo.remaining})`);
         } else {
           log('yellow', `   ⚠️ 回复发送失败: ${JSON.stringify(result)}`);
         }
@@ -1103,9 +1194,16 @@ ${replyContent}
           log('yellow', `   stderr: ${stderr.slice(0, 500)}`);
         }
 
-        // 发送默认回复
-        const token = await getAccessToken();
-        await sendC2CMessage(token, authorId, `[${projectName}] 抱歉，处理您的消息时遇到问题，请稍后再试～`, msgId);
+        // 检查被动回复额度
+        const errorUsageInfo = incrementMsgIdUsage(authorId);
+        if (errorUsageInfo.canUse) {
+          // 发送默认回复
+          const token = await getAccessToken();
+          await sendC2CMessage(token, authorId, `[${projectName}] 抱歉，处理您的消息时遇到问题，请稍后再试～`, errorUsageInfo.msgId);
+          log('green', `   ✅ 错误回复已发送 (剩余被动回复次数: ${errorUsageInfo.remaining})`);
+        } else {
+          log('yellow', `   ⚠️ 无法发送错误回复: 被动回复额度已用完`);
+        }
       }
     });
 
@@ -1141,6 +1239,12 @@ function stopGateway() {
     heartbeatTimer = null;
   }
 
+  // 清除过期检查定时器
+  if (expirationCheckTimer) {
+    clearInterval(expirationCheckTimer);
+    expirationCheckTimer = null;
+  }
+
   if (ws) {
     ws.close();
     ws = null;
@@ -1151,6 +1255,196 @@ function stopGateway() {
   }
 
   log('yellow', '👋 网关已停止');
+}
+
+// ============ 激活状态管理 ============
+let expirationCheckTimer = null;
+
+/**
+ * 初始化激活状态
+ */
+function initActivationState() {
+  const state = loadActivationState();
+  const activeUsers = getActiveUsers();
+
+  if (activeUsers.length > 0) {
+    setGatewayStatus('activated');
+    log('cyan', `   📋 激活状态: 已有 ${activeUsers.length} 个激活用户`);
+  } else {
+    setGatewayStatus('pending_activation');
+    log('cyan', `   📋 激活状态: 等待激活`);
+  }
+
+  // 清理过期用户
+  cleanupExpiredUsers();
+}
+
+/**
+ * 启动过期检查定时器（每 5 分钟检查一次）
+ */
+function startExpirationChecker() {
+  const CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 分钟
+
+  expirationCheckTimer = setInterval(async () => {
+    if (!running) return;
+
+    try {
+      const now = Date.now();
+      const expiringUsers = getExpiringUsers();
+
+      // 对即将过期的用户发送提醒
+      for (const user of expiringUsers) {
+        const timeUntilExpiry = user.msgIdExpiresAt - now;
+        const minutesLeft = Math.round(timeUntilExpiry / 60000);
+
+        if (timeUntilExpiry > 0 && timeUntilExpiry <= CONSTANTS.MSG_ID_EXPIRING_THRESHOLD_MS) {
+          log('yellow', `   ⚠️ 用户 ${user.nickname || user.openid} 会话即将过期 (${minutesLeft} 分钟)`);
+
+          // 尝试发送提醒（使用剩余的被动回复次数）
+          try {
+            const usageInfo = incrementMsgIdUsage(user.openid);
+            if (usageInfo.canUse) {
+              const reminder = `⚠️ 会话即将过期\n\n您的会话将在 ${minutesLeft} 分钟后过期，届时将无法接收通知消息。\n\n请发送任意消息保持激活状态。`;
+              const token = await getAccessToken();
+              await sendC2CMessage(token, user.openid, reminder, usageInfo.msgId);
+              log('green', `   ✅ 过期提醒已发送给 ${user.nickname || user.openid}`);
+            }
+          } catch (err) {
+            log('yellow', `   ⚠️ 发送过期提醒失败: ${err.message}`);
+          }
+        }
+      }
+
+      // 清理过期用户
+      cleanupExpiredUsers();
+    } catch (err) {
+      log('red', `   ❌ 过期检查出错: ${err.message}`);
+    }
+  }, CHECK_INTERVAL_MS);
+
+  log('cyan', `   ⏰ 过期检查定时器已启动 (间隔: ${CHECK_INTERVAL_MS / 60000} 分钟)`);
+}
+
+/**
+ * 处理待发送消息队列
+ * @param {string} openid - 用户 openid
+ * @param {string} msgId - 用于被动回复的 msg_id
+ */
+async function processPendingMessages(openid, msgId) {
+  const pendingMessages = getPendingMessages(openid);
+
+  if (pendingMessages.length === 0) {
+    return;
+  }
+
+  log('cyan', `   📤 开始发送 ${pendingMessages.length} 条待发送消息...`);
+
+  const token = await getAccessToken();
+  let sentCount = 0;
+  let failedCount = 0;
+
+  for (const msg of pendingMessages) {
+    try {
+      // 使用被动回复机制发送
+      await sendC2CMessage(token, openid, msg.content, msgId);
+      removePendingMessage(msg.id);
+      sentCount++;
+      log('green', `   ✅ 消息 ${msg.id} 已发送`);
+
+      // 发送间隔，避免频率限制
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (err) {
+      failedCount++;
+      log('red', `   ❌ 消息 ${msg.id} 发送失败: ${err.message}`);
+    }
+  }
+
+  if (sentCount > 0) {
+    log('green', `   ✅ 启动通知已发送`);
+  }
+  log('cyan', `   📊 发送完成: 成功 ${sentCount} 条, 失败 ${failedCount} 条`);
+}
+
+/**
+ * 使用被动回复机制发送启动通知（带指数退避重试）
+ * @param {string} botUsername - 机器人用户名
+ * @param {number} retryCount - 当前重试次数
+ */
+async function sendStartupNotificationWithRetry(botUsername, retryCount = 0) {
+  const maxRetries = 3;
+  const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+
+  try {
+    const projectsData = loadProjects();
+    const defaultProject = projectsData.defaultProject;
+    if (!defaultProject) {
+      return;
+    }
+    const botConfig = getProjectBotConfig(defaultProject);
+    if (!botConfig?.testTargetId) {
+      return;
+    }
+
+    // 检查目标用户是否有有效的激活状态
+    const userStatus = getUserActivationStatus(botConfig.testTargetId);
+    if (userStatus === 'expired') {
+      // 用户未激活，缓存消息
+      const modeText = mode === 'auto' ? '自动回复' : '通知';
+      const notification = `✅ QQ Bot 网关已启动\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `🤖 机器人: ${botUsername || '未知'}\n` +
+        `📁 项目: ${defaultProject}\n` +
+        `⚙️ 模式: ${modeText}\n` +
+        `🔢 PID: ${process.pid}`;
+      addPendingMessage({
+        targetOpenid: botConfig.testTargetId,
+        content: notification,
+        source: 'startup_notification',
+        priority: 1,
+      });
+      log('cyan', `   📬 目标用户未激活，启动通知已缓存`);
+      return;
+    }
+
+    // 获取用户激活信息，使用被动回复
+    const usageInfo = incrementMsgIdUsage(botConfig.testTargetId);
+    if (!usageInfo.canUse) {
+      // 无法使用被动回复，缓存消息
+      const modeText = mode === 'auto' ? '自动回复' : '通知';
+      const notification = `✅ QQ Bot 网关已启动\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `🤖 机器人: ${botUsername || '未知'}\n` +
+        `📁 项目: ${defaultProject}\n` +
+        `⚙️ 模式: ${modeText}\n` +
+        `🔢 PID: ${process.pid}`;
+      addPendingMessage({
+        targetOpenid: botConfig.testTargetId,
+        content: notification,
+        source: 'startup_notification',
+        priority: 1,
+      });
+      log('cyan', `   📬 被动回复额度已用完，启动通知已缓存`);
+      return;
+    }
+
+    const modeText = mode === 'auto' ? '自动回复' : '通知';
+    const notification = `✅ QQ Bot 网关已启动\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🤖 机器人: ${botUsername || '未知'}\n` +
+      `📁 项目: ${defaultProject}\n` +
+      `⚙️ 模式: ${modeText}\n` +
+      `🔢 PID: ${process.pid}`;
+    await sendC2CMessage(accessToken, botConfig.testTargetId, notification, usageInfo.msgId);
+    log('green', `   ✅ 启动通知已发送到 QQ (剩余被动回复次数: ${usageInfo.remaining})`);
+  } catch (notifyErr) {
+    if (retryCount < maxRetries) {
+      log('yellow', `   ⚠️ 发送启动通知失败 (尝试 ${retryCount + 1}/${maxRetries}): ${notifyErr.message}`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      await sendStartupNotificationWithRetry(botUsername, retryCount + 1);
+    } else {
+      log('yellow', `   ⚠️ 发送启动通知最终失败: ${notifyErr.message}`);
+    }
+  }
 }
 
 // ============ 命令处理 ============
