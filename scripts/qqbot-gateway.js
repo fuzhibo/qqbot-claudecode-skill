@@ -21,6 +21,7 @@
 
 import { spawn } from 'child_process';
 import WebSocket from 'ws';
+import http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -802,6 +803,117 @@ let heartbeatTimer = null;       // setInterval 返回的 handle
 let running = false;
 let mode = 'notify'; // notify | auto
 
+// ============ 内部 HTTP API (供 Hook 调用) ============
+const INTERNAL_API_PORT = 3310;
+let internalServer = null;
+
+/**
+ * 启动内部 HTTP API 服务器
+ * 供 hook handler 调用，避免 hook 直接访问 QQ API
+ */
+function startInternalApi() {
+  internalServer = http.createServer(async (req, res) => {
+    // 设置 CORS 头
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'application/json');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+
+    // API: POST /api/notify - 发送通知消息
+    if (req.method === 'POST' && req.url === '/api/notify') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { target, message, project } = data;
+
+          if (!target || !message) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ error: '缺少 target 或 message 参数' }));
+            return;
+          }
+
+          // 获取目标用户的激活状态
+          const userStatus = getUserActivationStatus(target);
+
+          if (userStatus === 'expired' || !userStatus) {
+            // 用户未激活，缓存消息
+            addPendingMessage({
+              targetOpenid: target,
+              content: `[${project || 'Hook'}] ${message}`,
+              source: 'hook_notification',
+              priority: 5,
+            });
+            log('cyan', `   📬 Hook 消息已缓存 (目标未激活): ${message.slice(0, 50)}...`);
+            res.writeHead(200);
+            res.end(JSON.stringify({ status: 'cached', message: '消息已缓存，等待用户激活后发送' }));
+            return;
+          }
+
+          // 用户已激活，直接发送
+          try {
+            const token = await getAccessToken();
+            const usageInfo = incrementMsgIdUsage(target);
+            await sendC2CMessage(token, target, `[${project || 'Hook'}] ${message}`, usageInfo.msgId);
+            log('green', `   ✅ Hook 消息已发送: ${message.slice(0, 50)}...`);
+            res.writeHead(200);
+            res.end(JSON.stringify({ status: 'sent', remaining: usageInfo.remaining }));
+          } catch (sendErr) {
+            // 发送失败，缓存消息
+            addPendingMessage({
+              targetOpenid: target,
+              content: `[${project || 'Hook'}] ${message}`,
+              source: 'hook_notification',
+              priority: 5,
+            });
+            log('yellow', `   ⚠️ Hook 消息发送失败，已缓存: ${sendErr.message}`);
+            res.writeHead(200);
+            res.end(JSON.stringify({ status: 'cached', message: '发送失败，消息已缓存' }));
+          }
+        } catch (parseErr) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: '无效的 JSON 格式' }));
+        }
+      });
+      return;
+    }
+
+    // API: GET /api/status - 获取网关状态
+    if (req.method === 'GET' && req.url === '/api/status') {
+      const stats = getActivationStats();
+      res.writeHead(200);
+      res.end(JSON.stringify({
+        status: 'running',
+        mode,
+        pid: process.pid,
+        ...stats
+      }));
+      return;
+    }
+
+    // 404
+    res.writeHead(404);
+    res.end(JSON.stringify({ error: 'Not found' }));
+  });
+
+  internalServer.listen(INTERNAL_API_PORT, '127.0.0.1', () => {
+    log('green', `✅ 内部 API 已启动: http://127.0.0.1:${INTERNAL_API_PORT}`);
+  });
+
+  internalServer.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      log('yellow', `⚠️ 内部 API 端口 ${INTERNAL_API_PORT} 已被占用`);
+    } else {
+      log('red', `❌ 内部 API 错误: ${err.message}`);
+    }
+  });
+}
+
 async function startGateway(gatewayMode = 'notify') {
   mode = gatewayMode;
   running = true;
@@ -817,6 +929,9 @@ async function startGateway(gatewayMode = 'notify') {
 
   // 启动过期检查定时器
   startExpirationChecker();
+
+  // 启动内部 HTTP API (供 hook 调用)
+  startInternalApi();
 
   accessToken = await getAccessToken();
   log('green', '✅ Access Token 获取成功');
@@ -1046,6 +1161,17 @@ ${originalContent}
 
 请处理这条消息，并给出简洁的回复。`;
 
+  // 获取用户激活状态用于心跳消息
+  const userActivation = getUserActivation(authorId);
+
+  // 预先获取 token 用于心跳消息（避免每次心跳都请求新 token）
+  let cachedToken = null;
+  try {
+    cachedToken = await getAccessToken();
+  } catch (e) {
+    log('yellow', `   ⚠️ 无法获取 token，心跳功能将受限`);
+  }
+
   try {
     const child = spawn('claude', args, {
       cwd,
@@ -1055,6 +1181,33 @@ ${originalContent}
 
     let stdout = '';
     let stderr = '';
+    let heartbeatCount = 0;
+    let lastHeartbeatContent = '';
+    let heartbeatStopped = false;
+
+    // 心跳机制：每 30 秒发送一次处理中消息
+    const heartbeatInterval = setInterval(async () => {
+      if (heartbeatStopped) return; // 防止重复发送
+
+      heartbeatCount++;
+      const elapsedSeconds = heartbeatCount * 30;
+      const heartbeatContent = `⏳ 正在处理中... (${Math.floor(elapsedSeconds / 60)}分${elapsedSeconds % 60}秒)`;
+
+      // 只有内容变化时才发送（避免重复消息）
+      if (heartbeatContent !== lastHeartbeatContent && cachedToken) {
+        lastHeartbeatContent = heartbeatContent;
+        try {
+          const usageInfo = getUserActivationStatus(authorId);
+          if (usageInfo && usageInfo.msgId) {
+            await sendC2CMessage(cachedToken, authorId, heartbeatContent, usageInfo.msgId);
+            log('cyan', `   💓 心跳消息已发送 (${elapsedSeconds}秒)`);
+          }
+        } catch (e) {
+          log('yellow', `   ⚠️ 心跳消息发送失败: ${e.message}`);
+          // 心跳失败不中断主流程
+        }
+      }
+    }, 30000); // 30 秒间隔
 
     child.stdout.on('data', (data) => {
       stdout += data.toString();
@@ -1068,12 +1221,16 @@ ${originalContent}
     child.stdin.end();
 
     const timeout = setTimeout(() => {
-      log('yellow', `   ⏰ 处理超时 (2分钟)，终止进程...`);
+      heartbeatStopped = true; // 停止心跳
+      clearInterval(heartbeatInterval); // 清除心跳
+      log('yellow', `   ⏰ 处理超时 (5分钟)，终止进程...`);
       child.kill();
-    }, 120000);
+    }, 300000);
 
     child.on('close', async (code) => {
+      heartbeatStopped = true; // 停止心跳
       clearTimeout(timeout);
+      clearInterval(heartbeatInterval); // 清除心跳
 
       if (code === 0 && stdout.trim()) {
         // 提取回复内容

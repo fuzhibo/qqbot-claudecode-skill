@@ -76,7 +76,7 @@ export async function getAccessToken(appId: string, clientSecret: string): Promi
 async function doFetchToken(appId: string, clientSecret: string): Promise<string> {
   const requestBody = { appId, clientSecret };
   const requestHeaders = { "Content-Type": "application/json" };
-  
+
   // 打印请求信息（隐藏敏感信息）
   console.log(`[qqbot-api:${appId}] >>> POST ${TOKEN_URL}`);
 
@@ -86,6 +86,7 @@ async function doFetchToken(appId: string, clientSecret: string): Promise<string
       method: "POST",
       headers: requestHeaders,
       body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(30000), // 30 秒超时
     });
   } catch (err) {
     console.error(`[qqbot-api:${appId}] <<< Network error:`, err);

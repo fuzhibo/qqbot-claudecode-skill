@@ -2,6 +2,17 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.3.7] - 2026-03-19
+
+### 功能更新
+
+- feat(gateway): 添加内部 HTTP API (端口 3310) 供 Hook 调用
+- feat(gateway): 实现心跳机制，处理超时从 2 分钟增加到 5 分钟
+- feat(hook): 新增 `qqbot-hook-handler.js` 通过内部 API 发送通知
+- feat(hook): 支持项目级 Hook 配置 (`qqbot-notify.yaml`)
+- fix(api): 使用 `AbortSignal.timeout()` 解决网络超时问题
+- refactor: Hook 不再直接调用 QQ API，统一通过 Gateway 缓存和发送
+
 ## [1.3.6] - 2026-03-18
 
 ### 功能更新
