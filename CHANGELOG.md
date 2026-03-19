@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.6.0] - 2026-03-19
+
+### 功能更新
+
+  - b3fff0a feat(scripts): 添加 qqbot-service.js 服务管理脚本
+  - 48cf034 chore: release v1.4.0
+  - f879817 feat(gateway): 添加文件/图片缓存支持
+  - 964439e feat(gateway): 添加消息超时和智能压缩机制
+  - 462f17a chore: release v1.3.8
+  - ecabff2 chore: release v1.3.7
+  - 5c85fc8 feat(gateway): 实现被动回复激活系统，解决 C2C 主动发送不可靠问题
+  - 54a1941 chore: release v1.3.5
+  - 782e843 feat(gateway): 添加启动完成通知功能和 --mode auto 参数支持
+  - c78eb78 fix: 复用 src/api.ts 完善实现，修复文件发送超时问题
+
 ## [1.5.0] - 2026-03-19
 
 ### 功能更新

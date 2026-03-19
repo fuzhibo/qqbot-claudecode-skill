@@ -97,6 +97,74 @@ if (fs.existsSync(localEnvPath)) {
 
 // 注意：APP_ID 和 CLIENT_SECRET 现在从项目配置获取，不再使用全局变量
 
+// ============ 自愈机制配置 ============
+const SELF_HEALING_CONFIG = {
+  // 启动重试配置
+  startupRetry: {
+    maxAttempts: 5,           // 最大重试次数
+    initialDelayMs: 2000,     // 初始延迟 2 秒
+    maxDelayMs: 30000,        // 最大延迟 30 秒
+    backoffMultiplier: 2,     // 指数退避倍数
+  },
+  // 网络请求重试配置
+  networkRetry: {
+    maxAttempts: 3,           // 最大重试次数
+    initialDelayMs: 1000,     // 初始延迟 1 秒
+    maxDelayMs: 10000,        // 最大延迟 10 秒
+    backoffMultiplier: 2,     // 指数退避倍数
+  },
+  // 健康检查配置
+  healthCheck: {
+    intervalMs: 60000,        // 检查间隔 1 分钟
+    wsIdleTimeoutMs: 180000,  // WebSocket 空闲超时 3 分钟（QQ 平台约 30 分钟断开）
+  },
+  // 进程守护配置
+  processGuardian: {
+    checkIntervalMs: 10000,   // 检查间隔 10 秒
+    restartDelayMs: 5000,     // 重启延迟 5 秒
+  },
+};
+
+/**
+ * 指数退避重试工具函数
+ * @param {Function} fn - 要执行的异步函数
+ * @param {Object} options - 重试配置
+ * @param {string} operationName - 操作名称（用于日志）
+ * @returns {Promise<any>}
+ */
+async function retryWithBackoff(fn, options, operationName = 'operation') {
+  const { maxAttempts, initialDelayMs, maxDelayMs, backoffMultiplier } = options;
+  let lastError = null;
+  let delay = initialDelayMs;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      if (attempt < maxAttempts) {
+        const isNetworkError = error.message?.includes('fetch failed') ||
+                               error.message?.includes('Network error') ||
+                               error.message?.includes('ECONNREFUSED') ||
+                               error.message?.includes('ETIMEDOUT');
+
+        if (isNetworkError) {
+          log('yellow', `   ⚠️ ${operationName} 失败 (尝试 ${attempt}/${maxAttempts}): ${error.message}`);
+          log('cyan', `   🔄 ${delay / 1000} 秒后重试...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay = Math.min(delay * backoffMultiplier, maxDelayMs);
+        } else {
+          // 非网络错误，不重试
+          throw error;
+        }
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 // ============ 颜色输出 ============
 const colors = {
   reset: '\x1b[0m',
@@ -353,7 +421,7 @@ function parseMessage(message) {
 // ============ QQ API (复用 src/api.ts) ============
 
 /**
- * 获取 Access Token - 包装器，自动从项目配置获取凭证
+ * 获取 Access Token - 包装器，自动从项目配置获取凭证（带重试）
  */
 async function getAccessToken() {
   const data = loadProjects();
@@ -367,7 +435,12 @@ async function getAccessToken() {
     throw new Error('未找到 QQ Bot 配置。请设置 QQBOT_APP_ID 和 QQBOT_CLIENT_SECRET 环境变量，或在项目 .env 文件中配置。');
   }
 
-  return apiGetAccessToken(appId, clientSecret);
+  // 使用重试机制获取 Token
+  return retryWithBackoff(
+    () => apiGetAccessToken(appId, clientSecret),
+    SELF_HEALING_CONFIG.networkRetry,
+    '获取 Access Token'
+  );
 }
 
 /**
@@ -812,8 +885,12 @@ let ws = null;
 let accessToken = null;
 let heartbeatIntervalMs = null;  // 服务器返回的心跳间隔
 let heartbeatTimer = null;       // setInterval 返回的 handle
+let healthCheckTimer = null;     // 健康检查定时器
+let lastWsActivity = Date.now(); // 最后 WebSocket 活动时间
 let running = false;
 let mode = 'notify'; // notify | auto
+let startupAttempts = 0;         // 启动尝试次数
+let consecutiveFailures = 0;     // 连续失败次数
 
 // ============ 内部 HTTP API (供 Hook 调用) ============
 const INTERNAL_API_PORT = 3310;
@@ -963,65 +1040,140 @@ function startInternalApi() {
 async function startGateway(gatewayMode = 'notify') {
   mode = gatewayMode;
   running = true;
+  startupAttempts++;
 
   log('cyan', '🚀 启动 QQ Bot 全局网关...');
   log('cyan', `   模式: ${mode === 'auto' ? '自动回复' : '通知'}`);
+  if (startupAttempts > 1) {
+    log('cyan', `   启动尝试: ${startupAttempts}/${SELF_HEALING_CONFIG.startupRetry.maxAttempts}`);
+  }
 
   // 写入 PID
   fs.writeFileSync(PID_FILE, process.pid.toString());
 
-  // 初始化激活状态
-  initActivationState();
+  // 初始化激活状态（仅首次启动时）
+  if (startupAttempts === 1) {
+    initActivationState();
+    // 启动过期检查定时器
+    startExpirationChecker();
+    // 启动内部 HTTP API (供 hook 调用)
+    startInternalApi();
+    // 启动健康检查
+    startHealthCheck();
+  }
 
-  // 启动过期检查定时器
-  startExpirationChecker();
+  try {
+    // 使用带重试的 Token 获取
+    accessToken = await getAccessToken();
+    log('green', '✅ Access Token 获取成功');
 
-  // 启动内部 HTTP API (供 hook 调用)
-  startInternalApi();
+    // 获取 Gateway URL (使用重试机制)
+    const gatewayUrl = await retryWithBackoff(
+      () => getGatewayUrl(accessToken),
+      SELF_HEALING_CONFIG.networkRetry,
+      '获取 Gateway URL'
+    );
+    log('green', `✅ Gateway URL: ${gatewayUrl}`);
 
-  accessToken = await getAccessToken();
-  log('green', '✅ Access Token 获取成功');
+    // 连接 WebSocket
+    ws = new WebSocket(gatewayUrl);
+    lastWsActivity = Date.now();
 
-  // 获取 Gateway URL (使用 src/api.ts 的完善实现)
-  const gatewayUrl = await getGatewayUrl(accessToken);
-  log('green', `✅ Gateway URL: ${gatewayUrl}`);
+    ws.on('open', () => {
+      log('green', '✅ WebSocket 连接已建立');
+      lastWsActivity = Date.now();
+      startupAttempts = 0; // 重置启动尝试计数
+      consecutiveFailures = 0; // 重置连续失败计数
+    });
 
-  // 连接 WebSocket
-  ws = new WebSocket(gatewayUrl);
+    ws.on('message', async (data) => {
+      lastWsActivity = Date.now(); // 更新活动时间
+      const payload = JSON.parse(data.toString());
 
-  ws.on('open', () => {
-    log('green', '✅ WebSocket 连接已建立');
-  });
+      switch (payload.op) {
+        case 10: // Hello
+          heartbeatIntervalMs = payload.d.heartbeat_interval;
+          startHeartbeat();
+          sendIdentify();
+          break;
 
-  ws.on('message', async (data) => {
-    const payload = JSON.parse(data.toString());
+        case 11: // Heartbeat ACK
+          // 心跳响应，无需处理
+          break;
 
-    switch (payload.op) {
-      case 10: // Hello
-        heartbeatIntervalMs = payload.d.heartbeat_interval;
-        startHeartbeat();
-        sendIdentify();
-        break;
+        case 0: // Dispatch
+          await handleEvent(payload);
+          break;
+      }
+    });
 
-      case 11: // Heartbeat ACK
-        break;
+    ws.on('close', (code, reason) => {
+      log('yellow', `⚠️ WebSocket 连接已关闭 (code: ${code}, reason: ${reason || '无'})`);
+      if (running) {
+        const delay = Math.min(5000 * (consecutiveFailures + 1), 30000);
+        log('cyan', `   🔄 ${delay / 1000} 秒后重新连接...`);
+        setTimeout(() => startGateway(mode), delay);
+      }
+    });
 
-      case 0: // Dispatch
-        await handleEvent(payload);
-        break;
+    ws.on('error', (err) => {
+      log('red', `❌ WebSocket 错误: ${err.message}`);
+      consecutiveFailures++;
+    });
+
+    ws.on('ping', () => {
+      lastWsActivity = Date.now();
+    });
+
+  } catch (error) {
+    consecutiveFailures++;
+    log('red', `❌ 启动失败: ${error.message}`);
+
+    if (startupAttempts < SELF_HEALING_CONFIG.startupRetry.maxAttempts) {
+      const delay = Math.min(
+        SELF_HEALING_CONFIG.startupRetry.initialDelayMs * Math.pow(SELF_HEALING_CONFIG.startupRetry.backoffMultiplier, startupAttempts - 1),
+        SELF_HEALING_CONFIG.startupRetry.maxDelayMs
+      );
+      log('yellow', `   🔄 ${delay / 1000} 秒后重试启动 (${startupAttempts}/${SELF_HEALING_CONFIG.startupRetry.maxAttempts})...`);
+      setTimeout(() => startGateway(mode), delay);
+    } else {
+      log('red', `   ❌ 达到最大重试次数 (${SELF_HEALING_CONFIG.startupRetry.maxAttempts})，停止重试`);
+      log('yellow', `   💡 请检查网络连接和 QQ Bot 配置后手动重启`);
+      running = false;
     }
-  });
+  }
+}
 
-  ws.on('close', () => {
-    log('yellow', '⚠️ WebSocket 连接已关闭');
-    if (running) {
-      setTimeout(() => startGateway(mode), 5000);
+/**
+ * 健康检查 - 定期检查 WebSocket 连接状态
+ */
+function startHealthCheck() {
+  if (healthCheckTimer) {
+    clearInterval(healthCheckTimer);
+  }
+
+  healthCheckTimer = setInterval(() => {
+    if (!running) return;
+
+    const now = Date.now();
+    const idleTime = now - lastWsActivity;
+
+    // 检查 WebSocket 是否空闲过久
+    if (ws && ws.readyState === 1) { // WebSocket.OPEN
+      if (idleTime > SELF_HEALING_CONFIG.healthCheck.wsIdleTimeoutMs) {
+        log('yellow', `⚠️ WebSocket 空闲超过 ${Math.round(idleTime / 60000)} 分钟，主动重连...`);
+        // 主动关闭并触发重连
+        ws.close();
+      }
+    } else if (ws && ws.readyState === 3) { // WebSocket.CLOSED
+      log('yellow', '⚠️ 检测到 WebSocket 已关闭，触发重连...');
+      if (running) {
+        startGateway(mode);
+      }
     }
-  });
+  }, SELF_HEALING_CONFIG.healthCheck.intervalMs);
 
-  ws.on('error', (err) => {
-    log('red', `❌ WebSocket 错误: ${err.message}`);
-  });
+  log('cyan', `✅ 健康检查已启动 (间隔: ${SELF_HEALING_CONFIG.healthCheck.intervalMs / 1000} 秒)`);
 }
 
 function startHeartbeat() {
@@ -1442,6 +1594,12 @@ function stopGateway() {
     heartbeatTimer = null;
   }
 
+  // 清除健康检查定时器
+  if (healthCheckTimer) {
+    clearInterval(healthCheckTimer);
+    healthCheckTimer = null;
+  }
+
   // 清除过期检查定时器
   if (expirationCheckTimer) {
     clearInterval(expirationCheckTimer);
@@ -1456,6 +1614,10 @@ function stopGateway() {
   if (fs.existsSync(PID_FILE)) {
     fs.unlinkSync(PID_FILE);
   }
+
+  // 重置启动状态
+  startupAttempts = 0;
+  consecutiveFailures = 0;
 
   log('yellow', '👋 网关已停止');
 }
