@@ -82,6 +82,7 @@ const PROJECTS_FILE = path.join(GATEWAY_DIR, 'projects.json');
 const SESSIONS_DIR = path.join(GATEWAY_DIR, 'sessions');
 const PID_FILE = path.join(GATEWAY_DIR, 'gateway.pid');
 const LOG_FILE = path.join(GATEWAY_DIR, 'gateway.log');
+const GATEWAY_STATE_FILE = path.join(GATEWAY_DIR, 'gateway-state.json');
 
 // 确保目录存在
 [GATEWAY_DIR, SESSIONS_DIR].forEach(dir => {
@@ -1140,6 +1141,15 @@ async function startGateway(gatewayMode = 'notify') {
   // 写入 PID
   fs.writeFileSync(PID_FILE, process.pid.toString());
 
+  // 持久化网关状态（模式等）
+  const gatewayState = {
+    mode,
+    pid: process.pid,
+    startedAt: Date.now(),
+    startupAttempts
+  };
+  fs.writeFileSync(GATEWAY_STATE_FILE, JSON.stringify(gatewayState, null, 2));
+
   // 初始化激活状态（仅首次启动时）
   if (startupAttempts === 1) {
     initActivationState();
@@ -2087,10 +2097,17 @@ switch (command) {
       try {
         process.kill(pid, 'SIGTERM');
         fs.unlinkSync(PID_FILE);
+        // 清理状态文件
+        if (fs.existsSync(GATEWAY_STATE_FILE)) {
+          fs.unlinkSync(GATEWAY_STATE_FILE);
+        }
         log('green', '✅ 网关已停止');
       } catch (e) {
         log('yellow', '⚠️ 进程不存在或已停止');
         fs.unlinkSync(PID_FILE);
+        if (fs.existsSync(GATEWAY_STATE_FILE)) {
+          fs.unlinkSync(GATEWAY_STATE_FILE);
+        }
       }
     } else {
       log('yellow', '⚠️ 网关未运行');

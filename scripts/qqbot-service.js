@@ -34,6 +34,7 @@ const ACTIVATION_STATE_FILE = path.join(GATEWAY_DIR, 'activation-state.json');
 const PID_FILE = path.join(GATEWAY_DIR, 'gateway.pid');
 const LOG_FILE = path.join(GATEWAY_DIR, 'gateway.log');
 const SESSIONS_DIR = path.join(GATEWAY_DIR, 'sessions');
+const GATEWAY_STATE_FILE = path.join(GATEWAY_DIR, 'gateway-state.json');
 const GATEWAY_SCRIPT = path.join(__dirname, 'qqbot-gateway.js');
 
 // 确保目录存在
@@ -180,9 +181,13 @@ async function getStatusData() {
     }
   }
 
-  // 判断当前模式
+  // 从状态文件读取模式（优先）或从进程命令行推断
+  const gatewayState = readJsonFile(GATEWAY_STATE_FILE, null);
   let mode = 'unknown';
-  if (pid && processInfo) {
+  if (gatewayState && gatewayState.mode) {
+    mode = gatewayState.mode;
+  } else if (pid && processInfo) {
+    // 回退：从命令行推断
     if (processInfo.cmd.includes('--mode auto') || processInfo.cmd.includes('auto')) {
       mode = 'auto';
     } else {
