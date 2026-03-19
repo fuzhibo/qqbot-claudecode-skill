@@ -1,6 +1,6 @@
 {
   "name": "qqbot-mcp",
-  "version": "1.3.8",
+  "version": "1.3.9",
   "description": "QQ Bot MCP integration for Claude Code - send messages, files, and receive tasks from QQ",
   "author": {
     "name": "fuzhibo",

@@ -46,6 +46,10 @@ import {
   getPendingMessageCount,
   cleanupExpiredUsers,
   getActivationStats,
+  getExpiredMessages,
+  getCompressibleMessages,
+  replacePendingMessages,
+  clearExpiredMessages,
   CONSTANTS,
 } from './activation-state.js';
 
@@ -896,6 +900,40 @@ function startInternalApi() {
       return;
     }
 
+    // API: POST /api/compress - 手动触发消息压缩
+    if (req.method === 'POST' && req.url === '/api/compress') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', async () => {
+        try {
+          const data = body ? JSON.parse(body) : {};
+          const { openid } = data;
+
+          if (openid) {
+            // 压缩指定用户的消息
+            const success = await compressExpiredMessages(openid);
+            res.writeHead(200);
+            res.end(JSON.stringify({
+              status: success ? 'compressed' : 'no_messages',
+              message: success ? '消息压缩完成' : '没有可压缩的消息'
+            }));
+          } else {
+            // 压缩所有用户的消息
+            await checkAndCompressExpiredMessages();
+            res.writeHead(200);
+            res.end(JSON.stringify({
+              status: 'compressed',
+              message: '所有过期消息已检查并压缩'
+            }));
+          }
+        } catch (compressErr) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ error: compressErr.message }));
+        }
+      });
+      return;
+    }
+
     // 404
     res.writeHead(404);
     res.end(JSON.stringify({ error: 'Not found' }));
@@ -1474,6 +1512,9 @@ function startExpirationChecker() {
 
       // 清理过期用户
       cleanupExpiredUsers();
+
+      // 检查并压缩过期消息
+      await checkAndCompressExpiredMessages();
     } catch (err) {
       log('red', `   ❌ 过期检查出错: ${err.message}`);
     }
@@ -1520,6 +1561,110 @@ async function processPendingMessages(openid, msgId) {
     log('green', `   ✅ 启动通知已发送`);
   }
   log('cyan', `   📊 发送完成: 成功 ${sentCount} 条, 失败 ${failedCount} 条`);
+}
+
+/**
+ * 使用 Claude headless 模式压缩过期消息
+ * @param {string} openid - 用户 openid
+ * @returns {Promise<boolean>} 压缩是否成功
+ */
+async function compressExpiredMessages(openid) {
+  const compressibleMsgs = getCompressibleMessages(openid);
+
+  if (compressibleMsgs.length === 0) {
+    return false;
+  }
+
+  log('cyan', `   🗜️ 开始压缩 ${compressibleMsgs.length} 条过期消息...`);
+
+  // 构建消息摘要内容
+  const messagesText = compressibleMsgs
+    .map((msg, i) => `[${i + 1}] ${new Date(msg.createdAt).toLocaleString('zh-CN')}\n${msg.content}`)
+    .join('\n\n---\n\n');
+
+  const compressPrompt = `请将以下 ${compressibleMsgs.length} 条消息压缩成一个简洁的摘要，保留关键信息（时间、事件、重要数据）。格式要求：
+1. 使用中文
+2. 每条消息一行，格式："[时间] 摘要内容"
+3. 保留所有重要信息，删除冗余内容
+4. 总长度不超过 500 字
+
+待压缩消息：
+${messagesText}`;
+
+  try {
+    // 使用 Claude headless 模式压缩
+    const claudePath = process.env.CLAUDE_CODE_PATH || 'claude';
+    const compressResult = await new Promise((resolve, reject) => {
+      const child = spawn(claudePath, [
+        '--print',
+        '--allowedTools', 'none',
+        compressPrompt
+      ], {
+        timeout: 60000, // 1 分钟超时
+        maxBuffer: 1024 * 1024, // 1MB buffer
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          resolve(stdout.trim());
+        } else {
+          reject(new Error(`Claude exited with code ${code}: ${stderr}`));
+        }
+      });
+
+      child.on('error', reject);
+    });
+
+    if (compressResult) {
+      // 创建压缩后的消息
+      const compressedMessage = {
+        id: `compressed_${Date.now()}`,
+        targetOpenid: openid,
+        content: `📋 消息摘要 (${compressibleMsgs.length} 条)\n\n${compressResult}`,
+        source: 'system_alert',
+        createdAt: Date.now(),
+        priority: 20, // 较低优先级
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 天后过期
+      };
+
+      // 替换旧消息
+      replacePendingMessages(openid, [compressedMessage]);
+      log('green', `   ✅ 消息压缩完成: ${compressibleMsgs.length} 条 -> 1 条摘要`);
+      return true;
+    }
+  } catch (err) {
+    log('red', `   ❌ 消息压缩失败: ${err.message}`);
+    // 压缩失败时清除过期消息
+    clearExpiredMessages(openid);
+  }
+
+  return false;
+}
+
+/**
+ * 检查并压缩所有用户的过期消息
+ */
+async function checkAndCompressExpiredMessages() {
+  const activeUsers = getActiveUsers();
+
+  for (const user of activeUsers) {
+    const expired = getExpiredMessages(user.openid);
+    if (expired.length > 0) {
+      log('yellow', `   ⚠️ 用户 ${user.nickname || user.openid} 有 ${expired.length} 条过期消息`);
+      await compressExpiredMessages(user.openid);
+    }
+  }
 }
 
 /**

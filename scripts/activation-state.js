@@ -312,18 +312,23 @@ export function getExpiringUsers() {
   return users;
 }
 
-// ============ 待发送消息队列 ============
+// ============ 嶈息超时和压缩 ============
+// 消息过期时间 (默认 24 小时)
+const MESSAGE_EXPIRY_MS = 24 * 60 * 60 * 1000;
+// 消息压缩后保留时间 (默认 7 天)
+const COMPRESSED_RETAIN_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * 添加待发送消息
+ * 添加待发送消息 (支持超时)
  * @param {Object} options
  * @param {string} options.targetOpenid - 目标用户 openid
  * @param {string} options.content - 消息内容
- * @param {'startup_notification' | 'system_alert' | 'user_message'} [options.source='user_message'] - 消息来源
+ * @param {'startup_notification' | 'system_alert' | 'user_message' | 'hook_notification'} [options.source='user_message'] - 消息来源
  * @param {number} [options.priority=10] - 优先级
+ * @param {number} [options.expiresAt] - 过期时间戳 (可选)
  * @returns {PendingMessage} 添加的消息
  */
-export function addPendingMessage({ targetOpenid, content, source = 'user_message', priority = 10 }) {
+export function addPendingMessage({ targetOpenid, content, source = 'user_message', priority = 10, expiresAt }) {
   const state = loadActivationState();
 
   const message = {
@@ -333,6 +338,7 @@ export function addPendingMessage({ targetOpenid, content, source = 'user_messag
     source,
     createdAt: Date.now(),
     priority,
+    expiresAt: expiresAt || Date.now() + MESSAGE_EXPIRY_MS, // 默认 24 小时
   };
 
   state.pendingMessages.push(message);
@@ -340,6 +346,75 @@ export function addPendingMessage({ targetOpenid, content, source = 'user_messag
 
   console.log(`[activation-state] Pending message added: ${message.id} -> ${targetOpenid}`);
   return message;
+}
+
+/**
+ * 获取过期消息
+ * @param {string} [openid] - 可选，指定用户
+ * @returns {PendingMessage[]}
+ */
+export function getExpiredMessages(openid) {
+  const state = loadActivationState();
+  const now = Date.now();
+  return state.pendingMessages.filter(msg => {
+    const isExpired = msg.expiresAt ? now >= msg.expiresAt : now - msg.createdAt >= MESSAGE_EXPIRY_MS;
+    const matchesUser = openid ? msg.targetOpenid === openid : true;
+    return isExpired && matchesUser;
+  });
+}
+
+/**
+ * 获取需要压缩的消息 (过期但未超过保留时间)
+ * @param {string} [openid] - 可选，指定用户
+ * @returns {PendingMessage[]}
+ */
+export function getCompressibleMessages(openid) {
+  const state = loadActivationState();
+  const now = Date.now();
+  return state.pendingMessages.filter(msg => {
+    const isExpired = msg.expiresAt ? now >= msg.expiresAt : now - msg.createdAt >= MESSAGE_EXPIRY_MS;
+    const withinRetainPeriod = now - msg.createdAt < COMPRESSED_RETAIN_MS;
+    const matchesUser = openid ? msg.targetOpenid === openid : true;
+    return isExpired && withinRetainPeriod && matchesUser;
+  });
+}
+
+/**
+ * 替换用户的缓存消息
+ * @param {string} openid - 用户 openid
+ * @param {PendingMessage[]} newMessages - 新消息列表
+ */
+export function replacePendingMessages(openid, newMessages) {
+  const state = loadActivationState();
+  const before = state.pendingMessages.filter(msg => msg.targetOpenid === openid).length;
+  state.pendingMessages = state.pendingMessages.filter(msg => msg.targetOpenid !== openid);
+  for (const msg of newMessages) {
+    state.pendingMessages.push(msg);
+  }
+  const after = state.pendingMessages.filter(msg => msg.targetOpenid === openid).length;
+  saveActivationState(state);
+  console.log(`[activation-state] Replaced ${before} -> ${after} messages for ${openid}`);
+}
+
+/**
+ * 清除过期消息 (不保留)
+ * @param {string} [openid] - 可选，指定用户
+ * @returns {number} 清除数量
+ */
+export function clearExpiredMessages(openid) {
+  const state = loadActivationState();
+  const now = Date.now();
+  const before = state.pendingMessages.length;
+  state.pendingMessages = state.pendingMessages.filter(msg => {
+    const isExpired = msg.expiresAt ? now >= msg.expiresAt : now - msg.createdAt >= MESSAGE_EXPIRY_MS;
+    return !isExpired;
+  });
+  const after = state.pendingMessages.length;
+  if (before !== after) {
+    saveActivationState(state);
+    console.log(`[activation-state] Cleared ${before - after} expired messages for ${openid || 'all users'}`);
+  }
+  return before - after;
 }
 
 /**
