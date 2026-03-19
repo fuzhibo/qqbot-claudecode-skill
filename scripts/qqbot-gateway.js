@@ -67,6 +67,7 @@ import {
 import {
   getAccessToken as apiGetAccessToken,
   sendC2CMessage as apiSendC2CMessage,
+  sendProactiveC2CMessage as apiSendProactiveC2CMessage,
   uploadC2CMedia,
   sendC2CMediaMessage,
   sendC2CImageMessage as apiSendC2CImageMessage,
@@ -448,6 +449,79 @@ async function getAccessToken() {
  */
 async function sendC2CMessage(token, openid, content, msgId = null) {
   return apiSendC2CMessage(token, openid, content, msgId);
+}
+
+/**
+ * 发送主动消息 - 包装器
+ * 当被动回复额度用完时使用
+ */
+async function sendProactiveMessage(token, openid, content) {
+  return apiSendProactiveC2CMessage(token, openid, content);
+}
+
+/**
+ * 智能发送消息 - 优先使用被动回复，额度用完时自动切换到主动消息
+ * @param {string} token - Access Token
+ * @param {string} openid - 用户 OpenID
+ * @param {string} content - 消息内容
+ * @param {object} usageInfo - 被动回复额度信息 (来自 incrementMsgIdUsage)
+ * @returns {Promise<{success: boolean, method: string, error?: string, remaining?: number}>}
+ */
+async function sendMessageSmart(token, openid, content, usageInfo) {
+  // 优先尝试被动回复
+  if (usageInfo && usageInfo.canUse) {
+    try {
+      await sendC2CMessage(token, openid, content, usageInfo.msgId);
+      return { success: true, method: 'passive', remaining: usageInfo.remaining };
+    } catch (err) {
+      log('yellow', `   ⚠️ 被动回复发送失败: ${err.message}，尝试主动消息...`);
+    }
+  }
+
+  // 被动回复不可用或失败，尝试主动消息
+  try {
+    await sendProactiveMessage(token, openid, content);
+    return { success: true, method: 'proactive' };
+  } catch (err) {
+    log('red', `   ❌ 主动消息发送失败: ${err.message}`);
+    return { success: false, method: 'proactive', error: err.message };
+  }
+}
+
+/**
+ * 智能发送富媒体消息 - 优先使用被动回复，自动降级到主动消息
+ * @param {string} token - Access Token
+ * @param {string} openid - 用户 OpenID
+ * @param {string} text - 消息内容（可能包含富媒体标签）
+ * @param {object} usageInfo - 被动回复额度信息
+ * @param {string} [projectName] - 项目名称
+ * @returns {Promise<{success: boolean, method: string, error?: string, remaining?: number, id?: string}>}
+ */
+async function sendRichMessageSmart(token, openid, text, usageInfo, projectName = '') {
+  // 先尝试使用被动回复发送富媒体消息
+  if (usageInfo && usageInfo.canUse) {
+    try {
+      const result = await sendRichMessage(token, openid, text, usageInfo.msgId, projectName);
+      if (result && result.id) {
+        return { success: true, method: 'passive', remaining: usageInfo.remaining, id: result.id };
+      }
+    } catch (err) {
+      log('yellow', `   ⚠️ 被动回复发送失败: ${err.message}，尝试主动消息...`);
+    }
+  }
+
+  // 被动回复不可用或失败，尝试主动消息
+  // 主动消息不支持富媒体，需要提取纯文本
+  const plainText = text.replace(/<(qqimg|qqvoice|qqvideo|qqfile)>[^<>]*<\/(?:qqimg|qqvoice|qqvideo|qqfile|img)>/gi, '[媒体文件]');
+  const finalText = projectName ? `[${projectName}] ${plainText}` : plainText;
+
+  try {
+    await sendProactiveMessage(token, openid, finalText);
+    return { success: true, method: 'proactive' };
+  } catch (err) {
+    log('red', `   ❌ 主动消息发送失败: ${err.message}`);
+    return { success: false, method: 'proactive', error: err.message };
+  }
 }
 
 // ============ 富媒体消息支持 ============
@@ -944,14 +1018,29 @@ function startInternalApi() {
             return;
           }
 
-          // 用户已激活，直接发送
+          // 用户已激活，尝试发送（优先被动回复，自动降级到主动消息）
           try {
             const token = await getAccessToken();
             const usageInfo = incrementMsgIdUsage(target);
-            await sendC2CMessage(token, target, `[${project || 'Hook'}] ${message}`, usageInfo.msgId);
-            log('green', `   ✅ Hook 消息已发送: ${message.slice(0, 50)}...`);
-            res.writeHead(200);
-            res.end(JSON.stringify({ status: 'sent', remaining: usageInfo.remaining }));
+            const result = await sendMessageSmart(token, target, `[${project || 'Hook'}] ${message}`, usageInfo);
+
+            if (result.success) {
+              const methodText = result.method === 'passive' ? `被动回复 (剩余 ${result.remaining} 次)` : '主动消息';
+              log('green', `   ✅ Hook 消息已发送 [${methodText}]: ${message.slice(0, 50)}...`);
+              res.writeHead(200);
+              res.end(JSON.stringify({ status: 'sent', method: result.method, remaining: result.remaining }));
+            } else {
+              // 两种方式都失败，缓存消息
+              addPendingMessage({
+                targetOpenid: target,
+                content: `[${project || 'Hook'}] ${message}`,
+                source: 'hook_notification',
+                priority: 5,
+              });
+              log('yellow', `   ⚠️ Hook 消息发送失败，已缓存: ${result.error}`);
+              res.writeHead(200);
+              res.end(JSON.stringify({ status: 'cached', message: '发送失败，消息已缓存' }));
+            }
           } catch (sendErr) {
             // 发送失败，缓存消息
             addPendingMessage({
@@ -1485,25 +1574,7 @@ ${originalContent}
         // 检查用户激活状态，获取被动回复额度
         const usageInfo = incrementMsgIdUsage(authorId);
 
-        if (!usageInfo.canUse) {
-          // 无法使用被动回复，缓存消息
-          log('yellow', `   ⚠️ 被动回复额度已用完或已过期，消息已缓存`);
-          addPendingMessage({
-            targetOpenid: authorId,
-            content: `[${projectName}] ${replyContent}`,
-            source: 'user_message',
-            priority: 10,
-          });
-
-          // 发送提示
-          if (usageInfo.reason === 'expired') {
-            log('yellow', `   📬 会话已过期，请用户发送新消息激活`);
-          } else {
-            log('yellow', `   📬 已达被动回复上限，请用户发送新消息`);
-          }
-          return;
-        }
-
+        // 使用智能发送：优先被动回复，自动降级到主动消息
         // 检测是否是权限问题
         if (replyContent.includes('权限尚未授权') || replyContent.includes('工具权限')) {
           log('yellow', `   ⚠️ 检测到权限问题，发送授权指引...`);
@@ -1523,19 +1594,25 @@ ${replyContent}
 • "权限模式: 跳过权限" - 完全跳过权限检查`;
 
           const token = await getAccessToken();
-          await sendC2CMessage(token, authorId, permissionGuide, usageInfo.msgId);
-          log('green', `   ✅ 权限指引已发送 (剩余被动回复次数: ${usageInfo.remaining})`);
+          const permResult = await sendMessageSmart(token, authorId, permissionGuide, usageInfo);
+          if (permResult.success) {
+            const methodText = permResult.method === 'passive' ? `被动回复 (剩余 ${permResult.remaining} 次)` : '主动消息';
+            log('green', `   ✅ 权限指引已发送 [${methodText}]`);
+          } else {
+            log('yellow', `   ⚠️ 权限指引发送失败: ${permResult.error}`);
+          }
           return;
         }
 
-        // 发送回复（支持富媒体）
+        // 发送回复（使用智能发送，支持富媒体）
         const token = await getAccessToken();
-        const result = await sendRichMessage(token, authorId, replyContent, usageInfo.msgId, projectName);
+        const result = await sendRichMessageSmart(token, authorId, replyContent, usageInfo, projectName);
 
-        if (result && result.id) {
-          log('green', `   ✅ 回复已发送 (剩余被动回复次数: ${usageInfo.remaining})`);
+        if (result && result.success) {
+          const methodText = result.method === 'passive' ? `被动回复 (剩余 ${result.remaining} 次)` : '主动消息';
+          log('green', `   ✅ 回复已发送 [${methodText}]`);
         } else {
-          log('yellow', `   ⚠️ 回复发送失败: ${JSON.stringify(result)}`);
+          log('yellow', `   ⚠️ 回复发送失败: ${result?.error || JSON.stringify(result)}`);
         }
       } else {
         // 详细记录失败原因
@@ -1549,15 +1626,15 @@ ${replyContent}
           log('yellow', `   stderr: ${stderr.slice(0, 500)}`);
         }
 
-        // 检查被动回复额度
+        // 使用智能发送错误回复
         const errorUsageInfo = incrementMsgIdUsage(authorId);
-        if (errorUsageInfo.canUse) {
-          // 发送默认回复
-          const token = await getAccessToken();
-          await sendC2CMessage(token, authorId, `[${projectName}] 抱歉，处理您的消息时遇到问题，请稍后再试～`, errorUsageInfo.msgId);
-          log('green', `   ✅ 错误回复已发送 (剩余被动回复次数: ${errorUsageInfo.remaining})`);
+        const token = await getAccessToken();
+        const errorResult = await sendMessageSmart(token, authorId, `[${projectName}] 抱歉，处理您的消息时遇到问题，请稍后再试～`, errorUsageInfo);
+        if (errorResult.success) {
+          const methodText = errorResult.method === 'passive' ? `被动回复 (剩余 ${errorResult.remaining} 次)` : '主动消息';
+          log('green', `   ✅ 错误回复已发送 [${methodText}]`);
         } else {
-          log('yellow', `   ⚠️ 无法发送错误回复: 被动回复额度已用完`);
+          log('yellow', `   ⚠️ 错误回复发送失败: ${errorResult.error}`);
         }
       }
     });
@@ -1665,17 +1742,21 @@ function startExpirationChecker() {
         if (timeUntilExpiry > 0 && timeUntilExpiry <= CONSTANTS.MSG_ID_EXPIRING_THRESHOLD_MS) {
           log('yellow', `   ⚠️ 用户 ${user.nickname || user.openid} 会话即将过期 (${minutesLeft} 分钟)`);
 
-          // 尝试发送提醒（使用剩余的被动回复次数）
+          // 使用智能发送发送过期提醒
           try {
+            const reminder = `⚠️ 会话即将过期\n\n您的会话将在 ${minutesLeft} 分钟后过期，届时将无法接收通知消息。\n\n请发送任意消息保持激活状态。`;
+            const token = await getAccessToken();
             const usageInfo = incrementMsgIdUsage(user.openid);
-            if (usageInfo.canUse) {
-              const reminder = `⚠️ 会话即将过期\n\n您的会话将在 ${minutesLeft} 分钟后过期，届时将无法接收通知消息。\n\n请发送任意消息保持激活状态。`;
-              const token = await getAccessToken();
-              await sendC2CMessage(token, user.openid, reminder, usageInfo.msgId);
-              log('green', `   ✅ 过期提醒已发送给 ${user.nickname || user.openid}`);
+            const result = await sendMessageSmart(token, user.openid, reminder, usageInfo);
+
+            if (result.success) {
+              const methodText = result.method === 'passive' ? '被动回复' : '主动消息';
+              log('green', `   ✅ 过期提醒已发送给 ${user.nickname || user.openid} [${methodText}]`);
+            } else {
+              log('yellow', `   ⚠️ 发送过期提醒失败: ${result.error}`);
             }
           } catch (err) {
-            log('yellow', `   ⚠️ 发送过期提醒失败: ${err.message}`);
+            log('yellow', `   ⚠️ 发送过期提醒异常: ${err.message}`);
           }
         }
       }
@@ -1710,25 +1791,39 @@ async function processPendingMessages(openid, msgId) {
   const token = await getAccessToken();
   let sentCount = 0;
   let failedCount = 0;
+  let currentMsgId = msgId; // 用于被动回复的 msgId
 
   for (const msg of pendingMessages) {
     try {
-      // 使用被动回复机制发送
-      await sendC2CMessage(token, openid, msg.content, msgId);
-      removePendingMessage(msg.id);
-      sentCount++;
-      log('green', `   ✅ 消息 ${msg.id} 已发送`);
+      // 使用智能发送：优先被动回复，自动降级到主动消息
+      const usageInfo = currentMsgId ? { canUse: true, msgId: currentMsgId, remaining: null } : { canUse: false };
+      const result = await sendMessageSmart(token, openid, msg.content, usageInfo);
+
+      if (result.success) {
+        removePendingMessage(msg.id);
+        sentCount++;
+        const methodText = result.method === 'passive' ? '被动回复' : '主动消息';
+        log('green', `   ✅ 消息 ${msg.id} 已发送 [${methodText}]`);
+
+        // 如果使用了被动回复，后续消息需要使用主动消息（被动回复次数有限）
+        if (result.method === 'passive') {
+          currentMsgId = null; // 后续消息不再使用被动回复
+        }
+      } else {
+        failedCount++;
+        log('red', `   ❌ 消息 ${msg.id} 发送失败: ${result.error}`);
+      }
 
       // 发送间隔，避免频率限制
       await new Promise(resolve => setTimeout(resolve, 500));
     } catch (err) {
       failedCount++;
-      log('red', `   ❌ 消息 ${msg.id} 发送失败: ${err.message}`);
+      log('red', `   ❌ 消息 ${msg.id} 发送异常: ${err.message}`);
     }
   }
 
   if (sentCount > 0) {
-    log('green', `   ✅ 启动通知已发送`);
+    log('green', `   ✅ 待发送消息处理完成`);
   }
   log('cyan', `   📊 发送完成: 成功 ${sentCount} 条, 失败 ${failedCount} 条`);
 }
@@ -1895,48 +1990,6 @@ async function sendStartupNotificationWithRetry(botUsername, retryCount = 0) {
       return;
     }
 
-    // 检查目标用户是否有有效的激活状态
-    const userStatus = getUserActivationStatus(botConfig.testTargetId);
-    if (userStatus === 'expired') {
-      // 用户未激活，缓存消息
-      const modeText = mode === 'auto' ? '自动回复' : '通知';
-      const notification = `✅ QQ Bot 网关已启动\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `🤖 机器人: ${botUsername || '未知'}\n` +
-        `📁 项目: ${defaultProject}\n` +
-        `⚙️ 模式: ${modeText}\n` +
-        `🔢 PID: ${process.pid}`;
-      addPendingMessage({
-        targetOpenid: botConfig.testTargetId,
-        content: notification,
-        source: 'startup_notification',
-        priority: 1,
-      });
-      log('cyan', `   📬 目标用户未激活，启动通知已缓存`);
-      return;
-    }
-
-    // 获取用户激活信息，使用被动回复
-    const usageInfo = incrementMsgIdUsage(botConfig.testTargetId);
-    if (!usageInfo.canUse) {
-      // 无法使用被动回复，缓存消息
-      const modeText = mode === 'auto' ? '自动回复' : '通知';
-      const notification = `✅ QQ Bot 网关已启动\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `🤖 机器人: ${botUsername || '未知'}\n` +
-        `📁 项目: ${defaultProject}\n` +
-        `⚙️ 模式: ${modeText}\n` +
-        `🔢 PID: ${process.pid}`;
-      addPendingMessage({
-        targetOpenid: botConfig.testTargetId,
-        content: notification,
-        source: 'startup_notification',
-        priority: 1,
-      });
-      log('cyan', `   📬 被动回复额度已用完，启动通知已缓存`);
-      return;
-    }
-
     const modeText = mode === 'auto' ? '自动回复' : '通知';
     const notification = `✅ QQ Bot 网关已启动\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
@@ -1944,8 +1997,24 @@ async function sendStartupNotificationWithRetry(botUsername, retryCount = 0) {
       `📁 项目: ${defaultProject}\n` +
       `⚙️ 模式: ${modeText}\n` +
       `🔢 PID: ${process.pid}`;
-    await sendC2CMessage(accessToken, botConfig.testTargetId, notification, usageInfo.msgId);
-    log('green', `   ✅ 启动通知已发送到 QQ (剩余被动回复次数: ${usageInfo.remaining})`);
+
+    // 使用智能发送：优先被动回复，自动降级到主动消息
+    const usageInfo = incrementMsgIdUsage(botConfig.testTargetId);
+    const result = await sendMessageSmart(accessToken, botConfig.testTargetId, notification, usageInfo);
+
+    if (result.success) {
+      const methodText = result.method === 'passive' ? `被动回复 (剩余 ${result.remaining} 次)` : '主动消息';
+      log('green', `   ✅ 启动通知已发送 [${methodText}]`);
+    } else {
+      // 两种方式都失败，缓存消息
+      addPendingMessage({
+        targetOpenid: botConfig.testTargetId,
+        content: notification,
+        source: 'startup_notification',
+        priority: 1,
+      });
+      log('yellow', `   ⚠️ 启动通知发送失败，已缓存: ${result.error}`);
+    }
   } catch (notifyErr) {
     if (retryCount < maxRetries) {
       log('yellow', `   ⚠️ 发送启动通知失败 (尝试 ${retryCount + 1}/${maxRetries}): ${notifyErr.message}`);
