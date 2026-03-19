@@ -1,0 +1,67 @@
+# QQ Bot Hook 配置
+# 在 Claude Code 触发 hook 事件时自动推送消息到 QQ
+#
+# 可用模板变量:
+#   {{project}}        - 项目名称
+#   {{event}}          - 事件类型
+#   {{tool}}           - 工具名称
+#   {{tool_input}}     - 工具输入参数 (格式化后)
+#   {{tool_response}}  - 工具响应 (格式化后)
+#   {{tool_description}} - 工具描述 (工具名 + 输入)
+#   {{timestamp}}      - 时间戳
+#   {{user}}           - 用户名
+#   {{cwd}}            - 工作目录
+
+hooks:
+  # 工具调用完成通知 - 详细版
+  - event: PostToolUse
+    # 匹配所有工具
+    matcher: ".*"
+    template: |
+      ✅ {{tool}}
+      📂 {{project}}
+      📝 {{tool_input}}
+    target: U_9C420731A85BB53B6B9D7D45BDCD20F2
+
+  # Bash 命令执行通知 - 特别处理
+  - event: PostToolUse
+    matcher: "^Bash$"
+    template: |
+      ⚡ Bash 命令完成
+      📂 {{project}}
+      💻 {{tool_input}}
+      📤 {{tool_response}}
+    target: U_9C420731A85BB53B6B9D7D45BDCD20F2
+
+  # 文件操作通知
+  - event: PostToolUse
+    matcher: "^(Read|Write|Edit)$"
+    template: |
+      📄 {{tool}}: {{tool_input}}
+      📂 {{project}}
+    target: U_9C420731A85BB53B6B9D7D45BDCD20F2
+
+  # 会话结束通知
+  - event: SessionEnd
+    template: |
+      🔚 会话结束
+      📂 {{project}}
+      🕐 {{timestamp}}
+    target: U_9C420731A85BB53B6B9D7D45BDCD20F2
+
+  # 用户提交提示通知
+  - event: UserPromptSubmit
+    template: |
+      📝 新任务
+      📂 {{project}}
+      🕐 {{timestamp}}
+    target: U_9C420731A85BB53B6B9D7D45BDCD20F2
+
+  # 工具调用失败通知
+  - event: PostToolUseFailure
+    matcher: ".*"
+    template: |
+      ❌ {{tool}} 失败
+      📂 {{project}}
+      📝 {{tool_input}}
+    target: U_9C420731A85BB53B6B9D7D45BDCD20F2

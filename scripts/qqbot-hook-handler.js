@@ -82,12 +82,20 @@ function loadHookConfig(cwd) {
 }
 
 /**
+ * 转义正则表达式特殊字符
+ */
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * 替换模板变量
  */
 function renderTemplate(template, vars) {
   let result = template;
   for (const [key, value] of Object.entries(vars)) {
-    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value || '');
+    const escapedKey = escapeRegex(key);
+    result = result.replace(new RegExp(`\\{\\{${escapedKey}\\}\\}`, 'g'), value || '');
   }
   return result;
 }
@@ -143,13 +151,134 @@ function sendNotification(target, message, project) {
 }
 
 /**
+ * 从 stdin 读取 JSON 数据
+ * Claude Code 通过 stdin 传递完整的 hook 上下文
+ */
+async function readStdinJson() {
+  return new Promise((resolve) => {
+    let data = '';
+    process.stdin.setEncoding('utf8');
+
+    process.stdin.on('data', chunk => {
+      data += chunk;
+    });
+
+    process.stdin.on('end', () => {
+      if (data.trim()) {
+        try {
+          resolve(JSON.parse(data));
+        } catch {
+          resolve(null);
+        }
+      } else {
+        resolve(null);
+      }
+    });
+
+    process.stdin.on('error', () => {
+      resolve(null);
+    });
+
+    // 如果没有数据，设置超时
+    setTimeout(() => {
+      if (!data) {
+        resolve(null);
+      }
+    }, 100);
+  });
+}
+
+/**
+ * 格式化工具输入参数为简洁字符串
+ */
+function formatToolInput(toolName, toolInput) {
+  if (!toolInput) return '';
+
+  const input = toolInput;
+
+  // 根据工具类型提取关键信息
+  switch (toolName) {
+    case 'Bash':
+      return input.command ? input.command.slice(0, 100) : '';
+    case 'Read':
+      return input.file_path || '';
+    case 'Write':
+      return input.file_path || '';
+    case 'Edit': {
+      const oldStr = input.old_string || '';
+      const truncated = oldStr.length > 30 ? oldStr.slice(0, 30) + '...' : oldStr;
+      return `${input.file_path || ''} (${truncated})`;
+    }
+    case 'Grep':
+      return `${input.pattern || ''} in ${input.path || '.'}`;
+    case 'Glob':
+      return input.pattern || '';
+    case 'WebSearch':
+      return input.query || '';
+    case 'Task':
+    case 'Agent':
+      return input.description || input.prompt?.slice(0, 50) || '';
+    default:
+      // 通用处理：提取前几个关键字段
+      const keys = Object.keys(input).slice(0, 3);
+      return keys.map(k => `${k}=${String(input[k]).slice(0, 30)}`).join(', ');
+  }
+}
+
+/**
+ * 格式化工具响应为简洁字符串
+ */
+function formatToolResponse(toolName, toolResponse) {
+  if (!toolResponse) return '';
+
+  // 如果是字符串，截取前 100 字符
+  if (typeof toolResponse === 'string') {
+    return toolResponse.slice(0, 100);
+  }
+
+  // 如果是对象，提取关键信息
+  if (typeof toolResponse === 'object') {
+    // 常见成功/失败标志
+    if (toolResponse.success !== undefined) {
+      return toolResponse.success ? '成功' : '失败';
+    }
+    if (toolResponse.error) {
+      return `错误: ${String(toolResponse.error).slice(0, 50)}`;
+    }
+    // 返回对象的主要字段
+    const keys = Object.keys(toolResponse).slice(0, 2);
+    return keys.map(k => `${k}=${String(toolResponse[k]).slice(0, 30)}`).join(', ');
+  }
+
+  return String(toolResponse).slice(0, 100);
+}
+
+/**
  * 主函数
  */
 async function main() {
-  // 获取 hook 输入 (从环境变量或命令行参数)
-  const eventType = process.env.CLAUDE_HOOK_EVENT || process.argv[2];
-  const toolName = process.env.CLAUDE_HOOK_TOOL_NAME || process.argv[3];
-  const cwd = process.env.CLAUDE_HOOK_CWD || process.cwd();
+  // 首先尝试从 stdin 读取 JSON 数据 (Claude Code 官方方式)
+  const stdinData = await readStdinJson();
+
+  // 从 stdin JSON 或环境变量/命令行参数获取 hook 输入
+  let eventType, toolName, cwd, sessionId, toolInput, toolResponse, toolUseId;
+
+  if (stdinData) {
+    // 使用 stdin JSON 数据 (推荐方式)
+    eventType = stdinData.hook_event_name || stdinData.event;
+    toolName = stdinData.tool_name;
+    cwd = stdinData.cwd || process.cwd();
+    sessionId = stdinData.session_id;
+    toolInput = stdinData.tool_input;
+    toolResponse = stdinData.tool_response;
+    toolUseId = stdinData.tool_use_id;
+  } else {
+    // 回退到环境变量 (兼容旧版本)
+    eventType = process.env.CLAUDE_HOOK_EVENT || process.argv[2];
+    toolName = process.env.CLAUDE_HOOK_TOOL_NAME || process.argv[3];
+    cwd = process.env.CLAUDE_HOOK_CWD || process.cwd();
+    sessionId = process.env.CLAUDE_HOOK_SESSION_ID;
+  }
 
   if (!eventType) {
     // 静默退出
@@ -185,15 +314,38 @@ async function main() {
     process.exit(0);
   }
 
-  // 准备模板变量
+  // 准备模板变量 (增强版)
   const vars = {
+    // 基础变量
     project: path.basename(cwd),
     event: eventType,
     tool: toolName || '',
     timestamp: new Date().toLocaleString('zh-CN'),
     user: os.userInfo().username,
     cwd: cwd,
+
+    // 新增: 会话信息
+    session_id: sessionId || '',
+
+    // 新增: 工具调用详情
+    tool_input: formatToolInput(toolName, toolInput),
+    tool_input_raw: toolInput ? JSON.stringify(toolInput).slice(0, 500) : '',
+    tool_response: formatToolResponse(toolName, toolResponse),
+    tool_response_raw: toolResponse ? JSON.stringify(toolResponse).slice(0, 500) : '',
+    tool_use_id: toolUseId || '',
+
+    // 新增: 格式化的工具描述
+    tool_description: '',
   };
+
+  // 生成工具描述
+  if (toolName) {
+    if (vars.tool_input) {
+      vars.tool_description = `${toolName}: ${vars.tool_input}`;
+    } else {
+      vars.tool_description = toolName;
+    }
+  }
 
   // 发送每个匹配的 hook 通知
   for (const hook of matchingHooks) {
