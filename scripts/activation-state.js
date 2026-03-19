@@ -14,11 +14,13 @@ import * as os from 'os';
 // 状态文件路径
 const GATEWAY_DIR = path.join(os.homedir(), '.claude', 'qqbot-gateway');
 const ACTIVATION_STATE_FILE = path.join(GATEWAY_DIR, 'activation-state.json');
+const FILE_CACHE_DIR = path.join(GATEWAY_DIR, 'file-cache');
 
 // 常量配置
 const MSG_ID_TTL_MS = 60 * 60 * 1000; // 1 小时
 const MSG_ID_EXPIRING_THRESHOLD_MS = 10 * 60 * 1000; // 10 分钟
 const MSG_ID_MAX_USAGE = 4; // 最多使用 4 次
+const FILE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 文件缓存 24 小时过期
 
 /**
  * 用户激活状态
@@ -51,9 +53,36 @@ const MSG_ID_MAX_USAGE = 4; // 最多使用 4 次
  * @property {string} id - 消息 ID
  * @property {string} targetOpenid - 目标用户 openid
  * @property {string} content - 消息内容
- * @property {'startup_notification' | 'system_alert' | 'user_message'} source - 消息来源
+ * @property {'startup_notification' | 'system_alert' | 'user_message' | 'hook_notification'} source - 消息来源
  * @property {number} createdAt - 创建时间
  * @property {number} priority - 优先级（数字越小优先级越高）
+ * @property {number} [expiresAt] - 过期时间戳
+ * @property {CachedFileAttachment} [attachment] - 附件信息（图片/文件等）
+ */
+
+/**
+ * 缓存文件附件
+ * @typedef {Object} CachedFileAttachment
+ * @property {string} fileId - 文件 ID（用于索引）
+ * @property {'image' | 'file' | 'audio' | 'video'} type - 文件类型
+ * @property {string} filename - 原始文件名
+ * @property {number} size - 文件大小（字节）
+ * @property {string} [mimeType] - MIME 类型
+ */
+
+/**
+ * 缓存文件索引条目
+ * @typedef {Object} CachedFileIndex
+ * @property {string} fileId - 文件 ID
+ * @property {string} filepath - 文件路径（相对于缓存目录）
+ * @property {'image' | 'file' | 'audio' | 'video'} type - 文件类型
+ * @property {string} filename - 原始文件名
+ * @property {number} size - 文件大小（字节）
+ * @property {string} [mimeType] - MIME 类型
+ * @property {number} createdAt - 创建时间
+ * @property {number} expiresAt - 过期时间
+ * @property {string} [openid] - 关联的用户 openid
+ * @property {string} [messageId] - 关联的消息 ID
  */
 
 /**
@@ -62,6 +91,7 @@ const MSG_ID_MAX_USAGE = 4; // 最多使用 4 次
  * @property {GatewayStatus} gatewayStatus - 网关状态
  * @property {Object.<string, UserActivation>} users - 用户激活信息（按 openid 索引）
  * @property {PendingMessage[]} pendingMessages - 待发送消息队列
+ * @property {Object.<string, CachedFileIndex>} cachedFiles - 缓存文件索引（按 fileId 索引）
  * @property {number} lastUpdatedAt - 最后更新时间
  */
 
@@ -74,6 +104,9 @@ let stateCache = null;
 function ensureDir() {
   if (!fs.existsSync(GATEWAY_DIR)) {
     fs.mkdirSync(GATEWAY_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(FILE_CACHE_DIR)) {
+    fs.mkdirSync(FILE_CACHE_DIR, { recursive: true });
   }
 }
 
@@ -90,6 +123,10 @@ export function loadActivationState() {
     if (fs.existsSync(ACTIVATION_STATE_FILE)) {
       const data = fs.readFileSync(ACTIVATION_STATE_FILE, 'utf-8');
       stateCache = JSON.parse(data);
+      // 确保新字段存在
+      if (!stateCache.cachedFiles) {
+        stateCache.cachedFiles = {};
+      }
       return stateCache;
     }
   } catch (err) {
@@ -101,6 +138,7 @@ export function loadActivationState() {
     gatewayStatus: 'pending_activation',
     users: {},
     pendingMessages: [],
+    cachedFiles: {},
     lastUpdatedAt: Date.now(),
   };
   return stateCache;
@@ -550,6 +588,211 @@ export function getActivationStats() {
     expiringUsers: expiringCount,
     expiredUsers: expiredCount,
     pendingMessages: state.pendingMessages.length,
+    cachedFiles: Object.keys(state.cachedFiles || {}).length,
+  };
+}
+
+// ============ 文件缓存管理 ============
+
+/**
+ * 保存文件到缓存
+ * @param {Object} options
+ * @param {Buffer} options.data - 文件数据
+ * @param {string} options.filename - 原始文件名
+ * @param {'image' | 'file' | 'audio' | 'video'} options.type - 文件类型
+ * @param {number} options.size - 文件大小
+ * @param {string} [options.mimeType] - MIME 类型
+ * @param {string} [options.openid] - 关联的用户 openid
+ * @param {string} [options.messageId] - 关联的消息 ID
+ * @returns {CachedFileIndex} 缓存文件索引
+ */
+export function saveCachedFile({ data, filename, type, size, mimeType, openid, messageId }) {
+  ensureDir();
+  const state = loadActivationState();
+
+  const fileId = `file_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const ext = path.extname(filename) || '';
+  const storedFilename = `${fileId}${ext}`;
+  const filepath = storedFilename;
+  const fullPath = path.join(FILE_CACHE_DIR, storedFilename);
+
+  // 写入文件
+  fs.writeFileSync(fullPath, data);
+
+  const now = Date.now();
+  const fileIndex = {
+    fileId,
+    filepath,
+    type,
+    filename,
+    size,
+    mimeType,
+    createdAt: now,
+    expiresAt: now + FILE_EXPIRY_MS,
+    openid,
+    messageId,
+  };
+
+  state.cachedFiles[fileId] = fileIndex;
+  saveActivationState(state);
+
+  console.log(`[activation-state] File cached: ${fileId} (${type}, ${size} bytes)`);
+  return fileIndex;
+}
+
+/**
+ * 获取缓存文件信息
+ * @param {string} fileId - 文件 ID
+ * @returns {CachedFileIndex | undefined}
+ */
+export function getCachedFileInfo(fileId) {
+  const state = loadActivationState();
+  return state.cachedFiles[fileId];
+}
+
+/**
+ * 获取缓存文件的完整路径
+ * @param {string} fileId - 文件 ID
+ * @returns {string | null} 文件完整路径，不存在则返回 null
+ */
+export function getCachedFilePath(fileId) {
+  const state = loadActivationState();
+  const fileInfo = state.cachedFiles[fileId];
+  if (!fileInfo) {
+    return null;
+  }
+  const fullPath = path.join(FILE_CACHE_DIR, fileInfo.filepath);
+  if (!fs.existsSync(fullPath)) {
+    return null;
+  }
+  return fullPath;
+}
+
+/**
+ * 读取缓存文件数据
+ * @param {string} fileId - 文件 ID
+ * @returns {Buffer | null} 文件数据，不存在则返回 null
+ */
+export function readCachedFile(fileId) {
+  const filePath = getCachedFilePath(fileId);
+  if (!filePath) {
+    return null;
+  }
+  return fs.readFileSync(filePath);
+}
+
+/**
+ * 移除缓存文件
+ * @param {string} fileId - 文件 ID
+ * @returns {boolean} 是否成功移除
+ */
+export function removeCachedFile(fileId) {
+  const state = loadActivationState();
+  const fileInfo = state.cachedFiles[fileId];
+
+  if (!fileInfo) {
+    return false;
+  }
+
+  // 删除物理文件
+  const fullPath = path.join(FILE_CACHE_DIR, fileInfo.filepath);
+  try {
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
+  } catch (err) {
+    console.error(`[activation-state] Failed to delete file ${fileId}: ${err.message}`);
+  }
+
+  // 从索引中移除
+  delete state.cachedFiles[fileId];
+  saveActivationState(state);
+
+  console.log(`[activation-state] File removed: ${fileId}`);
+  return true;
+}
+
+/**
+ * 获取过期文件列表
+ * @param {string} [openid] - 可选，指定用户
+ * @returns {CachedFileIndex[]}
+ */
+export function getExpiredFiles(openid) {
+  const state = loadActivationState();
+  const now = Date.now();
+  const files = [];
+
+  for (const file of Object.values(state.cachedFiles)) {
+    const isExpired = now >= file.expiresAt;
+    const matchesUser = openid ? file.openid === openid : true;
+    if (isExpired && matchesUser) {
+      files.push(file);
+    }
+  }
+
+  return files;
+}
+
+/**
+ * 清理过期文件
+ * @param {string} [openid] - 可选，指定用户
+ * @returns {number} 清理数量
+ */
+export function cleanupExpiredFiles(openid) {
+  const expiredFiles = getExpiredFiles(openid);
+  let cleaned = 0;
+
+  for (const file of expiredFiles) {
+    if (removeCachedFile(file.fileId)) {
+      cleaned++;
+    }
+  }
+
+  if (cleaned > 0) {
+    console.log(`[activation-state] Cleaned up ${cleaned} expired files`);
+  }
+
+  return cleaned;
+}
+
+/**
+ * 获取用户的缓存文件列表
+ * @param {string} openid - 用户 openid
+ * @returns {CachedFileIndex[]}
+ */
+export function getUserCachedFiles(openid) {
+  const state = loadActivationState();
+  return Object.values(state.cachedFiles).filter(file => file.openid === openid);
+}
+
+/**
+ * 获取缓存文件统计
+ * @returns {Object}
+ */
+export function getCachedFilesStats() {
+  const state = loadActivationState();
+  const files = Object.values(state.cachedFiles);
+  const now = Date.now();
+
+  let totalSize = 0;
+  let expiredCount = 0;
+  let activeCount = 0;
+
+  for (const file of files) {
+    totalSize += file.size || 0;
+    if (now >= file.expiresAt) {
+      expiredCount++;
+    } else {
+      activeCount++;
+    }
+  }
+
+  return {
+    totalFiles: files.length,
+    activeFiles: activeCount,
+    expiredFiles: expiredCount,
+    totalSize,
+    totalSizeMB: Math.round(totalSize / 1024 / 1024 * 100) / 100,
   };
 }
 
@@ -558,4 +801,6 @@ export const CONSTANTS = {
   MSG_ID_TTL_MS,
   MSG_ID_EXPIRING_THRESHOLD_MS,
   MSG_ID_MAX_USAGE,
+  FILE_EXPIRY_MS,
+  FILE_CACHE_DIR,
 };

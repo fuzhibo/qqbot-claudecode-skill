@@ -50,6 +50,14 @@ import {
   getCompressibleMessages,
   replacePendingMessages,
   clearExpiredMessages,
+  saveCachedFile,
+  getCachedFileInfo,
+  getCachedFilePath,
+  readCachedFile,
+  removeCachedFile,
+  getExpiredFiles,
+  cleanupExpiredFiles,
+  getCachedFilesStats,
   CONSTANTS,
 } from './activation-state.js';
 
@@ -1570,25 +1578,58 @@ async function processPendingMessages(openid, msgId) {
  */
 async function compressExpiredMessages(openid) {
   const compressibleMsgs = getCompressibleMessages(openid);
+  const expiredFiles = getExpiredFiles(openid);
 
-  if (compressibleMsgs.length === 0) {
+  if (compressibleMsgs.length === 0 && expiredFiles.length === 0) {
     return false;
   }
 
-  log('cyan', `   🗜️ 开始压缩 ${compressibleMsgs.length} 条过期消息...`);
+  log('cyan', `   🗜️ 开始压缩 ${compressibleMsgs.length} 条过期消息和 ${expiredFiles.length} 个过期文件...`);
+
+  // 分离有附件和没有附件的消息
+  const textMessages = compressibleMsgs.filter(msg => !msg.attachment);
+  const attachmentMessages = compressibleMsgs.filter(msg => msg.attachment);
 
   // 构建消息摘要内容
-  const messagesText = compressibleMsgs
-    .map((msg, i) => `[${i + 1}] ${new Date(msg.createdAt).toLocaleString('zh-CN')}\n${msg.content}`)
-    .join('\n\n---\n\n');
+  let messagesText = '';
 
-  const compressPrompt = `请将以下 ${compressibleMsgs.length} 条消息压缩成一个简洁的摘要，保留关键信息（时间、事件、重要数据）。格式要求：
+  if (textMessages.length > 0) {
+    messagesText += `文本消息 (${textMessages.length} 条):\n`;
+    messagesText += textMessages
+      .map((msg, i) => `[${i + 1}] ${new Date(msg.createdAt).toLocaleString('zh-CN')}\n${msg.content}`)
+      .join('\n\n---\n\n');
+  }
+
+  if (attachmentMessages.length > 0) {
+    if (messagesText) messagesText += '\n\n---\n\n';
+    messagesText += `附件消息 (${attachmentMessages.length} 条):\n`;
+    messagesText += attachmentMessages
+      .map((msg, i) => {
+        const att = msg.attachment;
+        return `[${i + 1}] ${new Date(msg.createdAt).toLocaleString('zh-CN')}\n` +
+               `类型: ${att.type}, 文件名: ${att.filename}, 大小: ${Math.round(att.size / 1024)}KB\n` +
+               `${msg.content || '(无文字内容)'}`;
+      })
+      .join('\n\n');
+  }
+
+  if (expiredFiles.length > 0) {
+    if (messagesText) messagesText += '\n\n---\n\n';
+    messagesText += `已过期的缓存文件 (${expiredFiles.length} 个):\n`;
+    messagesText += expiredFiles
+      .map((file, i) => `[${i + 1}] ${file.filename} (${file.type}, ${Math.round(file.size / 1024)}KB) - 已清理`)
+      .join('\n');
+  }
+
+  const compressPrompt = `请将以下消息和文件记录压缩成一个简洁的摘要。格式要求：
 1. 使用中文
-2. 每条消息一行，格式："[时间] 摘要内容"
-3. 保留所有重要信息，删除冗余内容
-4. 总长度不超过 500 字
+2. 按时间顺序排列，格式："[时间] 摘要内容"
+3. 对于附件消息，标注文件类型和名称
+4. 对于已清理的文件，说明"文件已过期清理"
+5. 保留所有重要信息，删除冗余内容
+6. 总长度不超过 500 字
 
-待压缩消息：
+待压缩内容：
 ${messagesText}`;
 
   try {
@@ -1627,11 +1668,14 @@ ${messagesText}`;
     });
 
     if (compressResult) {
+      // 清理过期的缓存文件
+      const cleanedFiles = cleanupExpiredFiles(openid);
+
       // 创建压缩后的消息
       const compressedMessage = {
         id: `compressed_${Date.now()}`,
         targetOpenid: openid,
-        content: `📋 消息摘要 (${compressibleMsgs.length} 条)\n\n${compressResult}`,
+        content: `📋 消息摘要 (${compressibleMsgs.length} 条消息${cleanedFiles > 0 ? `, ${cleanedFiles} 个文件已清理` : ''})\n\n${compressResult}`,
         source: 'system_alert',
         createdAt: Date.now(),
         priority: 20, // 较低优先级
@@ -1640,13 +1684,14 @@ ${messagesText}`;
 
       // 替换旧消息
       replacePendingMessages(openid, [compressedMessage]);
-      log('green', `   ✅ 消息压缩完成: ${compressibleMsgs.length} 条 -> 1 条摘要`);
+      log('green', `   ✅ 消息压缩完成: ${compressibleMsgs.length} 条 -> 1 条摘要${cleanedFiles > 0 ? `, 清理 ${cleanedFiles} 个文件` : ''}`);
       return true;
     }
   } catch (err) {
     log('red', `   ❌ 消息压缩失败: ${err.message}`);
-    // 压缩失败时清除过期消息
+    // 压缩失败时清除过期消息和文件
     clearExpiredMessages(openid);
+    cleanupExpiredFiles(openid);
   }
 
   return false;
@@ -1660,8 +1705,9 @@ async function checkAndCompressExpiredMessages() {
 
   for (const user of activeUsers) {
     const expired = getExpiredMessages(user.openid);
-    if (expired.length > 0) {
-      log('yellow', `   ⚠️ 用户 ${user.nickname || user.openid} 有 ${expired.length} 条过期消息`);
+    const expiredFiles = getExpiredFiles(user.openid);
+    if (expired.length > 0 || expiredFiles.length > 0) {
+      log('yellow', `   ⚠️ 用户 ${user.nickname || user.openid} 有 ${expired.length} 条过期消息, ${expiredFiles.length} 个过期文件`);
       await compressExpiredMessages(user.openid);
     }
   }
