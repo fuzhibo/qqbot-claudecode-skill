@@ -357,17 +357,30 @@ const MESSAGE_EXPIRY_MS = 24 * 60 * 60 * 1000;
 const COMPRESSED_RETAIN_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * 添加待发送消息 (支持超时)
+ * 添加待发送消息 (支持超时和去重)
  * @param {Object} options
  * @param {string} options.targetOpenid - 目标用户 openid
  * @param {string} options.content - 消息内容
  * @param {'startup_notification' | 'system_alert' | 'user_message' | 'hook_notification'} [options.source='user_message'] - 消息来源
  * @param {number} [options.priority=10] - 优先级
  * @param {number} [options.expiresAt] - 过期时间戳 (可选)
- * @returns {PendingMessage} 添加的消息
+ * @param {boolean} [options.skipDuplicateCheck=false] - 跳过去重检查
+ * @returns {{message: PendingMessage, isDuplicate: boolean}} 添加的消息和是否为重复消息
  */
-export function addPendingMessage({ targetOpenid, content, source = 'user_message', priority = 10, expiresAt }) {
+export function addPendingMessage({ targetOpenid, content, source = 'user_message', priority = 10, expiresAt, skipDuplicateCheck = false }) {
   const state = loadActivationState();
+  const normalizedTarget = normalizeOpenid(targetOpenid);
+
+  // 去重检查：同一用户、相同内容的消息只保留一条
+  if (!skipDuplicateCheck) {
+    const existingMessage = state.pendingMessages.find(msg =>
+      normalizeOpenid(msg.targetOpenid) === normalizedTarget && msg.content === content
+    );
+    if (existingMessage) {
+      console.log(`[activation-state] Duplicate message skipped: ${content.substring(0, 50)}... -> ${targetOpenid}`);
+      return { message: existingMessage, isDuplicate: true };
+    }
+  }
 
   const message = {
     id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -383,7 +396,7 @@ export function addPendingMessage({ targetOpenid, content, source = 'user_messag
   saveActivationState(state);
 
   console.log(`[activation-state] Pending message added: ${message.id} -> ${targetOpenid}`);
-  return message;
+  return { message, isDuplicate: false };
 }
 
 /**
@@ -460,10 +473,26 @@ export function clearExpiredMessages(openid) {
  * @param {string} openid - 用户 openid
  * @returns {PendingMessage[]}
  */
+/**
+ * 规范化 openid（去掉 U_ 前缀）
+ * @param {string} openid
+ * @returns {string}
+ */
+function normalizeOpenid(openid) {
+  if (!openid) return openid;
+  return openid.startsWith('U_') ? openid.substring(2) : openid;
+}
+
+/**
+ * 获取用户的待发送消息
+ * @param {string} openid - 用户 openid
+ * @returns {PendingMessage[]}
+ */
 export function getPendingMessages(openid) {
   const state = loadActivationState();
+  const normalizedOpenid = normalizeOpenid(openid);
   return state.pendingMessages
-    .filter(msg => msg.targetOpenid === openid)
+    .filter(msg => normalizeOpenid(msg.targetOpenid) === normalizedOpenid)
     .sort((a, b) => a.priority - b.priority);
 }
 
@@ -515,7 +544,8 @@ export function clearPendingMessages(openid) {
 export function getPendingMessageCount(openid) {
   const state = loadActivationState();
   if (openid) {
-    return state.pendingMessages.filter(msg => msg.targetOpenid === openid).length;
+    const normalizedOpenid = normalizeOpenid(openid);
+    return state.pendingMessages.filter(msg => normalizeOpenid(msg.targetOpenid) === normalizedOpenid).length;
   }
   return state.pendingMessages.length;
 }

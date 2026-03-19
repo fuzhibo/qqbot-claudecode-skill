@@ -2,6 +2,22 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.8.2] - 2026-03-19
+
+### Bug 修复
+
+- **待发送消息匹配修复** - 修复 openid 格式不一致导致待发送消息无法正确匹配的问题
+  - `getPendingMessages` 和 `getPendingMessageCount` 现在使用 `normalizeOpenid` 函数
+  - 无论 openid 是否带 `U_` 前缀都能正确匹配待发送消息
+  - 解决了积压消息无法发送的问题
+
+### 功能更新
+
+- **消息去重** - 添加待发送消息去重逻辑，避免重复消息积压
+  - `addPendingMessage` 在添加消息前检查是否已存在相同内容的消息
+  - 重复消息会被跳过并返回 `{ isDuplicate: true }`
+  - 控制台显示 `Duplicate message skipped` 日志
+
 ## [1.8.1] - 2026-03-19
 
 ### Bug 修复
