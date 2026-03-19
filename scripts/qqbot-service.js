@@ -97,25 +97,37 @@ function isProcessRunning(pid) {
 }
 
 async function getGatewayPid() {
+  let stalePidFile = false;
+  let stalePid = null;
+
   if (fs.existsSync(PID_FILE)) {
     const pid = parseInt(fs.readFileSync(PID_FILE, 'utf-8').trim(), 10);
     if (isProcessRunning(pid)) {
-      return pid;
+      return { pid, stale: false };
+    } else {
+      // PID 文件存在但进程已死 - 僵尸状态
+      stalePidFile = true;
+      stalePid = pid;
     }
   }
 
-  // 尝试通过 pgrep 查找
+  // 尝试通过 pgrep 查找真正运行的进程
   try {
     const { stdout } = await execAsync('pgrep -f "qqbot-gateway.js"');
     const pids = stdout.trim().split('\n').filter(Boolean);
     if (pids.length > 0) {
-      return parseInt(pids[0], 10);
+      return { pid: parseInt(pids[0], 10), stale: false };
     }
   } catch (e) {
     // pgrep 未找到
   }
 
-  return null;
+  // 没有运行中的进程，但可能有僵尸 PID 文件
+  if (stalePidFile) {
+    return { pid: null, stale: true, stalePid };
+  }
+
+  return { pid: null, stale: false };
 }
 
 function getRecentLogs(lines = 20) {
@@ -137,7 +149,11 @@ function getRecentLogs(lines = 20) {
  * 获取完整的服务状态信息
  */
 async function getStatusData() {
-  const pid = await getGatewayPid();
+  const pidResult = await getGatewayPid();
+  const pid = pidResult.pid;
+  const stalePidFile = pidResult.stale;
+  const stalePid = pidResult.stalePid;
+
   const projects = readJsonFile(PROJECTS_FILE, { projects: {}, defaultProject: null });
   const activationState = readJsonFile(ACTIVATION_STATE_FILE, {
     gatewayStatus: 'pending_activation',
@@ -201,6 +217,9 @@ async function getStatusData() {
     mode,
     gatewayStatus: activationState.gatewayStatus,
     processInfo,
+    // 僵尸状态检测
+    stalePidFile,
+    stalePid,
     projects: {
       list: Object.keys(projects.projects || {}),
       default: projects.defaultProject,
@@ -233,7 +252,13 @@ function formatStatusHuman(data) {
   lines.push('🤖 QQ Bot 网关状态');
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-  if (data.running) {
+  // 检测僵尸状态
+  if (data.stalePidFile) {
+    lines.push(`状态: ⚠️ 异常 - PID 文件残留`);
+    lines.push(`残留 PID: ${data.stalePid} (进程已不存在)`);
+    lines.push('');
+    lines.push('💡 建议: 运行 restart 命令修复此问题');
+  } else if (data.running) {
     lines.push(`状态: 🟢 运行中`);
     lines.push(`PID: ${data.pid}`);
     lines.push(`模式: ${data.mode === 'auto' ? '🟢 自动回复' : '🔵 通知'}`);
@@ -323,18 +348,25 @@ async function cmdStart(options) {
   };
 
   // 检查是否已运行
-  const currentPid = await getGatewayPid();
-  if (currentPid) {
-    result.message = `网关已在运行中 (PID: ${currentPid})`;
-    result.pid = currentPid;
+  const pidResult = await getGatewayPid();
+  if (pidResult.pid) {
+    result.message = `网关已在运行中 (PID: ${pidResult.pid})`;
+    result.pid = pidResult.pid;
     result.success = true;
 
     if (options.human) {
-      console.log(`⚠️ 网关已在运行中 (PID: ${currentPid})`);
+      console.log(`⚠️ 网关已在运行中 (PID: ${pidResult.pid})`);
     } else {
       console.log(JSON.stringify(result, null, 2));
     }
     return;
+  }
+
+  // 如果有僵尸 PID 文件，先清理
+  if (pidResult.stale) {
+    if (fs.existsSync(PID_FILE)) {
+      fs.unlinkSync(PID_FILE);
+    }
   }
 
   // 启动网关
@@ -355,15 +387,15 @@ async function cmdStart(options) {
     // 等待启动
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    const newPid = await getGatewayPid();
-    if (newPid) {
+    const newPidResult = await getGatewayPid();
+    if (newPidResult.pid) {
       result.success = true;
-      result.pid = newPid;
+      result.pid = newPidResult.pid;
       result.message = `网关启动成功`;
 
       if (options.human) {
         console.log(`✅ QQ Bot 网关已启动`);
-        console.log(`   PID: ${newPid}`);
+        console.log(`   PID: ${newPidResult.pid}`);
         console.log(`   模式: ${mode === 'auto' ? '自动回复' : '通知'}`);
       } else {
         console.log(JSON.stringify(result, null, 2));
@@ -398,9 +430,22 @@ async function cmdStop(options) {
     message: ''
   };
 
-  const pid = await getGatewayPid();
+  const pidResult = await getGatewayPid();
+  const pid = pidResult.pid;
 
   if (!pid) {
+    // 清理僵尸 PID 文件
+    if (pidResult.stale && fs.existsSync(PID_FILE)) {
+      fs.unlinkSync(PID_FILE);
+      result.message = '已清理残留 PID 文件';
+      if (options.human) {
+        console.log('🧹 已清理残留 PID 文件');
+      } else {
+        console.log(JSON.stringify(result, null, 2));
+      }
+      return;
+    }
+
     result.message = '网关未在运行';
 
     if (options.human) {
