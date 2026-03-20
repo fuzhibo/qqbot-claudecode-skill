@@ -2294,6 +2294,9 @@ function stopGateway() {
     fs.unlinkSync(PID_FILE);
   }
 
+  // 重置网关激活状态
+  setGatewayStatus('pending_activation');
+
   // 重置启动状态
   startupAttempts = 0;
   consecutiveFailures = 0;

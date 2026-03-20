@@ -112,11 +112,18 @@ async function getGatewayPid() {
   }
 
   // 尝试通过 pgrep 查找真正运行的进程
+  // 使用更精确的模式避免匹配到 pgrep 命令本身
   try {
-    const { stdout } = await execAsync('pgrep -f "qqbot-gateway.js"');
+    // 使用 -x 精确匹配进程名不行，因为进程名是 node
+    // 改用 ps + grep 方式，通过 [q] 技巧排除 grep 自身
+    const { stdout } = await execAsync('ps aux | grep "[q]qbot-gateway.js" | awk \'{print $2}\'');
     const pids = stdout.trim().split('\n').filter(Boolean);
     if (pids.length > 0) {
-      return { pid: parseInt(pids[0], 10), stale: false };
+      const pid = parseInt(pids[0], 10);
+      // 验证进程确实存在
+      if (isProcessRunning(pid)) {
+        return { pid, stale: false };
+      }
     }
   } catch (e) {
     // pgrep 未找到
