@@ -211,6 +211,22 @@ function createGitTag(version) {
   }
 }
 
+function commitRelease(version) {
+  try {
+    // 添加所有变更
+    execSync('git add .', { cwd: ROOT_DIR });
+    log('green', `  ✅ 已暂存变更文件`);
+
+    // 提交
+    execSync(`git commit -m "chore: release v${version}"`, { cwd: ROOT_DIR });
+    log('green', `  ✅ 已创建提交: chore: release v${version}`);
+    return true;
+  } catch (error) {
+    log('yellow', `  ⚠️  提交失败: ${error.message}`);
+    return false;
+  }
+}
+
 function showStatus() {
   const currentVersion = getCurrentVersion();
   const { major, minor, patch } = parseVersion(currentVersion);
@@ -282,15 +298,17 @@ async function release(type) {
   log('bold', '\n🏷️  创建版本标签\n');
   createGitTag(newVersion);
 
+  // 7. 提交 release 变更
+  log('bold', '\n📦 提交 release 变更\n');
+  commitRelease(newVersion);
+
   // 完成
   log('green', '\n✅ 发布准备完成！\n');
   log('cyan', '📌 本项目是 Claude Code 插件，无需发布到 npm');
   log('cyan', '   用户通过 Marketplace 或本地安装使用\n');
-  log('cyan', '后续步骤:');
-  log('dim', '  1. 检查变更: git diff');
-  log('dim', '  2. 提交变更: git add . && git commit -m "chore: release v' + newVersion + '"');
-  log('dim', '  3. 推送代码: git push origin main');
-  log('dim', '  4. 推送标签: git push origin v' + newVersion);
+  log('cyan', '后续步骤 (手动推送):');
+  log('dim', '  git push origin main');
+  log('dim', '  git push origin v' + newVersion);
   log('cyan', '\n用户更新方式:');
   log('dim', '  - Marketplace: claude plugin update qqbot-mcp');
   log('dim', '  - 本地安装: git pull && npm install && npm run build\n');
