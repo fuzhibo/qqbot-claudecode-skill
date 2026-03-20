@@ -141,6 +141,7 @@ const SELF_HEALING_CONFIG = {
  */
 let hookCache = new Map();
 let hookBatchTimer = null;
+let hookMaxWaitTimer = null; // 超时检查定时器
 
 /**
  * 默认 Hook 批处理配置
@@ -148,6 +149,8 @@ let hookBatchTimer = null;
 const DEFAULT_HOOK_BATCH_CONFIG = {
   batchIntervalMinutes: 3,  // 检查间隔（分钟），0 = 立即发送
   maxBatchSize: 50,         // 单批次最大消息数
+  maxWaitMinutes: 3,        // 消息最大等待时间（分钟），超时自动合并发送
+  compressThresholdBytes: 800, // 压缩阈值（字节），超过此长度才调用 Claude 压缩
 };
 
 /**
@@ -321,58 +324,95 @@ ${messagesText}`;
 }
 
 /**
+ * 计算字符串的字节长度（UTF-8）
+ * @param {string} str - 字符串
+ * @returns {number} 字节长度
+ */
+function getByteLength(str) {
+  return Buffer.byteLength(str, 'utf-8');
+}
+
+/**
+ * 简单合并 Hook 消息（不压缩）
+ * @param {Array} messages - 消息数组
+ * @returns {string} 合并后的消息
+ */
+function mergeHookMessages(messages) {
+  return messages
+    .map((m, i) => `[${i + 1}] ${new Date(m.timestamp).toLocaleTimeString('zh-CN')} | ${m.project || 'Hook'}\n${m.message}`)
+    .join('\n\n');
+}
+
+/**
  * 处理单个用户的 Hook 消息批次
  * @param {string} openid - 用户 openid
+ * @param {string} [reason='定时'] - 处理原因（定时/超时/满批次）
  */
-async function processHookBatch(openid) {
+async function processHookBatch(openid, reason = '定时') {
   const entry = hookCache.get(openid);
   if (!entry || entry.messages.length === 0) {
     return;
   }
 
   const messages = entry.messages;
+  const waitTime = Math.round((Date.now() - entry.firstMessageTime) / 1000);
   hookCache.delete(openid); // 先清理缓存，避免重复处理
 
-  log('cyan', `   🗜️ 开始处理 Hook 批次: ${messages.length} 条消息`);
+  log('cyan', `   🗜️ 开始处理 Hook 批次 [${reason}]: ${messages.length} 条消息 (等待 ${waitTime} 秒)`);
 
   try {
-    // 压缩消息
-    const summary = await compressHookMessages(messages);
+    const config = loadHookBatchConfig();
+
+    // 先简单合并消息
+    const mergedContent = mergeHookMessages(messages);
+    const mergedBytes = getByteLength(mergedContent);
+
+    let summary;
+    let finalContent;
+
+    // 检查是否需要压缩（超过阈值才调用 Claude）
+    if (mergedBytes > config.compressThresholdBytes) {
+      log('cyan', `   📊 合并后 ${mergedBytes} 字节 > 阈值 ${config.compressThresholdBytes}，调用 Claude 压缩...`);
+      summary = await compressHookMessages(messages);
+      finalContent = `📋 Hook 消息摘要 (${messages.length} 条)\n\n${summary}`;
+    } else {
+      log('cyan', `   📊 合并后 ${mergedBytes} 字节 <= 阈值 ${config.compressThresholdBytes}，无需压缩`);
+      finalContent = `📋 Hook 消息合并 (${messages.length} 条)\n\n${mergedContent}`;
+    }
 
     // 获取用户激活状态
     const userStatus = getUserActivationStatus(openid);
 
     if (userStatus === 'expired' || !userStatus) {
-      // 用户未激活，缓存压缩后的消息
+      // 用户未激活，缓存消息
       addPendingMessage({
         targetOpenid: openid,
-        content: `📋 Hook 消息摘要 (${messages.length} 条)\n\n${summary}`,
+        content: finalContent,
         source: 'hook_batch',
         priority: 5,
       });
-      log('cyan', `   📬 Hook 批次摘要已缓存 (目标未激活)`);
+      log('cyan', `   📬 Hook 批次已缓存 (目标未激活)`);
       return;
     }
 
     // 用户已激活，发送消息
     const token = await getAccessToken();
     const usageInfo = incrementMsgIdUsage(openid);
-    const finalMsg = `📋 Hook 消息摘要 (${messages.length} 条)\n\n${summary}`;
 
-    const result = await sendMessageSmart(token, openid, finalMsg, usageInfo);
+    const result = await sendMessageSmart(token, openid, finalContent, usageInfo);
 
     if (result.success) {
       const methodText = result.method === 'passive' ? `被动回复 (剩余 ${result.remaining} 次)` : '主动消息';
-      log('green', `   ✅ Hook 批次摘要已发送 [${methodText}]`);
+      log('green', `   ✅ Hook 批次已发送 [${methodText}]`);
     } else {
       // 发送失败，缓存消息
       addPendingMessage({
         targetOpenid: openid,
-        content: finalMsg,
+        content: finalContent,
         source: 'hook_batch',
         priority: 5,
       });
-      log('yellow', `   ⚠️ Hook 批次摘要发送失败，已缓存: ${result.error}`);
+      log('yellow', `   ⚠️ Hook 批次发送失败，已缓存: ${result.error}`);
     }
   } catch (err) {
     log('red', `   ❌ Hook 批次处理失败: ${err.message}`);
@@ -399,7 +439,40 @@ async function processAllHookBatches() {
   log('cyan', `\n🔄 定时处理 Hook 消息批次 (${hookCache.size} 个用户)`);
 
   for (const [openid] of hookCache) {
-    await processHookBatch(openid);
+    await processHookBatch(openid, '定时');
+  }
+}
+
+/**
+ * 检查并处理超时的 Hook 消息批次
+ */
+async function processTimeoutBatches() {
+  if (hookCache.size === 0) {
+    return;
+  }
+
+  const config = loadHookBatchConfig();
+  const maxWaitMs = config.maxWaitMinutes * 60 * 1000;
+  const now = Date.now();
+  const timeoutUsers = [];
+
+  for (const [openid, entry] of hookCache) {
+    const waitTime = now - entry.firstMessageTime;
+    if (waitTime >= maxWaitMs) {
+      timeoutUsers.push({ openid, waitTime, messageCount: entry.messages.length });
+    }
+  }
+
+  if (timeoutUsers.length === 0) {
+    return;
+  }
+
+  log('yellow', `\n⏰ 检测到 ${timeoutUsers.length} 个用户的 Hook 消息超时`);
+
+  for (const { openid, waitTime, messageCount } of timeoutUsers) {
+    const waitSeconds = Math.round(waitTime / 1000);
+    log('cyan', `   ⏱️ 用户 ${openid.slice(0, 8)}... 超时: ${messageCount} 条消息, 等待 ${waitSeconds} 秒`);
+    await processHookBatch(openid, '超时');
   }
 }
 
@@ -422,6 +495,30 @@ function startHookBatchTimer() {
     if (!running) return;
     await processAllHookBatches();
   }, intervalMs);
+
+  // 启动超时检查定时器（每 30 秒检查一次）
+  startHookMaxWaitTimer();
+}
+
+/**
+ * 启动超时检查定时器
+ */
+function startHookMaxWaitTimer() {
+  const config = loadHookBatchConfig();
+
+  if (config.maxWaitMinutes <= 0) {
+    log('cyan', '   ⏰ Hook 消息超时检查: 已禁用');
+    return;
+  }
+
+  // 每 30 秒检查一次超时
+  const checkIntervalMs = 30 * 1000;
+  log('cyan', `   ⏰ Hook 消息超时检查: ${config.maxWaitMinutes} 分钟 (检查间隔: 30 秒)`);
+
+  hookMaxWaitTimer = setInterval(async () => {
+    if (!running) return;
+    await processTimeoutBatches();
+  }, checkIntervalMs);
 }
 
 /**
@@ -432,6 +529,17 @@ function stopHookBatchTimer() {
     clearInterval(hookBatchTimer);
     hookBatchTimer = null;
   }
+  stopHookMaxWaitTimer();
+}
+
+/**
+ * 停止超时检查定时器
+ */
+function stopHookMaxWaitTimer() {
+  if (hookMaxWaitTimer) {
+    clearInterval(hookMaxWaitTimer);
+    hookMaxWaitTimer = null;
+  }
 }
 
 /**
@@ -441,18 +549,25 @@ function stopHookBatchTimer() {
 function getHookCacheStatus() {
   const config = loadHookBatchConfig();
   const cacheInfo = [];
+  const now = Date.now();
 
   for (const [openid, entry] of hookCache) {
+    const waitSeconds = Math.round((now - entry.firstMessageTime) / 1000);
+    const maxWaitSeconds = config.maxWaitMinutes * 60;
     cacheInfo.push({
       openid: openid.slice(0, 8) + '...',
       messageCount: entry.messages.length,
       firstMessageTime: new Date(entry.firstMessageTime).toLocaleString('zh-CN'),
+      waitSeconds,
+      maxWaitSeconds,
+      isTimeout: waitSeconds >= maxWaitSeconds,
     });
   }
 
   return {
     config,
     cacheEnabled: config.batchIntervalMinutes > 0,
+    maxWaitEnabled: config.maxWaitMinutes > 0,
     totalCachedMessages: cacheInfo.reduce((sum, c) => sum + c.messageCount, 0),
     cachedUsers: cacheInfo.length,
     cacheDetails: cacheInfo,
@@ -1571,6 +1686,12 @@ function startInternalApi() {
           if (typeof data.maxBatchSize === 'number' && data.maxBatchSize > 0) {
             config.maxBatchSize = data.maxBatchSize;
           }
+          if (typeof data.maxWaitMinutes === 'number' && data.maxWaitMinutes >= 0) {
+            config.maxWaitMinutes = data.maxWaitMinutes;
+          }
+          if (typeof data.compressThresholdBytes === 'number' && data.compressThresholdBytes > 0) {
+            config.compressThresholdBytes = data.compressThresholdBytes;
+          }
 
           saveHookBatchConfig(config);
 
@@ -1584,7 +1705,7 @@ function startInternalApi() {
             config,
             message: config.batchIntervalMinutes === 0
               ? '已切换到立即发送模式'
-              : `已设置批处理间隔为 ${config.batchIntervalMinutes} 分钟`
+              : `已设置批处理间隔为 ${config.batchIntervalMinutes} 分钟，超时 ${config.maxWaitMinutes} 分钟，压缩阈值 ${config.compressThresholdBytes} 字节`
           }));
         } catch (parseErr) {
           res.writeHead(400);
@@ -1987,12 +2108,15 @@ async function handleMessage(type, data) {
     replyMsg += `模式: ${status.cacheEnabled ? '批量压缩发送' : '立即发送'}\n`;
     replyMsg += `检查间隔: ${status.config.batchIntervalMinutes} 分钟\n`;
     replyMsg += `最大批次: ${status.config.maxBatchSize} 条\n`;
+    replyMsg += `超时时间: ${status.config.maxWaitMinutes} 分钟\n`;
+    replyMsg += `压缩阈值: ${status.config.compressThresholdBytes} 字节\n`;
     replyMsg += `当前缓存: ${status.totalCachedMessages} 条 (${status.cachedUsers} 个用户)\n`;
 
     if (status.cacheDetails.length > 0) {
       replyMsg += `\n缓存详情:\n`;
       for (const detail of status.cacheDetails) {
-        replyMsg += `  • ${detail.openid}: ${detail.messageCount} 条\n`;
+        const timeoutFlag = detail.isTimeout ? ' ⚠️超时' : '';
+        replyMsg += `  • ${detail.openid}: ${detail.messageCount} 条 (等待 ${detail.waitSeconds}s/${detail.maxWaitSeconds}s)${timeoutFlag}\n`;
       }
     }
 

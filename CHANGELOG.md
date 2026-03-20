@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.11.0] - 2026-03-20
+
+### 功能更新
+
+  - 5b392a3 chore: release v1.10.1
+  - a05a056 chore(build-release): 自动提交 release 变更，不自动推送
+  - 32684ef chore: release v1.10.0
+  - 3810857 feat(gateway): Hook 消息缓存与批量发送功能
+  - c7cb681 release v1.9.0: 消息队列系统 + 图片发送修复
+  - 2924916 fix(service): 僵尸 PID 文件检测与自动清理
+  - 1da7450 release v1.8.2
+  - 06921ef fix(service): 修复网关模式探测功能
+  - 38795a3 feat(gateway): 智能消息发送 - 自动降级到主动消息
+  - d18b6ec feat(hook): 增强 hook 上报模式，增加工具调用详情
+
 ## [1.10.1] - 2026-03-20
 
 ### 问题修复

@@ -591,6 +591,15 @@ QQBOT_CLIENT_SECRET=your-client-secret
 
 Hook 消息默认缓存并每 3 分钟批量压缩后发送，减少消息打扰。
 
+**配置项**
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `batchIntervalMinutes` | 3 | 检查间隔（分钟），0 = 立即发送 |
+| `maxBatchSize` | 50 | 单批次最大消息数，达到后立即处理 |
+| `maxWaitMinutes` | 3 | 消息最大等待时间（分钟），超时自动合并发送 |
+| `compressThresholdBytes` | 800 | 压缩阈值（字节），超过此长度才调用 Claude 压缩 |
+
 **配置命令**（通过 QQ 发送）:
 
 | 命令 | 说明 |
@@ -608,8 +617,13 @@ Hook 消息默认缓存并每 3 分钟批量压缩后发送，减少消息打扰
 **工作原理**
 
 1. Hook 消息先缓存到内存中
-2. 到达检查间隔时，使用 Claude 压缩成摘要
-3. 发送压缩后的摘要消息
+2. 满足以下任一条件时触发处理：
+   - 到达检查间隔（`batchIntervalMinutes`）
+   - 消息等待超过最大等待时间（`maxWaitMinutes`）
+   - 达到最大批次大小（`maxBatchSize`）
+3. 合并消息，检查字节长度
+4. 若超过压缩阈值（`compressThresholdBytes`），调用 Claude 压缩成摘要
+5. 发送合并或压缩后的消息
 
 **示例摘要**
 ```
@@ -619,6 +633,17 @@ Hook 消息默认缓存并每 3 分钟批量压缩后发送，减少消息打扰
 [10:32] SessionStart: 项目 my-project 开始处理
 [10:35] PermissionRequest: 请求执行 Bash 命令
 ...
+```
+
+**短消息示例**（不超过阈值时）
+```
+📋 Hook 消息合并 (2 条)
+
+[1] 11:45:30 | qqbot-claudecode-skill
+PostToolUse:Bash hook additional context: Use parallel execution...
+
+[2] 11:45:33 | qqbot-claudecode-skill
+PostToolUse:Grep hook additional context: Combine searches...
 ```
 
 ---
