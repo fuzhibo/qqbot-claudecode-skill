@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "QQ Bot MCP integration for Claude Code - send messages, files, and receive tasks from QQ",
-    "version": "1.9.0"
+    "version": "1.10.0"
   },
   "plugins": [
     {
       "name": "qqbot-mcp",
       "source": "./",
       "description": "QQ Bot MCP integration - bidirectional communication between Claude Code and QQ",
-      "version": "1.9.0",
+      "version": "1.10.0",
       "author": {
         "name": "fuzhibo"
       },
