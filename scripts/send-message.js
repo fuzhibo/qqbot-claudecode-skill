@@ -3,31 +3,36 @@
 /**
  * QQ Bot 发送消息 CLI
  *
+ * 统一通过网关内部 API 发送消息，复用网关的:
+ * - Token 管理
+ * - 消息队列系统
+ * - 富媒体发送能力
+ *
  * 用法:
  *   node send-message.js <targetId> <message> [options]
  *
  * 参数:
- *   targetId  - 目标 ID (G_群号/U_用户ID/C_频道ID)
+ *   targetId  - 目标 ID (用户OpenID/群号)
  *   message   - 消息内容
  *
  * 选项:
- *   --bot <name>  - 使用指定的机器人配置
- *   --type <type> - 消息类型: c2c, group, channel (自动从 targetId 前缀检测)
+ *   --project <name>  - 项目名称 (默认: 默认项目)
+ *   --gateway <url>   - 网关 API 地址 (默认: http://127.0.0.1:3310)
  */
 
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import https from 'https';
 import http from 'http';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 配置目录
-const CONFIG_DIR = path.join(os.homedir(), '.claude', 'qqbot-mcp');
-const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+// 网关配置
+const GATEWAY_DIR = path.join(os.homedir(), '.claude', 'qqbot-gateway');
+const PROJECTS_FILE = path.join(GATEWAY_DIR, 'projects.json');
+const DEFAULT_GATEWAY_API = 'http://127.0.0.1:3310';
 
 // 颜色输出
 const colors = {
@@ -43,167 +48,116 @@ function log(color, message) {
   console.log(`${colors[color]}${message}${colors.reset}`);
 }
 
-// 读取配置
-function readConfig() {
-  if (!fs.existsSync(CONFIG_FILE)) {
-    return { version: '1.0.0', bots: {}, lastUpdated: Date.now() };
+// 读取项目配置，获取默认项目
+function getDefaultProject() {
+  if (!fs.existsSync(PROJECTS_FILE)) {
+    return null;
   }
   try {
-    return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+    const data = JSON.parse(fs.readFileSync(PROJECTS_FILE, 'utf-8'));
+    return data.defaultProject || null;
   } catch {
-    return { version: '1.0.0', bots: {}, lastUpdated: Date.now() };
+    return null;
   }
 }
 
-// 获取机器人配置
-function getBotConfig(botName) {
-  const config = readConfig();
-
-  // 优先使用指定的 bot
-  if (botName && config.bots[botName]) {
-    return config.bots[botName];
-  }
-
-  // 使用第一个可用的 bot
-  const botNames = Object.keys(config.bots);
-  if (botNames.length > 0) {
-    return config.bots[botNames[0]];
-  }
-
-  // 使用环境变量
-  if (process.env.QQBOT_APP_ID && process.env.QQBOT_CLIENT_SECRET) {
-    return {
-      appId: process.env.QQBOT_APP_ID,
-      clientSecret: process.env.QQBOT_CLIENT_SECRET,
-    };
-  }
-
-  return null;
-}
-
-// 解析目标 ID
-function parseTargetId(targetId) {
-  if (targetId.startsWith('G_')) {
-    return { type: 'group', openid: targetId.slice(2) };
-  } else if (targetId.startsWith('U_')) {
-    return { type: 'c2c', openid: targetId.slice(2) };
-  } else if (targetId.startsWith('C_')) {
-    return { type: 'channel', openid: targetId.slice(2) };
-  }
-  // 默认为私聊
-  return { type: 'c2c', openid: targetId };
-}
-
-// 通用 HTTP 请求函数 (替代 fetch，解决 Node.js 24 兼容问题)
-function httpRequest(urlString, options = {}) {
+// 通过网关内部 API 发送消息
+async function sendViaGateway(gatewayApi, target, message, project) {
   return new Promise((resolve, reject) => {
-    const url = new URL(urlString);
-    const isHttps = url.protocol === 'https:';
-    const client = isHttps ? https : http;
+    const url = new URL(`${gatewayApi}/api/notify`);
 
-    const reqOptions = {
+    const body = JSON.stringify({
+      target: target,
+      message: message,
+      project: project,
+    });
+
+    const req = http.request({
       hostname: url.hostname,
-      port: url.port || (isHttps ? 443 : 80),
-      path: url.pathname + url.search,
-      method: options.method || 'GET',
-      headers: options.headers || {},
-    };
-
-    const req = client.request(reqOptions, (res) => {
+      port: url.port || 80,
+      path: url.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    }, (res) => {
       let data = '';
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
-        resolve({
-          ok: res.statusCode >= 200 && res.statusCode < 300,
-          status: res.statusCode,
-          statusText: res.statusMessage,
-          json: async () => JSON.parse(data),
-          text: async () => data,
-        });
+        try {
+          const result = JSON.parse(data);
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(result);
+          } else {
+            reject(new Error(result.error || `HTTP ${res.statusCode}`));
+          }
+        } catch (e) {
+          reject(new Error(`解析响应失败: ${data}`));
+        }
       });
     });
 
-    req.on('error', reject);
+    req.on('error', (e) => {
+      reject(new Error(`连接网关失败: ${e.message}`));
+    });
 
-    if (options.body) {
-      req.write(options.body);
-    }
+    req.write(body);
     req.end();
   });
 }
 
-// 获取 Access Token (使用新 API)
-async function getAccessToken(appId, clientSecret) {
-  const response = await httpRequest('https://bots.qq.com/app/getAppAccessToken', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      appId: appId,
-      clientSecret: clientSecret,
-    }),
+// 检查网关状态 - 通过尝试连接来判断
+async function checkGatewayStatus(gatewayApi) {
+  return new Promise((resolve) => {
+    const url = new URL(`${gatewayApi}/`);
+
+    const req = http.request({
+      hostname: url.hostname,
+      port: url.port || 80,
+      path: url.pathname,
+      method: 'GET',
+      timeout: 3000,
+    }, (res) => {
+      // 只要能连接上就算成功（即使是 404 也说明服务在运行）
+      resolve(true);
+    });
+
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(false);
+    });
+    req.end();
   });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`获取 Access Token 失败: ${response.status} ${text}`);
-  }
-
-  const data = await response.json();
-  return data.access_token;
-}
-
-// 发送消息 (使用新 API: api.sgroup.qq.com)
-async function sendMessage(accessToken, openid, message, type) {
-  // 新 API 端点
-  const url =
-    type === 'group'
-      ? `https://api.sgroup.qq.com/v2/groups/${openid}/messages`
-      : `https://api.sgroup.qq.com/v2/users/${openid}/messages`;
-
-  // 构建消息内容 (新 API 格式)
-  const content = {
-    content: message,
-    msg_type: 0, // 文本消息
-  };
-
-  const response = await httpRequest(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `QQBot ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(content),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`发送消息失败: ${response.status} ${text}`);
-  }
-
-  return await response.json();
 }
 
 // 显示帮助信息
 function showHelp() {
   console.log(`
 ${colors.cyan}QQ Bot 发送消息 CLI${colors.reset}
+${colors.dim}通过网关内部 API 统一发送消息${colors.reset}
 
 用法:
   node send-message.js <targetId> <message> [options]
 
 参数:
-  ${colors.green}targetId${colors.reset}  目标 ID (G_群号/U_用户ID/C_频道ID)
+  ${colors.green}targetId${colors.reset}  目标 ID (用户OpenID/群号)
   ${colors.green}message${colors.reset}   消息内容
 
 选项:
-  ${colors.green}--bot <name>${colors.reset}   使用指定的机器人配置
-  ${colors.green}--type <type>${colors.reset}  消息类型: c2c, group, channel
+  ${colors.green}--project <name>${colors.reset}   项目名称 (默认: 默认项目)
+  ${colors.green}--gateway <url>${colors.reset}    网关 API 地址 (默认: http://127.0.0.1:3310)
 
 示例:
-  node send-message.js G_123456789 "你好，群消息"
-  node send-message.js U_abc123 "私聊消息" --bot my-bot
+  node send-message.js 9C420731A85BB53B6B9D7D45BDCD20F2 "你好"
+  node send-message.js G_123456 "群消息" --project my-project
+  node send-message.js U_abc123 "私聊" --gateway http://192.168.1.100:3310
+
+注意:
+  - 消息会通过网关的队列系统发送
+  - 支持 <qqimg>, <qqfile> 等富媒体标签
+  - 网关必须在运行中 (使用 qqbot-service status 检查)
 `);
 }
 
@@ -220,15 +174,15 @@ async function main() {
   // 解析参数
   let targetId = null;
   let message = null;
-  let botName = null;
-  let msgType = null;
+  let project = null;
+  let gatewayApi = DEFAULT_GATEWAY_API;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === '--bot') {
-      botName = args[++i];
-    } else if (arg === '--type') {
-      msgType = args[++i];
+    if (arg === '--project') {
+      project = args[++i];
+    } else if (arg === '--gateway') {
+      gatewayApi = args[++i];
     } else if (!arg.startsWith('-')) {
       if (!targetId) {
         targetId = arg;
@@ -241,40 +195,45 @@ async function main() {
   // 检查必需参数
   if (!targetId || !message) {
     log('red', '❌ 参数不完整');
-    log('dim', '用法: node send-message.js <targetId> <message> [--bot <name>]');
+    log('dim', '用法: node send-message.js <targetId> <message> [--project <name>]');
     process.exit(1);
   }
 
-  // 获取机器人配置
-  const botConfig = getBotConfig(botName);
-  if (!botConfig) {
-    log('red', '❌ 未找到机器人配置');
-    log('dim', '请先运行: qqbot-mcp-cli setup <botName>');
-    log('dim', '或设置环境变量: QQBOT_APP_ID, QQBOT_CLIENT_SECRET');
-    process.exit(1);
+  // 获取默认项目
+  if (!project) {
+    project = getDefaultProject();
+    if (!project) {
+      log('red', '❌ 未找到默认项目');
+      log('dim', '请指定项目: --project <name>');
+      log('dim', '或先注册项目: qqbot-service register');
+      process.exit(1);
+    }
   }
-
-  // 解析目标
-  const target = parseTargetId(targetId);
-  const type = msgType || target.type;
 
   log('cyan', '\n📤 发送消息\n');
   log('dim', `  目标: ${targetId}`);
-  log('dim', `  类型: ${type}`);
+  log('dim', `  项目: ${project}`);
+  log('dim', `  网关: ${gatewayApi}`);
   log('dim', `  内容: ${message.slice(0, 50)}${message.length > 50 ? '...' : ''}`);
 
   try {
-    // 获取 Access Token
-    log('dim', '\n  获取 Access Token...');
-    const accessToken = await getAccessToken(botConfig.appId, botConfig.clientSecret);
-    log('green', '  ✅ Token 获取成功');
+    // 检查网关状态
+    log('dim', '\n  检查网关状态...');
+    const gatewayRunning = await checkGatewayStatus(gatewayApi);
+    if (!gatewayRunning) {
+      log('red', '  ❌ 网关未运行');
+      log('dim', '  请先启动网关: node qqbot-service.js start --mode auto');
+      process.exit(1);
+    }
+    log('green', '  ✅ 网关运行中');
 
-    // 发送消息
+    // 通过网关发送消息
     log('dim', '  发送消息...');
-    const result = await sendMessage(accessToken, target.openid, message, type);
+    const result = await sendViaGateway(gatewayApi, targetId, message, project);
 
     log('green', '\n✅ 发送成功！');
-    log('dim', `  消息 ID: ${result.id || 'N/A'}`);
+    log('dim', `  状态: ${result.status || 'sent'}`);
+    log('dim', `  方式: ${result.method || 'proactive'}`);
   } catch (error) {
     log('red', `\n❌ 发送失败: ${error.message}`);
     process.exit(1);

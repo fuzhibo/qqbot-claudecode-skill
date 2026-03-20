@@ -83,6 +83,7 @@ const SESSIONS_DIR = path.join(GATEWAY_DIR, 'sessions');
 const PID_FILE = path.join(GATEWAY_DIR, 'gateway.pid');
 const LOG_FILE = path.join(GATEWAY_DIR, 'gateway.log');
 const GATEWAY_STATE_FILE = path.join(GATEWAY_DIR, 'gateway-state.json');
+const HOOK_BATCH_CONFIG_FILE = path.join(GATEWAY_DIR, 'hook-batch-config.json');
 
 // 确保目录存在
 [GATEWAY_DIR, SESSIONS_DIR].forEach(dir => {
@@ -133,7 +134,21 @@ const SELF_HEALING_CONFIG = {
   },
 };
 
+// ============ Hook 消息缓存系统 ============
+/**
+ * Hook 消息缓存结构
+ * @type {Map<string, {messages: Array, firstMessageTime: number}>}
+ */
+let hookCache = new Map();
+let hookBatchTimer = null;
 
+/**
+ * 默认 Hook 批处理配置
+ */
+const DEFAULT_HOOK_BATCH_CONFIG = {
+  batchIntervalMinutes: 3,  // 检查间隔（分钟），0 = 立即发送
+  maxBatchSize: 50,         // 单批次最大消息数
+};
 
 /**
  * 指数退避重试工具函数
@@ -173,6 +188,275 @@ async function retryWithBackoff(fn, options, operationName = 'operation') {
   }
 
   throw lastError;
+}
+
+// ============ Hook 消息缓存管理函数 ============
+
+/**
+ * 加载 Hook 批处理配置
+ * @returns {Object} 配置对象
+ */
+function loadHookBatchConfig() {
+  try {
+    if (fs.existsSync(HOOK_BATCH_CONFIG_FILE)) {
+      const data = fs.readFileSync(HOOK_BATCH_CONFIG_FILE, 'utf-8');
+      const config = JSON.parse(data);
+      return { ...DEFAULT_HOOK_BATCH_CONFIG, ...config };
+    }
+  } catch (err) {
+    log('yellow', `   ⚠️ 加载 Hook 批处理配置失败: ${err.message}`);
+  }
+  return { ...DEFAULT_HOOK_BATCH_CONFIG };
+}
+
+/**
+ * 保存 Hook 批处理配置
+ * @param {Object} config - 配置对象
+ */
+function saveHookBatchConfig(config) {
+  try {
+    fs.writeFileSync(HOOK_BATCH_CONFIG_FILE, JSON.stringify(config, null, 2));
+    log('green', `   ✅ Hook 批处理配置已保存`);
+  } catch (err) {
+    log('red', `   ❌ 保存 Hook 批处理配置失败: ${err.message}`);
+  }
+}
+
+/**
+ * 添加 Hook 消息到缓存
+ * @param {string} openid - 用户 openid
+ * @param {string} message - 消息内容
+ * @param {string} project - 项目名称
+ */
+function addHookToCache(openid, message, project) {
+  if (!hookCache.has(openid)) {
+    hookCache.set(openid, {
+      messages: [],
+      firstMessageTime: Date.now(),
+    });
+  }
+
+  const entry = hookCache.get(openid);
+  entry.messages.push({
+    message,
+    project,
+    timestamp: Date.now(),
+  });
+
+  log('cyan', `   📬 Hook 消息已缓存 (用户: ${openid.slice(0, 8)}..., 缓存数: ${entry.messages.length})`);
+
+  // 检查是否达到最大批次大小
+  const config = loadHookBatchConfig();
+  if (entry.messages.length >= config.maxBatchSize) {
+    log('yellow', `   ⚠️ 达到最大批次大小 (${config.maxBatchSize})，立即处理`);
+    processHookBatch(openid).catch(err => {
+      log('red', `   ❌ 批次处理失败: ${err.message}`);
+    });
+  }
+}
+
+/**
+ * 使用 Claude headless 压缩 Hook 消息批次
+ * @param {Array} messages - 消息数组
+ * @returns {Promise<string>} 压缩后的摘要
+ */
+async function compressHookMessages(messages) {
+  const messagesText = messages
+    .map((m, i) => `[${i + 1}] ${new Date(m.timestamp).toLocaleTimeString('zh-CN')} | ${m.project || 'Hook'}\n${m.message}`)
+    .join('\n\n');
+
+  const compressPrompt = `请将以下 ${messages.length} 条 Hook 消息压缩成简洁摘要。
+
+格式要求:
+1. 使用中文
+2. 按时间顺序，格式: "[时间] 摘要内容"
+3. 保留重要信息，删除冗余
+4. 总长度不超过 500 字
+
+待压缩内容:
+${messagesText}`;
+
+  try {
+    const claudePath = process.env.CLAUDE_CODE_PATH || 'claude';
+    const compressResult = await new Promise((resolve, reject) => {
+      const child = spawn(claudePath, [
+        '--print',
+        '--allowedTools', 'none',
+        compressPrompt
+      ], {
+        timeout: 60000, // 1 分钟超时
+        maxBuffer: 1024 * 1024,
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          resolve(stdout.trim());
+        } else {
+          reject(new Error(`Claude exited with code ${code}: ${stderr}`));
+        }
+      });
+
+      child.on('error', reject);
+    });
+
+    return compressResult || '（压缩失败，请查看原始消息）';
+  } catch (err) {
+    log('red', `   ❌ Hook 消息压缩失败: ${err.message}`);
+    // 压缩失败时返回简化版本
+    return messages
+      .map((m, i) => `[${i + 1}] ${m.message.slice(0, 100)}...`)
+      .join('\n');
+  }
+}
+
+/**
+ * 处理单个用户的 Hook 消息批次
+ * @param {string} openid - 用户 openid
+ */
+async function processHookBatch(openid) {
+  const entry = hookCache.get(openid);
+  if (!entry || entry.messages.length === 0) {
+    return;
+  }
+
+  const messages = entry.messages;
+  hookCache.delete(openid); // 先清理缓存，避免重复处理
+
+  log('cyan', `   🗜️ 开始处理 Hook 批次: ${messages.length} 条消息`);
+
+  try {
+    // 压缩消息
+    const summary = await compressHookMessages(messages);
+
+    // 获取用户激活状态
+    const userStatus = getUserActivationStatus(openid);
+
+    if (userStatus === 'expired' || !userStatus) {
+      // 用户未激活，缓存压缩后的消息
+      addPendingMessage({
+        targetOpenid: openid,
+        content: `📋 Hook 消息摘要 (${messages.length} 条)\n\n${summary}`,
+        source: 'hook_batch',
+        priority: 5,
+      });
+      log('cyan', `   📬 Hook 批次摘要已缓存 (目标未激活)`);
+      return;
+    }
+
+    // 用户已激活，发送消息
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(openid);
+    const finalMsg = `📋 Hook 消息摘要 (${messages.length} 条)\n\n${summary}`;
+
+    const result = await sendMessageSmart(token, openid, finalMsg, usageInfo);
+
+    if (result.success) {
+      const methodText = result.method === 'passive' ? `被动回复 (剩余 ${result.remaining} 次)` : '主动消息';
+      log('green', `   ✅ Hook 批次摘要已发送 [${methodText}]`);
+    } else {
+      // 发送失败，缓存消息
+      addPendingMessage({
+        targetOpenid: openid,
+        content: finalMsg,
+        source: 'hook_batch',
+        priority: 5,
+      });
+      log('yellow', `   ⚠️ Hook 批次摘要发送失败，已缓存: ${result.error}`);
+    }
+  } catch (err) {
+    log('red', `   ❌ Hook 批次处理失败: ${err.message}`);
+    // 处理失败，将消息重新放回缓存或存入待发送队列
+    for (const msg of messages) {
+      addPendingMessage({
+        targetOpenid: openid,
+        content: `[${msg.project || 'Hook'}] ${msg.message}`,
+        source: 'hook_notification',
+        priority: 5,
+      });
+    }
+  }
+}
+
+/**
+ * 处理所有用户的 Hook 消息批次
+ */
+async function processAllHookBatches() {
+  if (hookCache.size === 0) {
+    return;
+  }
+
+  log('cyan', `\n🔄 定时处理 Hook 消息批次 (${hookCache.size} 个用户)`);
+
+  for (const [openid] of hookCache) {
+    await processHookBatch(openid);
+  }
+}
+
+/**
+ * 启动 Hook 批处理定时器
+ */
+function startHookBatchTimer() {
+  const config = loadHookBatchConfig();
+
+  // 如果间隔为 0，不启动定时器（立即发送模式）
+  if (config.batchIntervalMinutes === 0) {
+    log('cyan', '   📤 Hook 消息模式: 立即发送（缓存已禁用）');
+    return;
+  }
+
+  const intervalMs = config.batchIntervalMinutes * 60 * 1000;
+  log('cyan', `   📤 Hook 消息模式: 批量压缩发送 (间隔: ${config.batchIntervalMinutes} 分钟)`);
+
+  hookBatchTimer = setInterval(async () => {
+    if (!running) return;
+    await processAllHookBatches();
+  }, intervalMs);
+}
+
+/**
+ * 停止 Hook 批处理定时器
+ */
+function stopHookBatchTimer() {
+  if (hookBatchTimer) {
+    clearInterval(hookBatchTimer);
+    hookBatchTimer = null;
+  }
+}
+
+/**
+ * 获取 Hook 缓存状态
+ * @returns {Object} 缓存状态
+ */
+function getHookCacheStatus() {
+  const config = loadHookBatchConfig();
+  const cacheInfo = [];
+
+  for (const [openid, entry] of hookCache) {
+    cacheInfo.push({
+      openid: openid.slice(0, 8) + '...',
+      messageCount: entry.messages.length,
+      firstMessageTime: new Date(entry.firstMessageTime).toLocaleString('zh-CN'),
+    });
+  }
+
+  return {
+    config,
+    cacheEnabled: config.batchIntervalMinutes > 0,
+    totalCachedMessages: cacheInfo.reduce((sum, c) => sum + c.messageCount, 0),
+    cachedUsers: cacheInfo.length,
+    cacheDetails: cacheInfo,
+  };
 }
 
 // ============ Claude Code 任务队列系统 ============
@@ -1174,6 +1458,21 @@ function startInternalApi() {
             return;
           }
 
+          // 检查是否启用 Hook 消息缓存
+          const batchConfig = loadHookBatchConfig();
+
+          if (batchConfig.batchIntervalMinutes > 0) {
+            // 缓存模式：添加到缓存，等待定时批量处理
+            addHookToCache(target, message, project);
+            res.writeHead(200);
+            res.end(JSON.stringify({
+              status: 'batched',
+              message: `消息已缓存，将在 ${batchConfig.batchIntervalMinutes} 分钟后批量发送`
+            }));
+            return;
+          }
+
+          // 立即发送模式（batchIntervalMinutes === 0）
           // 获取目标用户的激活状态
           const userStatus = getUserActivationStatus(target);
 
@@ -1244,6 +1543,62 @@ function startInternalApi() {
         pid: process.pid,
         ...stats
       }));
+      return;
+    }
+
+    // API: GET /api/hook-batch-config - 获取 Hook 批处理配置
+    if (req.method === 'GET' && req.url === '/api/hook-batch-config') {
+      const config = loadHookBatchConfig();
+      const status = getHookCacheStatus();
+      res.writeHead(200);
+      res.end(JSON.stringify(status));
+      return;
+    }
+
+    // API: POST /api/hook-batch-config - 更新 Hook 批处理配置
+    if (req.method === 'POST' && req.url === '/api/hook-batch-config') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const config = loadHookBatchConfig();
+
+          // 更新配置
+          if (typeof data.batchIntervalMinutes === 'number' && data.batchIntervalMinutes >= 0) {
+            config.batchIntervalMinutes = data.batchIntervalMinutes;
+          }
+          if (typeof data.maxBatchSize === 'number' && data.maxBatchSize > 0) {
+            config.maxBatchSize = data.maxBatchSize;
+          }
+
+          saveHookBatchConfig(config);
+
+          // 重启定时器
+          stopHookBatchTimer();
+          startHookBatchTimer();
+
+          res.writeHead(200);
+          res.end(JSON.stringify({
+            status: 'ok',
+            config,
+            message: config.batchIntervalMinutes === 0
+              ? '已切换到立即发送模式'
+              : `已设置批处理间隔为 ${config.batchIntervalMinutes} 分钟`
+          }));
+        } catch (parseErr) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: '无效的 JSON 格式' }));
+        }
+      });
+      return;
+    }
+
+    // API: POST /api/hook-batch-process - 手动触发 Hook 批次处理
+    if (req.method === 'POST' && req.url === '/api/hook-batch-process') {
+      await processAllHookBatches();
+      res.writeHead(200);
+      res.end(JSON.stringify({ status: 'ok', message: 'Hook 批次处理已完成' }));
       return;
     }
 
@@ -1331,6 +1686,8 @@ async function startGateway(gatewayMode = 'notify') {
     startInternalApi();
     // 启动健康检查
     startHealthCheck();
+    // 启动 Hook 批处理定时器
+    startHookBatchTimer();
   }
 
   try {
@@ -1591,6 +1948,57 @@ async function handleMessage(type, data) {
       // 处理待发送消息队列
       await processPendingMessages(authorId, msgId);
     }
+  }
+
+  // ============ Hook 缓存命令处理 ============
+  const trimmedContent = content.trim();
+
+  // 设置 Hook 缓存间隔
+  const setIntervalMatch = trimmedContent.match(/^设置hook缓存间隔\s+(\d+)$/);
+  if (setIntervalMatch) {
+    const interval = parseInt(setIntervalMatch[1], 10);
+    const config = loadHookBatchConfig();
+    config.batchIntervalMinutes = interval;
+    saveHookBatchConfig(config);
+
+    // 重启定时器
+    stopHookBatchTimer();
+    startHookBatchTimer();
+
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+    const replyMsg = interval === 0
+      ? '✅ Hook 消息模式已切换为立即发送\n\nHook 消息将立即发送，不再缓存。'
+      : `✅ Hook 缓存间隔已设置为 ${interval} 分钟\n\nHook 消息将缓存并每 ${interval} 分钟批量压缩后发送。`;
+
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    log('green', `   ✅ Hook 缓存间隔已设置为 ${interval} 分钟`);
+    return;
+  }
+
+  // 查看 Hook 缓存状态
+  if (trimmedContent === '查看hook缓存') {
+    const status = getHookCacheStatus();
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+
+    let replyMsg = `📋 Hook 缓存状态\n`;
+    replyMsg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    replyMsg += `模式: ${status.cacheEnabled ? '批量压缩发送' : '立即发送'}\n`;
+    replyMsg += `检查间隔: ${status.config.batchIntervalMinutes} 分钟\n`;
+    replyMsg += `最大批次: ${status.config.maxBatchSize} 条\n`;
+    replyMsg += `当前缓存: ${status.totalCachedMessages} 条 (${status.cachedUsers} 个用户)\n`;
+
+    if (status.cacheDetails.length > 0) {
+      replyMsg += `\n缓存详情:\n`;
+      for (const detail of status.cacheDetails) {
+        replyMsg += `  • ${detail.openid}: ${detail.messageCount} 条\n`;
+      }
+    }
+
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    log('green', `   ✅ 已返回 Hook 缓存状态`);
+    return;
   }
 
   // 解析消息
@@ -1873,6 +2281,9 @@ function stopGateway() {
     clearInterval(expirationCheckTimer);
     expirationCheckTimer = null;
   }
+
+  // 清除 Hook 批处理定时器
+  stopHookBatchTimer();
 
   if (ws) {
     ws.close();
