@@ -125,7 +125,15 @@ const SELF_HEALING_CONFIG = {
     checkIntervalMs: 10000,   // 检查间隔 10 秒
     restartDelayMs: 5000,     // 重启延迟 5 秒
   },
+  // ============ Claude Code 任务队列配置 ============
+  claudeQueue: {
+    maxConcurrent: 1,          // 最大并发执行数（同时只运行一个 Claude Code）
+    mergeWindowMs: 5000,     // 消息合并窗口 5 秒
+    taskTimeoutMs: 300000,   // 单任务超时 5 分钟
+  },
 };
+
+
 
 /**
  * 指数退避重试工具函数
@@ -165,6 +173,159 @@ async function retryWithBackoff(fn, options, operationName = 'operation') {
   }
 
   throw lastError;
+}
+
+// ============ Claude Code 任务队列系统 ============
+/**
+ * 任务队列项
+ * @typedef {Object} QueueTask
+ * @property {string} id - 任务唯一 ID
+ * @property {string} projectName - 项目名称
+ * @property {string} cwd - 工作目录
+ * @property {string} authorId - 发送者 ID
+ * @property {string} msgId - 消息 ID（用于被动回复）
+ * @property {string} content - 原始消息内容
+ * @property {Object} parsed - 解析后的消息对象
+ * @property {number} createdAt - 创建时间戳
+ * @property {number} [mergedAt] - 合并时间戳
+ */
+
+/**
+ * 队列状态
+ */
+const claudeQueue = {
+  tasks: [],              // 待处理任务队列
+  running: null,          // 当前正在执行的任务
+  runningProcess: null,    // 当前执行的子进程
+  isProcessing: false,    // 是否正在处理中
+  stats: {
+    totalProcessed: 0,    // 总处理数
+    totalMerged: 0,       // 总合并数
+    avgProcessTimeMs: 0,  // 平均处理时间
+  },
+};
+
+/**
+ * 生成唯一任务 ID
+ */
+function generateTaskId() {
+  return `task_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+/**
+ * 添加任务到队列
+ * @param {Object} taskData - 任务数据
+ * @returns {Object} 添加的任务或合并的任务
+ */
+function enqueueTask(taskData) {
+  const { projectName, cwd, authorId, msgId, content, parsed } = taskData;
+  const config = SELF_HEALING_CONFIG.claudeQueue;
+
+  // 检查是否有相同项目的待处理任务可以合并
+  const now = Date.now();
+  const pendingTask = claudeQueue.tasks.find(t =>
+    t.projectName === projectName &&
+    t.authorId === authorId &&
+    (now - t.createdAt) < config.mergeWindowMs
+  );
+
+  if (pendingTask) {
+    // 合并到现有任务
+    pendingTask.content += `\n---\n${content}`;
+    pendingTask.mergedCount = (pendingTask.mergedCount || 1) + 1;
+    pendingTask.mergedAt = now;
+    log('cyan', `   📦 消息已合并到队列任务 (项目: ${projectName}, 队列: ${claudeQueue.tasks.length})`);
+    return pendingTask;
+  }
+
+  // 创建新任务
+  const newTask = {
+    id: generateTaskId(),
+    projectName,
+    cwd,
+    authorId,
+    msgId,
+    content,
+    parsed,
+    createdAt: now,
+    mergedCount: 1,
+  };
+
+  claudeQueue.tasks.push(newTask);
+  log('cyan', `   📥 任务已加入队列 (项目: ${projectName}, 队列位置: ${claudeQueue.tasks.length})`);
+  return newTask;
+}
+
+/**
+ * 启动队列处理（如果当前没有在处理）
+ */
+async function startQueueProcessing() {
+  if (claudeQueue.isProcessing) {
+    log('cyan', `   ⏳ 队列处理中，新任务将排队等待...`);
+    return;
+  }
+  processQueue();
+}
+
+/**
+ * 处理队列中的任务
+ */
+async function processQueue() {
+  if (claudeQueue.isProcessing || claudeQueue.tasks.length === 0) {
+    return;
+  }
+  claudeQueue.isProcessing = true;
+  const config = SELF_HEALING_CONFIG.claudeQueue;
+  while (claudeQueue.tasks.length > 0) {
+    const task = claudeQueue.tasks.shift();
+    claudeQueue.running = task;
+    const startTime = Date.now();
+    log('yellow', `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    log('green', `🔄 开始处理队列任务`);
+    log('yellow', `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    log('cyan', `   📁 项目: ${task.projectName}`);
+    log('cyan', `   📋 队列剩余: ${claudeQueue.tasks.length}`);
+    if (task.mergedCount > 1) {
+      log('cyan', `   📊 合并消息数: ${task.mergedCount}`);
+    }
+    try {
+      await processWithClaude(task.parsed, task.authorId, task.msgId, task.content);
+      const processTime = Date.now() - startTime;
+      claudeQueue.stats.totalProcessed++;
+      claudeQueue.stats.totalMerged += task.mergedCount;
+      claudeQueue.stats.avgProcessTimeMs =
+        (claudeQueue.stats.avgProcessTimeMs * (claudeQueue.stats.totalProcessed - 1) + processTime) /
+        claudeQueue.stats.totalProcessed;
+      log('green', `   ✅ 任务完成 (耗时: ${(processTime / 1000).toFixed(1)}秒)`);
+    } catch (error) {
+      log('red', `   ❌ 任务执行失败: ${error.message}`);
+    } finally {
+      claudeQueue.running = null;
+      claudeQueue.runningProcess = null;
+    }
+  }
+  claudeQueue.isProcessing = false;
+  // 显示队列统计
+  if (claudeQueue.stats.totalProcessed > 0) {
+    log('cyan', `\n📊 队列统计:`);
+    log('cyan', `   总处理: ${claudeQueue.stats.totalProcessed}, 总合并: ${claudeQueue.stats.totalMerged}`);
+    log('cyan', `   平均耗时: ${(claudeQueue.stats.avgProcessTimeMs / 1000).toFixed(1)}秒`);
+  }
+}
+
+/**
+ * 获取队列状态
+ */
+function getQueueStatus() {
+  return {
+    isProcessing: claudeQueue.isProcessing,
+    queueLength: claudeQueue.tasks.length,
+    currentTask: claudeQueue.running ? {
+      projectName: claudeQueue.running.projectName,
+      mergedCount: claudeQueue.running.mergedCount,
+    } : null,
+    stats: claudeQueue.stats,
+  };
 }
 
 // ============ 颜色输出 ============
@@ -511,8 +672,18 @@ async function sendRichMessageSmart(token, openid, text, usageInfo, projectName 
     }
   }
 
-  // 被动回复不可用或失败，尝试主动消息
-  // 主动消息不支持富媒体，需要提取纯文本
+  // 被动回复不可用或失败，尝试主动消息发送富媒体
+  // 注意：主动消息也支持富媒体（msgId 可选）
+  try {
+    const result = await sendRichMessage(token, openid, text, null, projectName);
+    if (result && result.id) {
+      return { success: true, method: 'proactive', id: result.id };
+    }
+  } catch (err) {
+    log('yellow', `   ⚠️ 主动富媒体发送失败: ${err.message}，尝试纯文本...`);
+  }
+
+  // 富媒体发送失败，降级为纯文本
   const plainText = text.replace(/<(qqimg|qqvoice|qqvideo|qqfile)>[^<>]*<\/(?:qqimg|qqvoice|qqvideo|qqfile|img)>/gi, '[媒体文件]');
   const finalText = projectName ? `[${projectName}] ${plainText}` : plainText;
 
@@ -915,7 +1086,8 @@ async function sendRichMessage(token, openid, text, msgId = null, projectName = 
           imageUrl = imagePath;
         } else {
           // 本地文件
-          imageUrl = await loadImageAsDataUrl(imagePath);
+          const imageData = await loadImageAsDataUrl(imagePath);
+          imageUrl = imageData.dataUrl;  // <-- 正确获取 dataUrl 属性
           log('cyan', `   已读取本地图片: ${imagePath}`);
         }
 
@@ -1433,8 +1605,17 @@ async function handleMessage(type, data) {
       `[${parsed.projectName || '默认'}] ${content.slice(0, 50)}`
     );
   } else if (mode === 'auto') {
-    // 自动回复模式
-    await processWithClaude(parsed, authorId, msgId, content);
+    // 自动回复模式 - 使用队列系统
+    const taskData = {
+      projectName: parsed.projectName || '默认',
+      cwd: parsed.cwd,
+      authorId,
+      msgId,
+      content,
+      parsed,
+    };
+    enqueueTask(taskData);
+    await startQueueProcessing();
   }
 }
 
