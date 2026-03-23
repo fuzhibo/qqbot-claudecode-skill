@@ -88,6 +88,13 @@ export interface MessageAttachment {
 }
 
 /**
+ * 消息引用（回复消息时使用）
+ */
+export interface MessageReference {
+  message_id: string;  // 被引用的消息 ID
+}
+
+/**
  * C2C 消息事件
  */
 export interface C2CMessageEvent {
@@ -103,6 +110,7 @@ export interface C2CMessageEvent {
     source: string;
   };
   attachments?: MessageAttachment[];
+  message_reference?: MessageReference;  // 消息引用（回复消息时存在）
 }
 
 /**

@@ -40,6 +40,9 @@ import {
   hasActiveUsers,
   getActiveUsers,
   getExpiringUsers,
+  getUsersNeedingReminder,
+  markReminderSent,
+  resetReminderState,
   addPendingMessage,
   getPendingMessages,
   removePendingMessage,
@@ -58,8 +61,23 @@ import {
   getExpiredFiles,
   cleanupExpiredFiles,
   getCachedFilesStats,
+  saveMessageHistory,
+  getReferencedMessage,
+  buildContextWithReference,
   CONSTANTS,
 } from './activation-state.js';
+
+import {
+  loadAuthorizationState,
+  getUserAuthorization,
+  isAuthorized,
+  authorizeUser,
+  revokeAuthorization,
+  getOrSetHeadlessConfig,
+  resetHeadlessConfig,
+  getAuthorizationStats,
+  AUTH_CONSTANTS,
+} from './authorization-state.js';
 
 // 复用 src/api.ts 的完善实现
 // 注意：源码目录是 dist/src/api.js，但插件安装目录是 dist/api.js
@@ -1901,28 +1919,98 @@ function startHealthCheck() {
     clearInterval(healthCheckTimer);
   }
 
-  healthCheckTimer = setInterval(() => {
+  // 健康状态追踪
+  let consecutiveWsFailures = 0;
+  let consecutiveApiFailures = 0;
+  const MAX_CONSECUTIVE_FAILURES = 3;
+
+  healthCheckTimer = setInterval(async () => {
     if (!running) return;
 
     const now = Date.now();
     const idleTime = now - lastWsActivity;
 
-    // 检查 WebSocket 是否空闲过久
+    // 1. 检查 WebSocket 连接状态
     if (ws && ws.readyState === 1) { // WebSocket.OPEN
+      consecutiveWsFailures = 0; // 重置失败计数
+
+      // 检查 WebSocket 是否空闲过久
       if (idleTime > SELF_HEALING_CONFIG.healthCheck.wsIdleTimeoutMs) {
         log('yellow', `⚠️ WebSocket 空闲超过 ${Math.round(idleTime / 60000)} 分钟，主动重连...`);
-        // 主动关闭并触发重连
+        consecutiveWsFailures++;
         ws.close();
       }
     } else if (ws && ws.readyState === 3) { // WebSocket.CLOSED
-      log('yellow', '⚠️ 检测到 WebSocket 已关闭，触发重连...');
-      if (running) {
+      consecutiveWsFailures++;
+      log('yellow', `⚠️ 检测到 WebSocket 已关闭 (连续失败: ${consecutiveWsFailures}/${MAX_CONSECUTIVE_FAILURES})`);
+
+      if (consecutiveWsFailures >= MAX_CONSECUTIVE_FAILURES) {
+        log('red', '❌ WebSocket 连续失败次数过多，执行完全重启...');
+        consecutiveWsFailures = 0;
+        // 完全重启网关
+        if (running) {
+          try {
+            await startGateway(mode);
+            log('green', '✅ 网关重启成功');
+          } catch (err) {
+            log('red', `❌ 网关重启失败: ${err.message}`);
+          }
+        }
+      } else if (running) {
         startGateway(mode);
       }
     }
+
+    // 2. 检查 API 可用性（每 5 分钟检查一次）
+    if (now % (5 * 60 * 1000) < SELF_HEALING_CONFIG.healthCheck.intervalMs) {
+      try {
+        const token = await getAccessToken();
+        if (token) {
+          consecutiveApiFailures = 0;
+          // log('green', '✅ API 健康检查通过');
+        } else {
+          throw new Error('Token 为空');
+        }
+      } catch (err) {
+        consecutiveApiFailures++;
+        log('yellow', `⚠️ API 健康检查失败 (连续失败: ${consecutiveApiFailures}/${MAX_CONSECUTIVE_FAILURES}): ${err.message}`);
+
+        if (consecutiveApiFailures >= MAX_CONSECUTIVE_FAILURES) {
+          log('red', '❌ API 连续失败次数过多，可能凭证过期或网络问题');
+          consecutiveApiFailures = 0;
+        }
+      }
+    }
+
+    // 3. 检查内存使用情况
+    const memUsage = process.memoryUsage();
+    const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+    const memUsagePercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
+
+    if (memUsagePercent > 90) {
+      log('yellow', `⚠️ 内存使用率过高: ${heapUsedMB}MB / ${heapTotalMB}MB (${memUsagePercent}%)`);
+
+      // 触发垃圾回收（如果可用）
+      if (global.gc) {
+        global.gc();
+        log('cyan', '🗑️ 已触发垃圾回收');
+      }
+
+      // 清理过期缓存
+      cleanupExpiredUsers();
+      cleanupExpiredFiles();
+      clearExpiredMessages();
+    }
+
+    // 4. 检查队列状态
+    if (claudeQueue.tasks.length > 10) {
+      log('yellow', `⚠️ 任务队列积压: ${claudeQueue.tasks.length} 个任务等待处理`);
+    }
+
   }, SELF_HEALING_CONFIG.healthCheck.intervalMs);
 
-  log('cyan', `✅ 健康检查已启动 (间隔: ${SELF_HEALING_CONFIG.healthCheck.intervalMs / 1000} 秒)`);
+  log('cyan', `✅ 健康检查已启动 (间隔: ${SELF_HEALING_CONFIG.healthCheck.intervalMs / 1000} 秒, 包含: WebSocket/API/内存/队列)`);
 }
 
 function startHeartbeat() {
@@ -2039,9 +2127,35 @@ async function handleMessage(type, data) {
   const groupId = type === 'group' ? data.group_openid : null;
   const authorNickname = type === 'private' ? data.author?.username : data.author?.nick;
 
+  // 解析引用消息（如果存在）
+  const messageReference = data.message_reference;
+  let finalContent = content;
+
+  if (messageReference?.message_id) {
+    const referencedMsg = getReferencedMessage(messageReference.message_id);
+    if (referencedMsg) {
+      log('cyan', `   📎 检测到引用消息 (ID: ${messageReference.message_id})`);
+      finalContent = buildContextWithReference(content, messageReference.message_id);
+      log('cyan', `   📝 已合并引用上下文`);
+    } else {
+      log('yellow', `   ⚠️ 引用消息未找到或已过期 (ID: ${messageReference.message_id})`);
+    }
+  }
+
+  // 保存当前消息到历史缓存（用于后续引用）
+  saveMessageHistory({
+    msgId: msgId,
+    openid: authorId,
+    content: content,
+    role: 'user',
+  });
+
   log('green', `\n📬 收到${type === 'private' ? '私聊' : '群聊'}消息！`);
   log('cyan', `   发送者: ${authorId} (${authorNickname || '未知昵称'})`);
   log('cyan', `   内容: ${content}`);
+  if (messageReference?.message_id) {
+    log('cyan', `   引用: 是`);
+  }
 
   // 更新用户激活状态（关键：获取 msg_id 用于后续被动回复）
   const userActivation = updateUserActivation({
@@ -2125,6 +2239,147 @@ async function handleMessage(type, data) {
     return;
   }
 
+  // ============ 授权管理命令处理 ============
+
+  // 查看授权状态
+  if (trimmedContent === '查看授权' || trimmedContent === '我的授权') {
+    const userAuth = getUserAuthorization(authorId);
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+
+    let replyMsg = `📋 授权状态\n`;
+    replyMsg += `━━━━━━━━━━━━━━━━━━━━\n`;
+
+    if (!userAuth) {
+      replyMsg += `状态: 未授权任何操作\n`;
+      replyMsg += `\n💡 使用以下命令授权:\n`;
+      replyMsg += `• "授权工具: mcp" - 授权所有 MCP 工具\n`;
+      replyMsg += `• "授权路径: /home/user" - 授权文件访问\n`;
+    } else {
+      replyMsg += `授权时间: ${new Date(userAuth.authorizedAt).toLocaleString('zh-CN')}\n`;
+      replyMsg += `最后更新: ${new Date(userAuth.lastAuthorizedAt).toLocaleString('zh-CN')}\n\n`;
+
+      const mcpTools = userAuth.authorizations?.mcpTools || [];
+      const filePaths = userAuth.authorizations?.filePaths || [];
+      const networkDomains = userAuth.authorizations?.networkDomains || [];
+
+      replyMsg += `MCP 工具 (${mcpTools.length}):\n`;
+      if (mcpTools.length === 0) {
+        replyMsg += `  无\n`;
+      } else {
+        for (const tool of mcpTools.slice(0, 5)) {
+          replyMsg += `  • ${tool}\n`;
+        }
+        if (mcpTools.length > 5) {
+          replyMsg += `  ... 还有 ${mcpTools.length - 5} 个\n`;
+        }
+      }
+
+      replyMsg += `\n文件路径 (${filePaths.length}):\n`;
+      if (filePaths.length === 0) {
+        replyMsg += `  无\n`;
+      } else {
+        for (const path of filePaths.slice(0, 3)) {
+          replyMsg += `  • ${path}\n`;
+        }
+        if (filePaths.length > 3) {
+          replyMsg += `  ... 还有 ${filePaths.length - 3} 个\n`;
+        }
+      }
+
+      replyMsg += `\nHeadless 配置:\n`;
+      replyMsg += `  模型: ${userAuth.headlessConfig?.model || '默认'}\n`;
+      replyMsg += `  工具: ${(userAuth.headlessConfig?.allowedTools || []).join(', ')}\n`;
+    }
+
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    log('green', `   ✅ 已返回授权状态`);
+    return;
+  }
+
+  // 授权工具
+  const authToolMatch = trimmedContent.match(/^授权工具[:：]\s*(.+)$/);
+  if (authToolMatch) {
+    const resource = authToolMatch[1].trim();
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+
+    authorizeUser({
+      openid: authorId,
+      authType: 'mcpTools',
+      resource: resource,
+      nickname: authorNickname,
+    });
+
+    const replyMsg = `✅ 工具授权成功\n\n已授权: ${resource}\n\n现在可以使用该工具进行操作。`;
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    log('green', `   ✅ 已授权工具: ${resource}`);
+    return;
+  }
+
+  // 授权文件路径
+  const authPathMatch = trimmedContent.match(/^授权路径[:：]\s*(.+)$/);
+  if (authPathMatch) {
+    const resource = authPathMatch[1].trim();
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+
+    authorizeUser({
+      openid: authorId,
+      authType: 'filePaths',
+      resource: resource,
+      nickname: authorNickname,
+    });
+
+    const replyMsg = `✅ 路径授权成功\n\n已授权: ${resource}\n\n现在可以访问该路径下的文件。`;
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    log('green', `   ✅ 已授权路径: ${resource}`);
+    return;
+  }
+
+  // 设置 headless 配置
+  const setConfigMatch = trimmedContent.match(/^设置配置[:：]\s*(\w+)[=：]\s*(.+)$/);
+  if (setConfigMatch) {
+    const key = setConfigMatch[1].trim();
+    const value = setConfigMatch[2].trim();
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+
+    // 解析值
+    let parsedValue = value;
+    if (value === 'true') parsedValue = true;
+    else if (value === 'false') parsedValue = false;
+    else if (!isNaN(value) && value !== '') parsedValue = Number(value);
+    else if (value.startsWith('[') && value.endsWith(']')) {
+      try {
+        parsedValue = JSON.parse(value);
+      } catch (e) {
+        // 保持原值
+      }
+    }
+
+    const newConfig = { [key]: parsedValue };
+    getOrSetHeadlessConfig(authorId, newConfig);
+
+    const replyMsg = `✅ 配置已更新\n\n${key} = ${JSON.stringify(parsedValue)}`;
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    log('green', `   ✅ 已更新配置: ${key} = ${JSON.stringify(parsedValue)}`);
+    return;
+  }
+
+  // 重置配置
+  if (trimmedContent === '重置配置') {
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+
+    resetHeadlessConfig(authorId);
+
+    const replyMsg = `✅ 配置已重置为默认值\n\n模型: claude-sonnet-4-6\n工具: Read, Grep, Glob, Bash`;
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    log('green', `   ✅ 已重置配置`);
+    return;
+  }
+
   // 解析消息
   const parsed = parseMessage(content);
   log('cyan', `   解析结果: 项目=${parsed.projectName || '默认'}, cwd=${parsed.cwd || '无'}`);
@@ -2143,7 +2398,7 @@ async function handleMessage(type, data) {
       cwd: parsed.cwd,
       authorId,
       msgId,
-      content,
+      content: finalContent,  // 使用合并后的内容（包含引用上下文）
       parsed,
     };
     enqueueTask(taskData);
@@ -2334,6 +2589,16 @@ ${replyContent}
         if (result && result.success) {
           const methodText = result.method === 'passive' ? `被动回复 (剩余 ${result.remaining} 次)` : '主动消息';
           log('green', `   ✅ 回复已发送 [${methodText}]`);
+
+          // 保存机器人回复到历史缓存（用于后续引用）
+          if (result.id) {
+            saveMessageHistory({
+              msgId: result.id,
+              openid: authorId,
+              content: replyContent,
+              role: 'bot',
+            });
+          }
         } else {
           log('yellow', `   ⚠️ 回复发送失败: ${result?.error || JSON.stringify(result)}`);
         }
@@ -2454,39 +2719,35 @@ function initActivationState() {
  * 启动过期检查定时器（每 5 分钟检查一次）
  */
 function startExpirationChecker() {
-  const CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 分钟
+  const CHECK_INTERVAL_MS = 30 * 1000; // 30 秒检查一次（更精准地捕捉提醒时间点）
 
   expirationCheckTimer = setInterval(async () => {
     if (!running) return;
 
     try {
-      const now = Date.now();
-      const expiringUsers = getExpiringUsers();
+      // 使用精准提醒逻辑
+      const usersNeedingReminder = getUsersNeedingReminder();
 
-      // 对即将过期的用户发送提醒
-      for (const user of expiringUsers) {
-        const timeUntilExpiry = user.msgIdExpiresAt - now;
-        const minutesLeft = Math.round(timeUntilExpiry / 60000);
+      for (const { user, reminderPoint } of usersNeedingReminder) {
+        log('yellow', `   ⏰ 用户 ${user.nickname || user.openid} 会话即将过期 (${reminderPoint} 分钟)`);
 
-        if (timeUntilExpiry > 0 && timeUntilExpiry <= CONSTANTS.MSG_ID_EXPIRING_THRESHOLD_MS) {
-          log('yellow', `   ⚠️ 用户 ${user.nickname || user.openid} 会话即将过期 (${minutesLeft} 分钟)`);
+        // 使用智能发送发送过期提醒
+        try {
+          const reminder = `⚠️ 会话即将过期\n\n您的会话将在 ${reminderPoint} 分钟后过期，届时将无法接收通知消息。\n\n请发送任意消息保持激活状态。`;
+          const token = await getAccessToken();
+          const usageInfo = incrementMsgIdUsage(user.openid);
+          const result = await sendMessageSmart(token, user.openid, reminder, usageInfo);
 
-          // 使用智能发送发送过期提醒
-          try {
-            const reminder = `⚠️ 会话即将过期\n\n您的会话将在 ${minutesLeft} 分钟后过期，届时将无法接收通知消息。\n\n请发送任意消息保持激活状态。`;
-            const token = await getAccessToken();
-            const usageInfo = incrementMsgIdUsage(user.openid);
-            const result = await sendMessageSmart(token, user.openid, reminder, usageInfo);
-
-            if (result.success) {
-              const methodText = result.method === 'passive' ? '被动回复' : '主动消息';
-              log('green', `   ✅ 过期提醒已发送给 ${user.nickname || user.openid} [${methodText}]`);
-            } else {
-              log('yellow', `   ⚠️ 发送过期提醒失败: ${result.error}`);
-            }
-          } catch (err) {
-            log('yellow', `   ⚠️ 发送过期提醒异常: ${err.message}`);
+          if (result.success) {
+            // 标记该时间点的提醒已发送
+            markReminderSent(user.openid, reminderPoint);
+            const methodText = result.method === 'passive' ? '被动回复' : '主动消息';
+            log('green', `   ✅ 过期提醒已发送给 ${user.nickname || user.openid} [${methodText}] (${reminderPoint} 分钟)`);
+          } else {
+            log('yellow', `   ⚠️ 发送过期提醒失败: ${result.error}`);
           }
+        } catch (err) {
+          log('yellow', `   ⚠️ 发送过期提醒异常: ${err.message}`);
         }
       }
 
@@ -2500,11 +2761,28 @@ function startExpirationChecker() {
     }
   }, CHECK_INTERVAL_MS);
 
-  log('cyan', `   ⏰ 过期检查定时器已启动 (间隔: ${CHECK_INTERVAL_MS / 60000} 分钟)`);
+  log('cyan', `   ⏰ 过期检查定时器已启动 (间隔: ${CHECK_INTERVAL_MS / 1000} 秒, 提醒时间点: 5/3/1 分钟)`);
 }
 
 /**
- * 处理待发送消息队列
+ * 合并待发送消息（格式化）
+ * @param {Array} messages - 待发送消息数组
+ * @returns {string} 合并后的消息内容
+ */
+function mergePendingMessages(messages) {
+  return messages
+    .map((msg, i) => {
+      const time = new Date(msg.createdAt).toLocaleTimeString('zh-CN');
+      const source = msg.source === 'hook_notification' ? 'Hook' :
+                     msg.source === 'startup_notification' ? '启动' :
+                     msg.source === 'system_alert' ? '系统' : '消息';
+      return `[${i + 1}] ${time} | ${source}\n${msg.content}`;
+    })
+    .join('\n\n');
+}
+
+/**
+ * 处理待发送消息队列（合并压缩后发送）
  * @param {string} openid - 用户 openid
  * @param {string} msgId - 用于被动回复的 msg_id
  */
@@ -2515,46 +2793,99 @@ async function processPendingMessages(openid, msgId) {
     return;
   }
 
-  log('cyan', `   📤 开始发送 ${pendingMessages.length} 条待发送消息...`);
+  const messageCount = pendingMessages.length;
+  log('cyan', `   📤 开始处理 ${messageCount} 条待发送消息（合并压缩模式）...`);
 
-  const token = await getAccessToken();
-  let sentCount = 0;
-  let failedCount = 0;
-  let currentMsgId = msgId; // 用于被动回复的 msgId
+  try {
+    const config = loadHookBatchConfig();
 
-  for (const msg of pendingMessages) {
-    try {
-      // 使用智能发送：优先被动回复，自动降级到主动消息
-      const usageInfo = currentMsgId ? { canUse: true, msgId: currentMsgId, remaining: null } : { canUse: false };
-      const result = await sendMessageSmart(token, openid, msg.content, usageInfo);
+    // 1. 合并所有消息
+    const mergedContent = mergePendingMessages(pendingMessages);
+    const mergedBytes = getByteLength(mergedContent);
 
-      if (result.success) {
+    let finalContent;
+
+    // 2. 判断是否需要压缩（复用 Hook 批处理的压缩阈值）
+    if (mergedBytes > config.compressThresholdBytes) {
+      log('cyan', `   📊 合并后 ${mergedBytes} 字节 > 阈值 ${config.compressThresholdBytes}，调用 Claude 哪怕压缩...`);
+
+      // 构建压缩提示词
+      const compressPrompt = `请将以下 ${messageCount} 条待发送消息压缩成简洁摘要。
+
+格式要求:
+1. 使用中文
+2. 按时间顺序，格式: "[时间] 摘要内容"
+3. 保留重要信息（错误、警告、关键状态变更）
+4. 删除冗余和重复信息
+5. 总长度不超过 800 字
+
+待压缩内容:
+${mergedContent}`;
+
+      try {
+        const claudePath = process.env.CLAUDE_CODE_PATH || 'claude';
+        const compressResult = await new Promise((resolve, reject) => {
+          const child = spawn(claudePath, [
+            '--print',
+            '--allowedTools', 'none',
+            compressPrompt
+          ], {
+            timeout: 60000,
+            maxBuffer: 1024 * 1024,
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          child.stdout.on('data', (data) => {
+            stdout += data.toString();
+          });
+
+          child.stderr.on('data', (data) => {
+            stderr += data.toString();
+          });
+
+          child.on('close', (code) => {
+            if (code === 0) {
+              resolve(stdout.trim());
+            } else {
+              reject(new Error(`Claude exited with code ${code}: ${stderr}`));
+            }
+          });
+
+          child.on('error', reject);
+        });
+
+        finalContent = `📋 积压消息摘要 (${messageCount} 条)\n\n${compressResult || '（压缩失败）'}`;
+        log('green', `   ✅ 消息压缩完成`);
+      } catch (compressErr) {
+        log('yellow', `   ⚠️ 消息压缩失败: ${compressErr.message}，使用原始合并内容`);
+        finalContent = `📋 积压消息合并 (${messageCount} 条)\n\n${mergedContent}`;
+      }
+    } else {
+      log('cyan', `   📊 合并后 ${mergedBytes} 字节 <= 阈值 ${config.compressThresholdBytes}，无需压缩`);
+      finalContent = `📋 积压消息合并 (${messageCount} 条)\n\n${mergedContent}`;
+    }
+
+    // 3. 一次性发送合并后的消息
+    const token = await getAccessToken();
+    const usageInfo = msgId ? { canUse: true, msgId: msgId, remaining: null } : { canUse: false };
+    const result = await sendMessageSmart(token, openid, finalContent, usageInfo);
+
+    if (result.success) {
+      // 发送成功，清空该用户的所有待发送消息
+      for (const msg of pendingMessages) {
         removePendingMessage(msg.id);
-        sentCount++;
-        const methodText = result.method === 'passive' ? '被动回复' : '主动消息';
-        log('green', `   ✅ 消息 ${msg.id} 已发送 [${methodText}]`);
-
-        // 如果使用了被动回复，后续消息需要使用主动消息（被动回复次数有限）
-        if (result.method === 'passive') {
-          currentMsgId = null; // 后续消息不再使用被动回复
-        }
-      } else {
-        failedCount++;
-        log('red', `   ❌ 消息 ${msg.id} 发送失败: ${result.error}`);
       }
 
-      // 发送间隔，避免频率限制
-      await new Promise(resolve => setTimeout(resolve, 500));
-    } catch (err) {
-      failedCount++;
-      log('red', `   ❌ 消息 ${msg.id} 发送异常: ${err.message}`);
+      const methodText = result.method === 'passive' ? '被动回复' : '主动消息';
+      log('green', `   ✅ 积压消息已发送 [${methodText}]，共 ${messageCount} 条`);
+    } else {
+      log('red', `   ❌ 积压消息发送失败: ${result.error}，消息保留在队列中`);
     }
+  } catch (err) {
+    log('red', `   ❌ 处理待发送消息异常: ${err.message}`);
   }
-
-  if (sentCount > 0) {
-    log('green', `   ✅ 待发送消息处理完成`);
-  }
-  log('cyan', `   📊 发送完成: 成功 ${sentCount} 条, 失败 ${failedCount} 条`);
 }
 
 /**

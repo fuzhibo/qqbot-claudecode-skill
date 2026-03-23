@@ -22,6 +22,9 @@ const MSG_ID_EXPIRING_THRESHOLD_MS = 10 * 60 * 1000; // 10 分钟
 const MSG_ID_MAX_USAGE = 4; // 最多使用 4 次
 const FILE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 文件缓存 24 小时过期
 
+// 超时提醒时间点（分钟）- 只在这些时间点发送提醒
+const REMINDER_POINTS_MINUTES = [5, 3, 1];
+
 /**
  * 用户激活状态
  * @typedef {'active' | 'expiring_soon' | 'expired'} UserActivationStatus
@@ -237,6 +240,12 @@ export function updateUserActivation({ openid, msgId, type = 'c2c', nickname }) 
     nickname: nickname || existingUser?.nickname,
     activatedAt: existingUser?.activatedAt || now,
     lastInteractionAt: now,
+    // 提醒状态跟踪 - 记录已发送的提醒时间点
+    remindersSent: {
+      at5min: false,
+      at3min: false,
+      at1min: false,
+    },
   };
 
   state.users[openid] = user;
@@ -348,6 +357,76 @@ export function getExpiringUsers() {
   }
 
   return users;
+}
+
+/**
+ * 获取需要发送提醒的用户（基于精准时间点）
+ * @returns {Array<{user: UserActivation, reminderPoint: number}>} 需要提醒的用户和提醒时间点（分钟）
+ */
+export function getUsersNeedingReminder() {
+  const state = loadActivationState();
+  const now = Date.now();
+  const reminders = [];
+
+  for (const user of Object.values(state.users)) {
+    const timeUntilExpiry = user.msgIdExpiresAt - now;
+    if (timeUntilExpiry <= 0) continue; // 已过期，不需要提醒
+
+    const minutesLeft = Math.ceil(timeUntilExpiry / 60000);
+
+    // 确保 remindersSent 字段存在
+    if (!user.remindersSent) {
+      user.remindersSent = { at5min: false, at3min: false, at1min: false };
+    }
+
+    // 检查是否需要在某个时间点发送提醒
+    for (const point of REMINDER_POINTS_MINUTES) {
+      const reminderKey = `at${point}min`;
+      // 在剩余时间 <= point 分钟且 > point-1 分钟时发送，且该时间点未发送过
+      if (minutesLeft <= point && minutesLeft > point - 1 && !user.remindersSent[reminderKey]) {
+        reminders.push({ user, reminderPoint: point });
+        break; // 只发送一个提醒
+      }
+    }
+  }
+
+  // 保存更新后的状态
+  if (reminders.length > 0) {
+    saveActivationState(state);
+  }
+
+  return reminders;
+}
+
+/**
+ * 标记提醒已发送
+ * @param {string} openid - 用户 openid
+ * @param {number} reminderPoint - 提醒时间点（分钟）
+ */
+export function markReminderSent(openid, reminderPoint) {
+  const state = loadActivationState();
+  const user = state.users[openid];
+  if (user) {
+    if (!user.remindersSent) {
+      user.remindersSent = { at5min: false, at3min: false, at1min: false };
+    }
+    user.remindersSent[`at${reminderPoint}min`] = true;
+    saveActivationState(state);
+    console.log(`[activation-state] Reminder marked as sent: ${openid} at ${reminderPoint}min`);
+  }
+}
+
+/**
+ * 重置用户的提醒状态（获得新 msg_id 时调用）
+ * @param {string} openid - 用户 openid
+ */
+export function resetReminderState(openid) {
+  const state = loadActivationState();
+  const user = state.users[openid];
+  if (user) {
+    user.remindersSent = { at5min: false, at3min: false, at1min: false };
+    saveActivationState(state);
+  }
 }
 
 // ============ 嶈息超时和压缩 ============
@@ -833,4 +912,104 @@ export const CONSTANTS = {
   MSG_ID_MAX_USAGE,
   FILE_EXPIRY_MS,
   FILE_CACHE_DIR,
+  REMINDER_POINTS_MINUTES,
 };
+
+// ============ 消息历史缓存（用于引用消息查询） ============
+const MESSAGE_HISTORY_MAX = 100; // 最多缓存 100 条消息
+const MESSAGE_HISTORY_EXPIRY_MS = 24 * 60 * 60 * 1000; // 消息历史保留 24 小时
+
+/**
+ * 保存消息到历史缓存（用于后续引用查询）
+ * @param {Object} options
+ * @param {string} options.msgId - 消息 ID
+ * @param {string} options.openid - 用户 openid
+ * @param {string} options.content - 消息内容
+ * @param {'user' | 'bot'} options.role - 消息角色（用户/机器人）
+ */
+export function saveMessageHistory({ msgId, openid, content, role }) {
+  const state = loadActivationState();
+
+  // 确保 messageHistory 字段存在
+  if (!state.messageHistory) {
+    state.messageHistory = {};
+  }
+
+  // 保存消息
+  state.messageHistory[msgId] = {
+    msgId,
+    openid,
+    content,
+    role,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + MESSAGE_HISTORY_EXPIRY_MS,
+  };
+
+  // 清理过期和超出限制的消息
+  const msgIds = Object.keys(state.messageHistory);
+  if (msgIds.length > MESSAGE_HISTORY_MAX) {
+    // 按时间排序，删除最旧的
+    const sortedIds = msgIds.sort((a, b) =>
+      state.messageHistory[a].createdAt - state.messageHistory[b].createdAt
+    );
+    const toDelete = sortedIds.slice(0, msgIds.length - MESSAGE_HISTORY_MAX);
+    for (const id of toDelete) {
+      delete state.messageHistory[id];
+    }
+  }
+
+  // 清理过期消息
+  const now = Date.now();
+  for (const id of Object.keys(state.messageHistory)) {
+    if (state.messageHistory[id].expiresAt < now) {
+      delete state.messageHistory[id];
+    }
+  }
+
+  saveActivationState(state);
+}
+
+/**
+ * 获取引用消息内容
+ * @param {string} msgId - 被引用的消息 ID
+ * @returns {Object|null} 消息内容或 null
+ */
+export function getReferencedMessage(msgId) {
+  const state = loadActivationState();
+
+  if (!state.messageHistory || !state.messageHistory[msgId]) {
+    return null;
+  }
+
+  const msg = state.messageHistory[msgId];
+
+  // 检查是否过期
+  if (msg.expiresAt < Date.now()) {
+    delete state.messageHistory[msgId];
+    saveActivationState(state);
+    return null;
+  }
+
+  return msg;
+}
+
+/**
+ * 构建带引用上下文的消息
+ * @param {string} currentContent - 当前消息内容
+ * @param {string} referencedMsgId - 被引用的消息 ID
+ * @returns {string} 合并后的消息内容
+ */
+export function buildContextWithReference(currentContent, referencedMsgId) {
+  const referencedMsg = getReferencedMessage(referencedMsgId);
+
+  if (!referencedMsg) {
+    // 未找到引用消息，直接返回当前内容
+    return currentContent;
+  }
+
+  const roleText = referencedMsg.role === 'user' ? '用户' : '助手';
+  const time = new Date(referencedMsg.createdAt).toLocaleTimeString('zh-CN');
+
+  // 构建带引用上下文的消息
+  return `[引用消息] ${time} | ${roleText}:\n${referencedMsg.content}\n\n---\n\n[当前回复]\n${currentContent}`;
+}
