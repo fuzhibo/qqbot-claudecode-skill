@@ -15,6 +15,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { checkChannelSupport } from './check-channel-support.js';
 
 const CONFIG_DIR = path.join(os.homedir(), '.claude', 'qqbot-mcp');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
@@ -231,6 +233,18 @@ async function runSetupWizard() {
 
   log('dim', '此向导将帮助你配置 QQ 机器人，使其能与 Claude Code 通信。');
   log('dim', '你需要准备：QQ 开放平台的 AppID 和 Client Secret\n');
+
+  // 检测 Claude Code 版本是否支持 Channel 模式
+  log('cyan', '🔍 检测 Claude Code 版本...');
+  const channelSupport = checkChannelSupport();
+
+  if (channelSupport.supported) {
+    log('green', `  ✅ ${channelSupport.message}`);
+    log('dim', '     将启用 Channel 模式 (实时推送 + 权限中继)\n');
+  } else {
+    log('yellow', `  ⚠️  ${channelSupport.message}`);
+    log('dim', '     将使用 MCP Tools 兼容模式 (轮询方式，功能完整)\n');
+  }
 
   const rl = readline.createInterface({
     input: process.stdin,

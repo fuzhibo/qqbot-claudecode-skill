@@ -2,6 +2,40 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.13.0] - 2026-03-23
+
+### 新增功能
+
+- **Claude Code Channel 集成** - 支持 Claude Code v2.1.80+ 的 Channel 功能
+  - 实时消息推送：通过 `notifications/claude/channel` 推送 QQ 消息到 Claude Code
+  - 权限中继：支持远程批准/拒绝工具调用权限
+  - 自动模式切换：根据 Claude Code 版本自动选择 Channel 或 MCP Tools 模式
+
+- **版本检测系统**
+  - 安装时检测：`scripts/check-channel-support.js` 检测 Claude Code 版本
+  - 运行时检测：MCP Server 启动时自动选择最佳运行模式
+  - 环境变量控制：`QQBOT_CHANNEL_MODE` 支持 `auto`/`channel`/`tools`
+
+### 新增文件
+
+- `scripts/check-channel-support.js` - Channel 版本检测模块
+- `src/mcp/channel-pusher.ts` - Channel 消息推送模块
+- `src/mcp/permission-relay.ts` - 权限中继模块
+
+### 更新内容
+
+- `src/mcp/index.ts` - 添加 Channel capability 声明和版本检测
+- `src/mcp/tools.ts` - 优化 send_qq_message 工具描述
+- `plugin.json` - 添加 SessionStart 版本检测 hook
+- `scripts/setup-wizard.js` - 集成版本检测
+
+### 兼容性
+
+| Claude Code 版本 | 推荐模式 |
+|-----------------|---------|
+| < v2.1.80 | MCP Tools (轮询) |
+| >= v2.1.80 | Channel (实时推送) |
+
 ## [1.12.1] - 2026-03-21
 
 ### 问题修复

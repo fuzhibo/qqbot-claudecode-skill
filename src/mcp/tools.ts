@@ -27,6 +27,10 @@ export const toolDefinitions = [
     name: 'send_qq_message',
     description: `向指定的 QQ 群或频道发送文本消息。
 当用户要求将当前代码分析、报错日志或项目进度通知给 QQ 群友时使用此工具。
+
+【Channel 模式】当收到 channel 消息时，使用消息中的 chat_id 作为 targetId 进行回复。
+chat_id 格式与 targetId 相同：G_xxx (群聊)、U_xxx (私聊)、C_xxx (频道)
+
 targetId 格式说明：
 - G_xxx: 群聊（Group）
 - U_xxx: 私聊（User/C2C）

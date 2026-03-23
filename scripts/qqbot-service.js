@@ -37,6 +37,9 @@ const SESSIONS_DIR = path.join(GATEWAY_DIR, 'sessions');
 const GATEWAY_STATE_FILE = path.join(GATEWAY_DIR, 'gateway-state.json');
 const GATEWAY_SCRIPT = path.join(__dirname, 'qqbot-gateway.js');
 
+// Channel 模式所需最低版本
+const MIN_CHANNEL_VERSION = '2.1.80';
+
 // 确保目录存在
 [GATEWAY_DIR, SESSIONS_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) {
@@ -150,6 +153,92 @@ function getRecentLogs(lines = 20) {
   return [];
 }
 
+// ============ Channel 支持检测 ============
+
+/**
+ * 解析版本字符串为数字数组
+ */
+function parseVersion(versionStr) {
+  if (!versionStr) return null;
+  const match = versionStr.match(/(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return null;
+  return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
+}
+
+/**
+ * 比较两个版本号
+ * @returns {number} 1 (v1 > v2), -1 (v1 < v2), 0 (相等)
+ */
+function compareVersions(v1, v2) {
+  for (let i = 0; i < 3; i++) {
+    if (v1[i] > v2[i]) return 1;
+    if (v1[i] < v2[i]) return -1;
+  }
+  return 0;
+}
+
+/**
+ * 检测 Claude Code 是否支持 Channel 模式
+ * @returns {{ supported: boolean, reason: string, version?: string, required: string }}
+ */
+function checkChannelSupport() {
+  const version = process.env.CLAUDE_CODE_VERSION;
+  const required = MIN_CHANNEL_VERSION;
+  const requiredParsed = parseVersion(required);
+
+  // 情况1: 环境变量未设置
+  if (!version) {
+    return {
+      supported: false,
+      reason: 'version_unknown',
+      version: null,
+      required,
+      message: '无法检测 Claude Code 版本 (CLAUDE_CODE_VERSION 未设置)'
+    };
+  }
+
+  const current = parseVersion(version);
+
+  // 情况2: 版本号解析失败
+  if (!current) {
+    return {
+      supported: false,
+      reason: 'parse_failed',
+      version,
+      required,
+      message: `无法解析版本号: ${version}`
+    };
+  }
+
+  // 情况3: 版本过低
+  if (compareVersions(current, requiredParsed) < 0) {
+    return {
+      supported: false,
+      reason: 'version_too_low',
+      version,
+      required,
+      message: `Claude Code 版本过低: ${version}，Channel 模式需要 >= v${required}`
+    };
+  }
+
+  // 情况4: 版本满足要求
+  return {
+    supported: true,
+    reason: 'version_ok',
+    version,
+    required,
+    message: `Claude Code v${version} 支持 Channel 模式`
+  };
+}
+
+/**
+ * 获取当前 MCP 模式配置
+ * @returns {'channel' | 'tools' | 'auto'}
+ */
+function getMcpMode() {
+  return process.env.QQBOT_CHANNEL_MODE?.toLowerCase() || 'auto';
+}
+
 // ============ 命令实现 ============
 
 /**
@@ -218,6 +307,10 @@ async function getStatusData() {
     }
   }
 
+  // Channel 支持检测
+  const channelSupport = checkChannelSupport();
+  const mcpMode = getMcpMode();
+
   return {
     running: pid !== null,
     pid,
@@ -227,6 +320,15 @@ async function getStatusData() {
     // 僵尸状态检测
     stalePidFile,
     stalePid,
+    // Channel 支持信息
+    channel: {
+      supported: channelSupport.supported,
+      reason: channelSupport.reason,
+      version: channelSupport.version,
+      required: channelSupport.required,
+      message: channelSupport.message,
+      mcpMode // 当前配置的 MCP 模式: channel | tools | auto
+    },
     projects: {
       list: Object.keys(projects.projects || {}),
       default: projects.defaultProject,
@@ -304,6 +406,27 @@ function formatStatusHuman(data) {
   lines.push(`活跃用户: ${data.activation.activeUserCount} 人`);
   lines.push(`待发送消息: ${data.activation.pendingMessageCount} 条`);
 
+  // Channel 支持状态
+  lines.push('');
+  lines.push('━━━ Claude Code Channel ━━━');
+  if (data.channel) {
+    const ch = data.channel;
+    const statusIcon = ch.supported ? '✅' : '⚠️';
+    lines.push(`Channel 模式: ${statusIcon} ${ch.supported ? '可用' : '不可用'}`);
+    if (ch.version) {
+      lines.push(`当前版本: v${ch.version}`);
+    } else {
+      lines.push(`当前版本: 未知`);
+    }
+    lines.push(`需要版本: >= v${ch.required}`);
+    lines.push(`MCP 模式: ${ch.mcpMode}`);
+    if (!ch.supported && ch.message) {
+      lines.push(`说明: ${ch.message}`);
+    }
+  } else {
+    lines.push('Channel 模式: 未检测');
+  }
+
   // 活跃用户详情
   const users = Object.entries(data.activation.users || {});
   if (users.length > 0) {
@@ -345,14 +468,45 @@ async function cmdStatus(options) {
 async function cmdStart(options) {
   const mode = options.mode || 'notify';
   const initPrompt = options['init-prompt'] || '';
+  const enableChannel = options.channel || false;
 
   const result = {
     success: false,
     action: 'start',
     mode,
+    channel: null,
     message: '',
     pid: null
   };
+
+  // Channel 模式检测
+  const channelSupport = checkChannelSupport();
+  let channelEnabled = false;
+
+  if (enableChannel) {
+    if (channelSupport.supported) {
+      channelEnabled = true;
+      result.channel = {
+        requested: true,
+        enabled: true,
+        version: channelSupport.version
+      };
+    } else {
+      // 请求开启 Channel 但版本不支持，忽略并继续
+      result.channel = {
+        requested: true,
+        enabled: false,
+        reason: channelSupport.reason,
+        message: channelSupport.message
+      };
+    }
+  } else {
+    result.channel = {
+      requested: false,
+      enabled: false,
+      supported: channelSupport.supported
+    };
+  }
 
   // 检查是否已运行
   const pidResult = await getGatewayPid();
@@ -404,6 +558,20 @@ async function cmdStart(options) {
         console.log(`✅ QQ Bot 网关已启动`);
         console.log(`   PID: ${newPidResult.pid}`);
         console.log(`   模式: ${mode === 'auto' ? '自动回复' : '通知'}`);
+
+        // Channel 模式状态
+        if (result.channel) {
+          if (result.channel.requested) {
+            if (result.channel.enabled) {
+              console.log(`   Channel: ✅ 已启用 (v${result.channel.version})`);
+            } else {
+              console.log(`   Channel: ⚠️ 请求开启但版本不支持`);
+              console.log(`            ${result.channel.message}`);
+            }
+          } else if (result.channel.supported) {
+            console.log(`   Channel: 💡 可用 (使用 --channel 启用)`);
+          }
+        }
       } else {
         console.log(JSON.stringify(result, null, 2));
       }
