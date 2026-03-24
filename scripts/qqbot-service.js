@@ -593,7 +593,34 @@ async function cmdStart(options) {
             console.log(`   Channel: 💡 可用 (使用 --channel 启用)`);
           }
         }
+
+        // 通信能力描述
+        console.log(``);
+        console.log(`   📶 通信模式:`);
+        if (result.channel?.enabled) {
+          console.log(`   ✅ Channel 双向实时通信`);
+          console.log(`      • 消息实时推送到 Claude Code`);
+          console.log(`      • Claude Code 可直接回复`);
+        } else if (result.channel?.reason === 'standalone_mode') {
+          console.log(`   📨 Gateway 单向通信 + MCP Tools`);
+          console.log(`      • Gateway 独立接收 QQ 消息`);
+          console.log(`      • 通过 send_qq_message 工具发送`);
+          console.log(`      💡 在 Claude Code 内运行 MCP Server 可启用双向通信`);
+        } else {
+          console.log(`   📨 Gateway 单向通信 + MCP Tools`);
+          console.log(`      • 通过 send_qq_message 工具发送`);
+        }
       } else {
+        // JSON 输出中添加通信模式信息
+        result.communicationMode = {
+          type: result.channel?.enabled ? 'channel-bidirectional' : 'gateway-unidirectional',
+          description: result.channel?.enabled
+            ? 'Channel 双向实时通信'
+            : 'Gateway 单向通信 + MCP Tools',
+          capabilities: result.channel?.enabled
+            ? ['realtime-push', 'direct-reply', 'permission-relay']
+            : ['mcp-tools-send']
+        };
         console.log(JSON.stringify(result, null, 2));
       }
     } else {

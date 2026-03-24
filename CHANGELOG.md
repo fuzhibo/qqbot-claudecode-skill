@@ -2,6 +2,20 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.13.3] - 2026-03-24
+
+### 改进
+
+- **通信模式能力展示**
+  - `qqbot-doctor`: 新增 📶 通信能力分析，显示当前通信模式和能力
+  - `qqbot-service start`: 启动时显示通信模式和降级链
+  - 区分三种模式：Channel 双向、Gateway 单向、Tools 轮询
+  - JSON 输出增加 `communicationMode` 字段
+
+- **Channel 检测优化**
+  - 独立进程模式显示为信息提示而非警告
+  - 清晰说明 Channel 仅在 Claude Code 内的 MCP Server 中可用
+
 ## [1.13.2] - 2026-03-24
 
 ### 改进

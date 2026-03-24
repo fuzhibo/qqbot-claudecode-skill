@@ -395,6 +395,33 @@ async function runDiagnostics() {
       }
     }
 
+    // 通信能力总结
+    log('');
+    log('bold', '  📶 通信能力分析');
+
+    if (results.channelSupported) {
+      // Channel 双向模式
+      log('green', `  ✅ 通信模式: Channel 双向实时通信`);
+      log('dim', `      • 消息实时推送到 Claude Code`);
+      log('dim', `      • Claude Code 可直接回复`);
+      log('dim', `      • 支持权限中继`);
+      results.communicationMode = 'channel-bidirectional';
+    } else if (results.standaloneMode) {
+      // 独立进程模式
+      log('cyan', `  📨 通信模式: Gateway 单向通信 + MCP Tools`);
+      log('dim', `      • Gateway 独立接收 QQ 消息`);
+      log('dim', `      • 通过 MCP Tools (send_qq_message) 发送消息`);
+      log('dim', `      • 需要手动调用或 Claude Code Headless 处理`);
+      results.communicationMode = 'gateway-unidirectional';
+    } else {
+      // 降级模式
+      log('yellow', `  ⚠️  通信模式: MCP Tools 轮询模式`);
+      log('dim', `      • 通过 fetch_unread_tasks 轮询消息`);
+      log('dim', `      • 通过 send_qq_message 发送消息`);
+      log('dim', `      • 建议升级 Claude Code 以启用 Channel 模式`);
+      results.communicationMode = 'tools-polling';
+    }
+
   } catch (e) {
     results.errors.push({ name: 'Channel 检查', message: e.message });
   }
