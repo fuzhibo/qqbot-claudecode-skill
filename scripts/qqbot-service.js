@@ -59,13 +59,23 @@ function parseArgs(args) {
   for (let i = 1; i < args.length; i++) {
     const arg = args[i];
     if (arg.startsWith('--')) {
-      const key = arg.slice(2);
-      const nextArg = args[i + 1];
-      if (nextArg && !nextArg.startsWith('-')) {
-        result.options[key] = nextArg;
-        i++;
+      // 支持 --key=value 和 --key value 两种格式
+      const equalIndex = arg.indexOf('=');
+      if (equalIndex > 2) {
+        // --key=value 格式
+        const key = arg.slice(2, equalIndex);
+        const value = arg.slice(equalIndex + 1);
+        result.options[key] = value;
       } else {
-        result.options[key] = true;
+        // --key value 或 --key 格式
+        const key = arg.slice(2);
+        const nextArg = args[i + 1];
+        if (nextArg && !nextArg.startsWith('-')) {
+          result.options[key] = nextArg;
+          i++;
+        } else {
+          result.options[key] = true;
+        }
       }
     } else if (!arg.startsWith('-')) {
       result.positional.push(arg);
@@ -489,7 +499,27 @@ async function cmdStatus(options) {
 async function cmdStart(options) {
   const mode = options.mode || 'notify';
   const initPrompt = options['init-prompt'] || '';
-  const enableChannel = options.channel || false;
+
+  // 解析 channel 选项：
+  // --channel 或 --channel=auto: 自动检测，优先双向，降级单向
+  // --channel=bidirectional: 强制双向 Channel 模式，不可用则报错
+  // --channel=unidirectional: 强制单向 Gateway 模式
+  // --no-channel 或不指定: 禁用 Channel
+  const channelOption = options.channel;
+  let channelMode = 'none'; // none | auto | bidirectional | unidirectional
+
+  if (channelOption === true || channelOption === 'auto') {
+    channelMode = 'auto';
+  } else if (channelOption === 'bidirectional' || channelOption === 'channel') {
+    channelMode = 'bidirectional';
+  } else if (channelOption === 'unidirectional' || channelOption === 'gateway') {
+    channelMode = 'unidirectional';
+  } else if (channelOption === 'none' || channelOption === 'false') {
+    channelMode = 'none';
+  } else if (channelOption) {
+    // 未知值，默认 auto
+    channelMode = 'auto';
+  }
 
   const result = {
     success: false,
@@ -503,30 +533,83 @@ async function cmdStart(options) {
   // Channel 模式检测
   const channelSupport = checkChannelSupport();
   let channelEnabled = false;
+  let communicationType = 'gateway-unidirectional';
 
-  if (enableChannel) {
+  // 根据请求的 Channel 模式处理
+  if (channelMode === 'none') {
+    // 明确禁用 Channel
+    result.channel = {
+      requested: false,
+      mode: 'none',
+      enabled: false,
+      supported: channelSupport.supported
+    };
+    communicationType = 'gateway-unidirectional';
+  } else if (channelMode === 'unidirectional') {
+    // 强制单向模式
+    result.channel = {
+      requested: true,
+      mode: 'unidirectional',
+      enabled: false, // Gateway 模式不启用 Channel
+      message: '强制使用 Gateway 单向通信模式'
+    };
+    communicationType = 'gateway-unidirectional';
+  } else if (channelMode === 'bidirectional') {
+    // 强制双向模式，不可用则报错
     if (channelSupport.supported) {
       channelEnabled = true;
       result.channel = {
         requested: true,
+        mode: 'bidirectional',
         enabled: true,
         version: channelSupport.version
       };
+      communicationType = 'channel-bidirectional';
     } else {
-      // 请求开启 Channel 但版本不支持，忽略并继续
+      // 强制双向但不可用，报错
+      result.success = false;
+      result.message = `强制 Channel 双向模式失败: ${channelSupport.message}`;
       result.channel = {
         requested: true,
+        mode: 'bidirectional',
         enabled: false,
         reason: channelSupport.reason,
         message: channelSupport.message
       };
+
+      if (options.human) {
+        console.log(`❌ ${result.message}`);
+        console.log(`   提示: 使用 --channel=auto 自动降级，或移除此参数使用 Gateway 模式`);
+      } else {
+        console.log(JSON.stringify(result, null, 2));
+      }
+      return;
     }
-  } else {
-    result.channel = {
-      requested: false,
-      enabled: false,
-      supported: channelSupport.supported
-    };
+  } else if (channelMode === 'auto') {
+    // 自动模式：优先双向，降级单向
+    if (channelSupport.supported) {
+      channelEnabled = true;
+      result.channel = {
+        requested: true,
+        mode: 'auto',
+        enabled: true,
+        version: channelSupport.version,
+        actualMode: 'bidirectional'
+      };
+      communicationType = 'channel-bidirectional';
+    } else {
+      // 降级到单向模式
+      result.channel = {
+        requested: true,
+        mode: 'auto',
+        enabled: false,
+        reason: channelSupport.reason,
+        message: channelSupport.message,
+        actualMode: 'unidirectional',
+        fallback: true
+      };
+      communicationType = 'gateway-unidirectional';
+    }
   }
 
   // 检查是否已运行
@@ -582,14 +665,25 @@ async function cmdStart(options) {
 
         // Channel 模式状态
         if (result.channel) {
-          if (result.channel.requested) {
-            if (result.channel.enabled) {
-              console.log(`   Channel: ✅ 已启用 (v${result.channel.version})`);
-            } else {
-              console.log(`   Channel: ⚠️ 请求开启但版本不支持`);
-              console.log(`            ${result.channel.message}`);
-            }
-          } else if (result.channel.supported) {
+          const ch = result.channel;
+          if (ch.mode === 'bidirectional' && !ch.enabled) {
+            // 强制双向但失败
+            console.log(`   Channel: ❌ 双向模式不可用`);
+            console.log(`            ${ch.message}`);
+          } else if (ch.mode === 'unidirectional') {
+            // 强制单向
+            console.log(`   Channel: 📨 强制单向模式`);
+          } else if (ch.enabled) {
+            // 双向已启用
+            console.log(`   Channel: ✅ 双向已启用 (v${ch.version})`);
+          } else if (ch.requested && ch.fallback) {
+            // 自动降级
+            console.log(`   Channel: 📨 自动降级为单向模式`);
+            console.log(`            原因: ${ch.message}`);
+          } else if (ch.requested) {
+            console.log(`   Channel: ⚠️ 请求开启但不可用`);
+            console.log(`            ${ch.message}`);
+          } else if (ch.supported) {
             console.log(`   Channel: 💡 可用 (使用 --channel 启用)`);
           }
         }
@@ -601,14 +695,14 @@ async function cmdStart(options) {
           console.log(`   ✅ Channel 双向实时通信`);
           console.log(`      • 消息实时推送到 Claude Code`);
           console.log(`      • Claude Code 可直接回复`);
-        } else if (result.channel?.reason === 'standalone_mode') {
+          console.log(`      • 支持权限中继`);
+        } else {
           console.log(`   📨 Gateway 单向通信 + MCP Tools`);
           console.log(`      • Gateway 独立接收 QQ 消息`);
           console.log(`      • 通过 send_qq_message 工具发送`);
-          console.log(`      💡 在 Claude Code 内运行 MCP Server 可启用双向通信`);
-        } else {
-          console.log(`   📨 Gateway 单向通信 + MCP Tools`);
-          console.log(`      • 通过 send_qq_message 工具发送`);
+          if (result.channel?.mode !== 'unidirectional') {
+            console.log(`      💡 在 Claude Code 内运行 MCP Server 可启用双向通信`);
+          }
         }
       } else {
         // JSON 输出中添加通信模式信息
