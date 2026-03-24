@@ -2,6 +2,22 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.13.1] - 2026-03-24
+
+### 新增功能
+
+- **qqbot-service 增强**
+  - `status` 命令显示 Channel 检测结果
+  - `start --channel` 参数尝试开启 Channel 模式
+  - 自动判断 Channel 支持状态
+
+- **qqbot-doctor Channel 检查**
+  - Channel 模块文件检查 (channel-pusher.js, permission-relay.js)
+  - 版本检测脚本检查 (check-channel-support.js)
+  - Claude Code 版本检测 (CLAUDE_CODE_VERSION)
+  - QQBOT_CHANNEL_MODE 配置检查
+  - 自动修复缺失的 Channel 模块
+
 ## [1.13.0] - 2026-03-23
 
 ### 新增功能
