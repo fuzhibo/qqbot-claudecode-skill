@@ -329,8 +329,17 @@ async function runDiagnostics() {
     );
 
     // 检测 Claude Code 版本
+    // 注意：CLAUDE_CODE_VERSION 仅在 MCP Server 由 Claude Code 启动时设置
+    // 独立进程（如 Gateway、CLI）不会有此变量，这是正常行为
     const claudeVersion = process.env.CLAUDE_CODE_VERSION;
     const minChannelVersion = '2.1.80';
+
+    // 检测是否在 Claude Code MCP 环境中运行
+    const isMcpContext = !!(
+      process.env.CLAUDE_CODE_VERSION ||
+      process.env.MCP_SERVER_NAME ||
+      process.env.CLAUDE_SESSION_ID
+    );
 
     if (claudeVersion) {
       const current = parseVersion(claudeVersion);
@@ -345,11 +354,18 @@ async function runDiagnostics() {
         results.warnings.push({ name: 'Claude Code Channel 支持', message: `版本过低，需要 >= v${minChannelVersion}` });
         results.channelSupported = false;
       }
-    } else {
-      log('yellow', `  ⚠️  Claude Code 版本: 未知 (CLAUDE_CODE_VERSION 未设置)`);
+    } else if (isMcpContext) {
+      // 在 MCP 环境中但版本未知 - 这是警告
+      log('yellow', `  ⚠️  Claude Code 版本: 未知 (在 MCP 环境中但 CLAUDE_CODE_VERSION 未设置)`);
       results.warnings.push({ name: 'Claude Code Channel 支持', message: '无法检测版本，将使用 MCP Tools 模式' });
       results.channelSupported = false;
       results.channelVersionUnknown = true;
+    } else {
+      // 独立进程环境 - 这是正常行为，显示为信息而非警告
+      log('dim', `  ℹ️  Claude Code 版本: 不适用 (当前为独立进程模式)`);
+      log('dim', `      Channel 模式仅在 Claude Code 内运行 MCP Server 时可用`);
+      results.channelSupported = false;
+      results.standaloneMode = true;
     }
 
     // 检查 QQBOT_CHANNEL_MODE 配置

@@ -179,15 +179,36 @@ function compareVersions(v1, v2) {
 
 /**
  * 检测 Claude Code 是否支持 Channel 模式
- * @returns {{ supported: boolean, reason: string, version?: string, required: string }}
+ * @returns {{ supported: boolean, reason: string, version?: string, required: string, isStandalone?: boolean }}
  */
 function checkChannelSupport() {
   const version = process.env.CLAUDE_CODE_VERSION;
   const required = MIN_CHANNEL_VERSION;
   const requiredParsed = parseVersion(required);
 
+  // 检测是否在 Claude Code MCP 环境中运行
+  // CLAUDE_CODE_VERSION, MCP_SERVER_NAME, CLAUDE_SESSION_ID 仅在 MCP 环境中设置
+  const isMcpContext = !!(
+    process.env.CLAUDE_CODE_VERSION ||
+    process.env.MCP_SERVER_NAME ||
+    process.env.CLAUDE_SESSION_ID
+  );
+
   // 情况1: 环境变量未设置
   if (!version) {
+    // 区分：独立进程模式 vs MCP 环境但版本未知
+    if (!isMcpContext) {
+      // 独立进程模式（Gateway、CLI）- 这是正常行为
+      return {
+        supported: false,
+        reason: 'standalone_mode',
+        version: null,
+        required,
+        isStandalone: true,
+        message: '独立进程模式 (Channel 仅在 Claude Code 内的 MCP Server 中可用)'
+      };
+    }
+    // 在 MCP 环境中但版本未知 - 可能是配置问题
     return {
       supported: false,
       reason: 'version_unknown',
