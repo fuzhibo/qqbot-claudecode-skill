@@ -36,6 +36,30 @@ function log(color, message) {
   console.log(`${colors[color] || ''}${message}${colors.reset}`);
 }
 
+// ============ 版本比较函数 ============
+
+/**
+ * 解析版本字符串为数字数组
+ */
+function parseVersion(versionStr) {
+  if (!versionStr) return null;
+  const match = versionStr.match(/(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return null;
+  return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
+}
+
+/**
+ * 比较两个版本号
+ * @returns {number} 1 (v1 > v2), -1 (v1 < v2), 0 (相等)
+ */
+function compareVersions(v1, v2) {
+  for (let i = 0; i < 3; i++) {
+    if (v1[i] > v2[i]) return 1;
+    if (v1[i] < v2[i]) return -1;
+  }
+  return 0;
+}
+
 // 诊断结果
 const results = {
   passed: [],
@@ -270,6 +294,95 @@ async function runDiagnostics() {
     results.errors.push({ name: 'plugin.json 解析', message: e.message });
   }
 
+  // 8. Claude Code Channel 支持检查
+  log('');
+  log('bold', '📡 Claude Code Channel 检查');
+
+  try {
+    const pluginRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
+
+    // 检查版本检测脚本
+    const checkChannelScript = path.join(pluginRoot, 'scripts', 'check-channel-support.js');
+    check(
+      fs.existsSync(checkChannelScript),
+      'Channel 版本检测脚本',
+      'scripts/check-channel-support.js 不存在',
+      '请更新插件到最新版本'
+    );
+
+    // 检查 Channel 推送模块
+    const channelPusher = path.join(pluginRoot, 'dist', 'src', 'mcp', 'channel-pusher.js');
+    check(
+      fs.existsSync(channelPusher),
+      'Channel 推送模块',
+      'dist/src/mcp/channel-pusher.js 不存在',
+      '运行 npm run build 重新构建'
+    );
+
+    // 检查权限中继模块
+    const permissionRelay = path.join(pluginRoot, 'dist', 'src', 'mcp', 'permission-relay.js');
+    check(
+      fs.existsSync(permissionRelay),
+      '权限中继模块',
+      'dist/src/mcp/permission-relay.js 不存在',
+      '运行 npm run build 重新构建'
+    );
+
+    // 检测 Claude Code 版本
+    const claudeVersion = process.env.CLAUDE_CODE_VERSION;
+    const minChannelVersion = '2.1.80';
+
+    if (claudeVersion) {
+      const current = parseVersion(claudeVersion);
+      const required = parseVersion(minChannelVersion);
+
+      if (current && required && compareVersions(current, required) >= 0) {
+        log('green', `  ✅ Claude Code 版本: v${claudeVersion} (支持 Channel)`);
+        results.passed.push({ name: 'Claude Code Channel 支持', message: `v${claudeVersion}` });
+        results.channelSupported = true;
+      } else {
+        log('yellow', `  ⚠️  Claude Code 版本: v${claudeVersion} (需要 >= v${minChannelVersion})`);
+        results.warnings.push({ name: 'Claude Code Channel 支持', message: `版本过低，需要 >= v${minChannelVersion}` });
+        results.channelSupported = false;
+      }
+    } else {
+      log('yellow', `  ⚠️  Claude Code 版本: 未知 (CLAUDE_CODE_VERSION 未设置)`);
+      results.warnings.push({ name: 'Claude Code Channel 支持', message: '无法检测版本，将使用 MCP Tools 模式' });
+      results.channelSupported = false;
+      results.channelVersionUnknown = true;
+    }
+
+    // 检查 QQBOT_CHANNEL_MODE 配置
+    const channelMode = process.env.QQBOT_CHANNEL_MODE;
+    if (channelMode) {
+      const validModes = ['auto', 'channel', 'tools'];
+      if (validModes.includes(channelMode.toLowerCase())) {
+        log('green', `  ✅ QQBOT_CHANNEL_MODE: ${channelMode}`);
+        results.passed.push({ name: 'QQBOT_CHANNEL_MODE', message: channelMode });
+      } else {
+        log('yellow', `  ⚠️  QQBOT_CHANNEL_MODE: ${channelMode} (无效值，应为 auto/channel/tools)`);
+        results.warnings.push({ name: 'QQBOT_CHANNEL_MODE', message: '无效值' });
+      }
+    } else {
+      log('dim', `  ℹ️  QQBOT_CHANNEL_MODE: 未设置 (默认 auto)`);
+    }
+
+    // 检查 plugin.json 中的 QQBOT_CHANNEL_MODE 配置
+    const pluginJsonPath = path.join(pluginRoot, 'plugin.json');
+    if (fs.existsSync(pluginJsonPath)) {
+      const plugin = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf-8'));
+      const envConfig = plugin.mcpServers?.qqbot?.env || {};
+      if (envConfig.QQBOT_CHANNEL_MODE) {
+        log('green', `  ✅ plugin.json Channel 配置: 已配置`);
+      } else {
+        log('dim', `  ℹ️  plugin.json Channel 配置: 未配置 (将使用默认值)`);
+      }
+    }
+
+  } catch (e) {
+    results.errors.push({ name: 'Channel 检查', message: e.message });
+  }
+
   // 输出摘要
   log('\n' + '═'.repeat(50));
   log('bold', '\n📊 诊断摘要\n');
@@ -373,6 +486,49 @@ async function autoFix() {
     try {
       execSync('npm run build', { cwd: pluginRoot, stdio: 'inherit' });
       log('green', '  ✅ 重新构建完成');
+      fixed++;
+    } catch (e) {
+      log('red', '  ❌ 构建失败');
+      failed++;
+    }
+  }
+
+  // 6. 检查 Channel 相关模块
+  log('');
+  log('bold', '📡 Channel 模块检查');
+
+  const channelPusherJs = path.join(pluginRoot, 'dist', 'src', 'mcp', 'channel-pusher.js');
+  const permissionRelayJs = path.join(pluginRoot, 'dist', 'src', 'mcp', 'permission-relay.js');
+  const checkChannelJs = path.join(pluginRoot, 'scripts', 'check-channel-support.js');
+
+  let needsRebuild = false;
+
+  if (!fs.existsSync(channelPusherJs)) {
+    log('yellow', '  ⚠️  channel-pusher.js 不存在');
+    needsRebuild = true;
+  } else {
+    log('green', '  ✅ channel-pusher.js 存在');
+  }
+
+  if (!fs.existsSync(permissionRelayJs)) {
+    log('yellow', '  ⚠️  permission-relay.js 不存在');
+    needsRebuild = true;
+  } else {
+    log('green', '  ✅ permission-relay.js 存在');
+  }
+
+  if (!fs.existsSync(checkChannelJs)) {
+    log('red', '  ❌ check-channel-support.js 不存在，请更新插件');
+    failed++;
+  } else {
+    log('green', '  ✅ check-channel-support.js 存在');
+  }
+
+  if (needsRebuild) {
+    log('yellow', '  ⚠️  Channel 模块缺失，正在重新构建...');
+    try {
+      execSync('npm run build', { cwd: pluginRoot, stdio: 'inherit' });
+      log('green', '  ✅ 构建完成');
       fixed++;
     } catch (e) {
       log('red', '  ❌ 构建失败');
