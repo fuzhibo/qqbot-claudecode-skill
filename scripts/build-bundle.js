@@ -66,6 +66,13 @@ const buildConfigs = [
     outfile: 'dist/mcp/permission-relay.js',
     external: ['dotenv'],
   },
+  // API 模块 (供 qqbot-gateway.js 使用) - 使用 ESM 格式以正确导出 enum
+  {
+    entry: 'src/api.ts',
+    outfile: 'dist/src/api.js',
+    external: ['dotenv'],
+    format: 'esm',
+  },
 ];
 
 async function buildBundle(config) {
@@ -88,13 +95,13 @@ async function buildBundle(config) {
       external: config.external || [],
       minify: false, // 保持可读性
       sourcemap: false, // 不生成 sourcemap
-      format: 'cjs', // 使用 CommonJS 格式，兼容性更好
+      format: config.format || 'cjs', // 默认 CommonJS，支持 ESM 覆盖
       packages: 'bundle', // 打包所有依赖
       mainFields: ['module', 'main'],
-      conditions: ['require', 'node', 'default'],
+      conditions: config.format === 'esm' ? ['import', 'node', 'default'] : ['require', 'node', 'default'],
       logLevel: 'warning',
-      // 添加 shebang
-      banner: { js: '#!/usr/bin/env node' },
+      // ESM 模块不需要 shebang
+      banner: config.format === 'esm' ? {} : { js: '#!/usr/bin/env node' },
     });
 
     const stats = fs.statSync(outPath);
