@@ -118,7 +118,7 @@ async function runDiagnostics() {
   log('bold', '🔨 构建检查');
   let isBundledMode = false;
   try {
-    const pluginRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
+    const pluginRoot = (() => { let r = path.dirname(path.dirname(new URL(import.meta.url).pathname)); if (r.endsWith("/dist") || r.endsWith("\\dist")) r = path.dirname(r); return r; })();
     // 新路径：打包后的 dist/mcp/index.js
     const distMcpPath = path.join(pluginRoot, 'dist', 'mcp');
     // 旧路径：tsc 编译的 dist/src/mcp/（向后兼容）
@@ -164,7 +164,7 @@ async function runDiagnostics() {
     results.passed.push({ name: '依赖检查', message: '打包模式，跳过' });
   } else {
     try {
-      const pluginRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
+      const pluginRoot = (() => { let r = path.dirname(path.dirname(new URL(import.meta.url).pathname)); if (r.endsWith("/dist") || r.endsWith("\\dist")) r = path.dirname(r); return r; })();
       const nodeModulesPath = path.join(pluginRoot, 'node_modules');
 
       check(
@@ -279,7 +279,7 @@ async function runDiagnostics() {
   log('');
   log('bold', '📋 插件配置检查');
   try {
-    const pluginRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
+    const pluginRoot = (() => { let r = path.dirname(path.dirname(new URL(import.meta.url).pathname)); if (r.endsWith("/dist") || r.endsWith("\\dist")) r = path.dirname(r); return r; })();
     const pluginJsonPath = path.join(pluginRoot, 'plugin.json');
 
     check(
@@ -315,7 +315,7 @@ async function runDiagnostics() {
   log('bold', '📡 Claude Code Channel 检查');
 
   try {
-    const pluginRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
+    const pluginRoot = (() => { let r = path.dirname(path.dirname(new URL(import.meta.url).pathname)); if (r.endsWith("/dist") || r.endsWith("\\dist")) r = path.dirname(r); return r; })();
 
     // 检查版本检测脚本
     const checkChannelScript = path.join(pluginRoot, 'scripts', 'check-channel-support.js');
@@ -519,7 +519,7 @@ async function runDiagnostics() {
 async function autoFix() {
   log('cyan', '\n🔧 自动修复模式\n');
 
-  const pluginRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
+  const pluginRoot = (() => { let r = path.dirname(path.dirname(new URL(import.meta.url).pathname)); if (r.endsWith("/dist") || r.endsWith("\\dist")) r = path.dirname(r); return r; })();
   let fixed = 0;
   let failed = 0;
 
