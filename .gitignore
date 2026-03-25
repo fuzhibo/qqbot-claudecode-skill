@@ -1,5 +1,6 @@
 node_modules
-dist
+# dist 目录需要提交 - 包含打包后的发布产物，用户无需构建
+# dist
 package-lock.json
 .DS_Store
 .idea/

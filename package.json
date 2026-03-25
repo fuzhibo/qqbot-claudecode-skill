@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "bin": {
     "qqbot": "./bin/qqbot-cli.js",
-    "qqbot-mcp": "./dist/src/mcp/index.js",
+    "qqbot-mcp": "./dist/mcp/index.js",
     "qqbot-mcp-cli": "./bin/qqbot-mcp-cli.js",
     "qqbot-gateway": "./scripts/qqbot-gateway.js",
     "qqbot-hooks": "./scripts/qqbot-hooks.js"
@@ -44,14 +44,15 @@
     ]
   },
   "scripts": {
-    "build": "tsc",
+    "build": "node scripts/build-bundle.js",
+    "build:tsc": "tsc",
     "dev": "tsc --watch",
     "test": "bash tests/run-tests.sh",
     "test:local": "bash tests/e2e.sh",
     "test:mcp": "node tests/mcp-integration-test.js",
     "prepack": "npm install --omit=dev",
     "prepare": "npm run build",
-    "mcp": "node dist/src/mcp/index.js",
+    "mcp": "node dist/mcp/index.js",
     "doctor": "node scripts/doctor.js",
     "release": "node scripts/build-release.js",
     "release:patch": "node scripts/build-release.js patch",
@@ -86,6 +87,7 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/ws": "^8.5.0",
+    "esbuild": "^0.27.4",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {

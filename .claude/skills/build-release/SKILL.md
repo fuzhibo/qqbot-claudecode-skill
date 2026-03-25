@@ -25,10 +25,38 @@ QQ Bot MCP 项目的版本管理和发布构建技能。
 ### 2. 构建发布件
 
 生成可直接在 Claude Code 中安装部署的发布件：
-- 编译 TypeScript 代码
+- 使用 **esbuild 打包**，将所有依赖打包进 dist
+- 用户无需运行 `npm install` 即可使用
 - 验证构建无错误
 - 生成变更日志
-- 打包必要文件
+
+#### ⚠️ 重要：dist 目录必须提交到 Git
+
+由于使用 esbuild 打包，`dist/` 目录包含完整的发布产物，**必须提交到版本控制**：
+
+```bash
+# .gitignore 中 dist 已被注释
+# dist    ← 不要忽略，需要提交
+
+# 发布前确认 dist 已生成
+npm run build
+
+# 提交时包含 dist
+git add dist/
+git commit -m "chore: update dist"
+```
+
+#### 为什么 dist 需要提交？
+
+1. **用户无需构建**：通过 Marketplace 安装后直接可用
+2. **无依赖安装**：esbuild 已将所有依赖打包进 dist
+3. **降低使用门槛**：用户不需要 Node.js 构建环境
+
+#### node_modules 不提交
+
+`node_modules/` 仍然被 `.gitignore` 忽略，因为：
+- 依赖已打包进 dist，运行时不需要
+- 只有开发时需要 `npm install`
 
 ### 3. 版本更新工作流
 
@@ -148,3 +176,4 @@ sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/g" .cl
 4. **Git 提交**: 建议每次版本更新后创建 commit
 5. **测试验证**: 发布前务必运行完整测试
 6. **验证命令**: 发布后运行 `grep -r "version" package.json plugin.json .claude-plugin/marketplace.json` 验证
+7. **⚠️ 不自动推送**: **绝对不要自动执行 `git push`**，只创建本地 commit 和 tag，由用户手动推送

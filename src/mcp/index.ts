@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * QQ Bot MCP Server - Claude Code MCP 协议入口
  *
