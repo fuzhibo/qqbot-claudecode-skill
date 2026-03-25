@@ -2,6 +2,27 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.13.6] - 2026-03-25
+
+### 问题修复
+
+- **Channel 模式检测逻辑修复**
+  - 修复 MCP Server 模式检测只检查 `CLAUDE_CODE_VERSION` 的问题
+  - 新增 Gateway 桥接模式检测 (`gateway-bridge`)，不依赖 Claude Code 版本
+  - 区分 `gateway-bridge` 和 `native` 两种 Channel 子模式
+  - 模式优先级：Gateway 桥接 > 原生 Channel > Tools 轮询
+
+- **doctor 诊断脚本更新**
+  - 新增 Gateway API 可用性检测
+  - 正确识别 Gateway 桥接模式
+  - 更新通信能力分析输出
+
+### 架构说明
+
+Channel 模式现在分为两种：
+- `gateway-bridge`: MCP Server 注册到 Gateway，轮询获取消息（推荐，不依赖 Claude Code 版本）
+- `native`: 使用 Claude Code 原生 Channel capability（需要 v2.1.80+，用于权限中继）
+
 ## [1.13.5] - 2026-03-25
 
 ### 新增功能

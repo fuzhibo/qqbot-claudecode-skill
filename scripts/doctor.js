@@ -341,32 +341,63 @@ async function runDiagnostics() {
       process.env.CLAUDE_SESSION_ID
     );
 
+    // 检测 Gateway 是否可用
+    const gatewayUrl = process.env.QQBOT_GATEWAY_URL || 'http://127.0.0.1:3310';
+    let gatewayAvailable = false;
+    try {
+      const response = await fetch(`${gatewayUrl}/api/status`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(2000),
+      });
+      gatewayAvailable = response.ok;
+    } catch {
+      gatewayAvailable = false;
+    }
+
+    // 检测 Claude Code 原生 Channel 支持 (用于权限中继等高级功能)
+    let nativeChannelSupported = false;
     if (claudeVersion) {
       const current = parseVersion(claudeVersion);
       const required = parseVersion(minChannelVersion);
+      nativeChannelSupported = current && required && compareVersions(current, required) >= 0;
+    }
 
-      if (current && required && compareVersions(current, required) >= 0) {
-        log('green', `  ✅ Claude Code 版本: v${claudeVersion} (支持 Channel)`);
-        results.passed.push({ name: 'Claude Code Channel 支持', message: `v${claudeVersion}` });
-        results.channelSupported = true;
+    // Gateway 桥接模式检测 (推荐)
+    if (gatewayAvailable) {
+      log('green', `  ✅ Gateway 桥接模式: 可用`);
+      log('dim', `      Gateway URL: ${gatewayUrl}`);
+      results.passed.push({ name: 'Gateway 桥接模式', message: '可用' });
+      results.gatewayAvailable = true;
+    } else {
+      log('dim', `  ℹ️  Gateway 桥接模式: 不可用 (Gateway 未运行)`);
+      log('dim', `      运行 /qqbot-service start 启动 Gateway`);
+      results.gatewayAvailable = false;
+    }
+
+    // 原生 Channel 模式检测 (可选，用于权限中继)
+    if (claudeVersion) {
+      if (nativeChannelSupported) {
+        log('green', `  ✅ Claude Code 原生 Channel: v${claudeVersion} (支持权限中继)`);
+        results.passed.push({ name: 'Claude Code 原生 Channel', message: `v${claudeVersion}` });
+        results.nativeChannelSupported = true;
       } else {
-        log('yellow', `  ⚠️  Claude Code 版本: v${claudeVersion} (需要 >= v${minChannelVersion})`);
-        results.warnings.push({ name: 'Claude Code Channel 支持', message: `版本过低，需要 >= v${minChannelVersion}` });
-        results.channelSupported = false;
+        log('yellow', `  ⚠️  Claude Code 版本: v${claudeVersion} (需要 >= v${minChannelVersion} 支持权限中继)`);
+        results.warnings.push({ name: 'Claude Code 原生 Channel', message: `版本过低` });
+        results.nativeChannelSupported = false;
       }
     } else if (isMcpContext) {
-      // 在 MCP 环境中但版本未知 - 这是警告
       log('yellow', `  ⚠️  Claude Code 版本: 未知 (在 MCP 环境中但 CLAUDE_CODE_VERSION 未设置)`);
-      results.warnings.push({ name: 'Claude Code Channel 支持', message: '无法检测版本，将使用 MCP Tools 模式' });
-      results.channelSupported = false;
-      results.channelVersionUnknown = true;
+      results.warnings.push({ name: 'Claude Code 版本', message: '未知' });
+      results.nativeChannelSupported = false;
     } else {
-      // 独立进程环境 - 这是正常行为，显示为信息而非警告
-      log('dim', `  ℹ️  Claude Code 版本: 不适用 (当前为独立进程模式)`);
-      log('dim', `      Channel 模式仅在 Claude Code 内运行 MCP Server 时可用`);
-      results.channelSupported = false;
+      log('dim', `  ℹ️  Claude Code 原生 Channel: 不适用 (当前为独立进程模式)`);
+      results.nativeChannelSupported = false;
       results.standaloneMode = true;
     }
+
+    // 综合判断 Channel 模式是否可用
+    // Gateway 桥接模式 或 原生 Channel 模式 任一可用即可
+    results.channelSupported = gatewayAvailable || nativeChannelSupported;
 
     // 检查 QQBOT_CHANNEL_MODE 配置
     const channelMode = process.env.QQBOT_CHANNEL_MODE;
@@ -399,13 +430,17 @@ async function runDiagnostics() {
     log('');
     log('bold', '  📶 通信能力分析');
 
-    if (results.channelSupported) {
-      // Channel 双向模式
-      log('green', `  ✅ 通信模式: Channel 双向实时通信`);
-      log('dim', `      • 消息实时推送到 Claude Code`);
+    // 优先级: Gateway 桥接 > 原生 Channel > Tools 轮询
+    if (results.gatewayAvailable) {
+      // Gateway 桥接模式 (推荐)
+      log('green', `  ✅ 通信模式: Gateway 桥接 (Channel)`);
+      log('dim', `      • MCP Server 注册到 Gateway 获取消息`);
+      log('dim', `      • 消息通过 Channel notification 推送`);
       log('dim', `      • Claude Code 可直接回复`);
-      log('dim', `      • 支持权限中继`);
-      results.communicationMode = 'channel-bidirectional';
+      if (results.nativeChannelSupported) {
+        log('dim', `      • 支持权限中继 (Claude Code 原生 Channel)`);
+      }
+      results.communicationMode = 'gateway-bridge';
 
       // Channel 模式使用提醒
       log('');
@@ -414,8 +449,20 @@ async function runDiagnostics() {
       log('dim', `      • 如有多人会话，消息可能混合显示`);
       log('dim', `      • 建议合理安排消息收发，避免混淆`);
       log('dim', `      • 如有影响，可设置 QQBOT_CHANNEL_MODE=tools 关闭 Channel`);
+    } else if (results.nativeChannelSupported) {
+      // 原生 Channel 模式 (无 Gateway)
+      log('green', `  ✅ 通信模式: Claude Code 原生 Channel`);
+      log('dim', `      • 使用 Claude Code 内置 Channel capability`);
+      log('dim', `      • 消息实时推送到 Claude Code`);
+      log('dim', `      • 支持权限中继`);
+      results.communicationMode = 'native-channel';
+
+      log('');
+      log('yellow', `  ⚠️  建议：启动 Gateway 以启用桥接模式`);
+      log('dim', `      • 运行 /qqbot-service start 启动 Gateway`);
+      log('dim', `      • Gateway 桥接模式更稳定，推荐使用`);
     } else if (results.standaloneMode) {
-      // 独立进程模式
+      // 独立进程模式 (Gateway 未运行)
       log('cyan', `  📨 通信模式: Gateway 单向通信 + MCP Tools`);
       log('dim', `      • Gateway 独立接收 QQ 消息`);
       log('dim', `      • 通过 MCP Tools (send_qq_message) 发送消息`);
@@ -426,7 +473,7 @@ async function runDiagnostics() {
       log('yellow', `  ⚠️  通信模式: MCP Tools 轮询模式`);
       log('dim', `      • 通过 fetch_unread_tasks 轮询消息`);
       log('dim', `      • 通过 send_qq_message 发送消息`);
-      log('dim', `      • 建议升级 Claude Code 以启用 Channel 模式`);
+      log('dim', `      • 建议启动 Gateway 以启用 Channel 模式`);
       results.communicationMode = 'tools-polling';
     }
 

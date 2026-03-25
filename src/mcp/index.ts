@@ -42,11 +42,26 @@ import {
 
 // ============ 版本检测与模式切换 ============
 
-/** Channel 模式所需的最低 Claude Code 版本 */
+/** Channel 模式所需的最低 Claude Code 版本 (用于原生 Channel + 权限中继) */
 const MIN_CHANNEL_VERSION = '2.1.80';
+
+/** Gateway API 地址 */
+const GATEWAY_API_URL = process.env.QQBOT_GATEWAY_URL || 'http://127.0.0.1:3310';
 
 /** 运行模式类型 */
 type OperationMode = 'channel' | 'tools';
+
+/** Channel 子模式类型 */
+type ChannelSubMode = 'gateway-bridge' | 'native';
+
+/** 模式检测结果 */
+interface ModeDetectionResult {
+  mode: OperationMode;
+  channelSubMode?: ChannelSubMode;
+  gatewayAvailable?: boolean;
+  nativeSupported?: boolean;
+  reason: string;
+}
 
 /**
  * 解析版本字符串为数字数组
@@ -73,9 +88,10 @@ function compareVersions(
 }
 
 /**
- * 检测 Claude Code 版本是否支持 Channel 模式
+ * 检测 Claude Code 版本是否支持原生 Channel 模式
+ * 原生 Channel 用于权限中继等高级功能
  */
-function supportsChannel(version: string | undefined): boolean {
+function supportsNativeChannel(version: string | undefined): boolean {
   const current = parseVersion(version);
   const required = parseVersion(MIN_CHANNEL_VERSION);
   if (!current || !required) return false;
@@ -83,36 +99,131 @@ function supportsChannel(version: string | undefined): boolean {
 }
 
 /**
- * 获取运行模式
- * 优先级: 环境变量 > 自动检测
+ * 检测 Gateway API 是否可用
+ * Gateway 桥接模式不依赖 Claude Code 版本
  */
-function getOperationMode(): OperationMode {
-  const envMode = process.env.QQBOT_CHANNEL_MODE?.toLowerCase();
+async function checkGatewayAvailable(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2秒超时
 
-  // 强制指定模式
+    const response = await fetch(`${GATEWAY_API_URL}/api/status`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 同步检测 Gateway 是否可用 (基于环境变量判断)
+ * 用于初始化时的同步检测
+ */
+function isGatewayConfigured(): boolean {
+  // 如果显式配置了 Gateway URL，认为 Gateway 模式可用
+  if (process.env.QQBOT_GATEWAY_URL) {
+    return true;
+  }
+  // 默认情况下假设 Gateway 在本地运行
+  return true;
+}
+
+/**
+ * 获取运行模式
+ *
+ * 模式优先级:
+ * 1. 环境变量 QQBOT_CHANNEL_MODE=tools -> 强制 Tools 模式
+ * 2. 环境变量 QQBOT_CHANNEL_MODE=channel -> 强制 Channel 模式 (检测 Gateway)
+ * 3. 自动检测: Gateway 可用 -> Channel (Gateway 桥接)
+ * 4. 自动检测: Claude Code 原生 Channel -> Channel (原生)
+ * 5. 降级到 Tools 模式
+ *
+ * Channel 模式分为两种:
+ * - gateway-bridge: 通过 Gateway 轮询获取消息 (不依赖 Claude Code 版本)
+ * - native: 使用 Claude Code 原生 Channel capability (需要 v2.1.80+)
+ */
+function getOperationModeSync(): ModeDetectionResult {
+  const envMode = process.env.QQBOT_CHANNEL_MODE?.toLowerCase();
+  const nativeSupported = supportsNativeChannel(process.env.CLAUDE_CODE_VERSION);
+
+  // 强制 Tools 模式
   if (envMode === 'tools') {
-    console.error('[qqbot-mcp] Mode: MCP Tools (forced by env)');
-    return 'tools';
+    return {
+      mode: 'tools',
+      reason: 'forced by QQBOT_CHANNEL_MODE=tools',
+    };
   }
 
+  // 强制 Channel 模式
   if (envMode === 'channel') {
-    // 强制 Channel 模式，但仍需验证版本
-    if (supportsChannel(process.env.CLAUDE_CODE_VERSION)) {
-      console.error('[qqbot-mcp] Mode: Channel (forced by env)');
-      return 'channel';
+    // 优先使用 Gateway 桥接
+    if (isGatewayConfigured()) {
+      return {
+        mode: 'channel',
+        channelSubMode: 'gateway-bridge',
+        gatewayAvailable: true,
+        nativeSupported,
+        reason: 'forced by QQBOT_CHANNEL_MODE=channel, using gateway-bridge',
+      };
     }
-    console.warn('[qqbot-mcp] Channel mode forced but version not satisfied, falling back to Tools');
-    return 'tools';
+    // 如果 Gateway 不可配置，尝试原生
+    if (nativeSupported) {
+      return {
+        mode: 'channel',
+        channelSubMode: 'native',
+        gatewayAvailable: false,
+        nativeSupported: true,
+        reason: 'forced by QQBOT_CHANNEL_MODE=channel, using native',
+      };
+    }
+    // 都不可用，降级
+    console.warn('[qqbot-mcp] Channel mode forced but no backend available, falling back to Tools');
+    return {
+      mode: 'tools',
+      reason: 'forced channel but no backend available',
+    };
   }
 
   // auto 或未设置：自动检测
-  if (supportsChannel(process.env.CLAUDE_CODE_VERSION)) {
-    console.error('[qqbot-mcp] Mode: Channel (auto-detected)');
-    return 'channel';
+  // 优先级: Gateway 桥接 > 原生 Channel > Tools
+
+  // 1. Gateway 桥接模式 (推荐)
+  if (isGatewayConfigured()) {
+    return {
+      mode: 'channel',
+      channelSubMode: 'gateway-bridge',
+      gatewayAvailable: true,
+      nativeSupported,
+      reason: 'auto-detected gateway-bridge mode',
+    };
   }
 
-  console.error('[qqbot-mcp] Mode: MCP Tools (version not supported)');
-  return 'tools';
+  // 2. 原生 Channel 模式
+  if (nativeSupported) {
+    return {
+      mode: 'channel',
+      channelSubMode: 'native',
+      gatewayAvailable: false,
+      nativeSupported: true,
+      reason: 'auto-detected native channel mode',
+    };
+  }
+
+  // 3. 降级到 Tools 模式
+  return {
+    mode: 'tools',
+    reason: 'no channel backend available, using tools mode',
+  };
+}
+
+// 保持向后兼容的函数
+function getOperationMode(): OperationMode {
+  const result = getOperationModeSync();
+  return result.mode;
 }
 
 /** 当前运行模式 */
