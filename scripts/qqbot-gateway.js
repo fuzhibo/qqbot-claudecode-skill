@@ -155,21 +155,291 @@ const SELF_HEALING_CONFIG = {
 // ============ Hook 消息缓存系统 ============
 /**
  * Hook 消息缓存结构
- * @type {Map<string, {messages: Array, firstMessageTime: number}>}
+ * @type {Map<string, {messages: Array, firstMessageTime: number, timer: NodeJS.Timeout|null}>}
  */
 let hookCache = new Map();
 let hookBatchTimer = null;
 let hookMaxWaitTimer = null; // 超时检查定时器
 
 /**
- * 默认 Hook 批处理配置
+ * Hook 消息配置 - 5秒超时合并 + 300字节阈值压缩
+ */
+const HOOK_MESSAGE_CONFIG = {
+  batchTimeoutMs: 5000,      // 批量等待超时：5 秒（有新消息重置）
+  compressThreshold: 300,    // 压缩阈值：300 字节
+  compressedMaxSize: 150,    // 压缩后最大：150 字节
+};
+
+/**
+ * 默认 Hook 批处理配置（兼容旧配置文件）
  */
 const DEFAULT_HOOK_BATCH_CONFIG = {
-  batchIntervalMinutes: 3,  // 检查间隔（分钟），0 = 立即发送
-  maxBatchSize: 50,         // 单批次最大消息数
-  maxWaitMinutes: 3,        // 消息最大等待时间（分钟），超时自动合并发送
-  compressThresholdBytes: 800, // 压缩阈值（字节），超过此长度才调用 Claude 压缩
+  batchIntervalMinutes: 0,   // 0 = 立即发送（使用新的 5 秒超时机制）
+  maxBatchSize: 50,          // 单批次最大消息数
+  maxWaitMinutes: 0,         // 已废弃，使用 HOOK_MESSAGE_CONFIG.batchTimeoutMs
+  compressThresholdBytes: HOOK_MESSAGE_CONFIG.compressThreshold,
 };
+
+// ============ Channel 注册表系统 ============
+/**
+ * Channel 注册表
+ * @type {Map<string, {sessionId: string, projectPath: string, projectName: string, registeredAt: number, lastActive: number, isDefault: boolean}>}
+ */
+const channelRegistry = new Map();
+
+/**
+ * Channel 消息队列
+ * @type {Map<string, Array<{id: string, sessionId: string, sourceType: string, sourceId: string, authorId: string, content: string, timestamp: number, delivered: boolean}>>}
+ */
+const channelQueues = new Map();
+
+/**
+ * 当前默认 Channel 的 sessionId
+ * @type {string|null}
+ */
+let defaultChannelId = null;
+
+/**
+ * 当前运行模式：'channel' | 'headless' | 'notify'
+ * @type {string}
+ */
+let activeMode = 'notify'; // 默认通知模式
+
+// ============ Channel 管理函数 ============
+
+/**
+ * 生成唯一 ID
+ * @returns {string}
+ */
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+}
+
+/**
+ * 注册 Channel
+ * @param {string} sessionId - 会话 ID
+ * @param {string} projectPath - 项目路径
+ * @param {string} projectName - 项目名称（可选，从路径提取）
+ * @returns {{success: boolean, channelId?: string, error?: string}}
+ */
+function registerChannel(sessionId, projectPath, projectName = null) {
+  if (!sessionId || !projectPath) {
+    return { success: false, error: '缺少 sessionId 或 projectPath' };
+  }
+
+  // 如果项目名未提供，从路径提取
+  if (!projectName) {
+    projectName = path.basename(projectPath);
+  }
+
+  // 检查是否已存在同名 session
+  if (channelRegistry.has(sessionId)) {
+    // 更新已有注册
+    const existing = channelRegistry.get(sessionId);
+    existing.projectPath = projectPath;
+    existing.projectName = projectName;
+    existing.lastActive = Date.now();
+    log('cyan', `   🔄 Channel 已更新: ${sessionId} (${projectName})`);
+    return { success: true, channelId: sessionId };
+  }
+
+  // 是否为第一个注册的 Channel（自动成为默认）
+  const isDefault = channelRegistry.size === 0;
+
+  // 创建注册信息
+  const channelInfo = {
+    sessionId,
+    projectPath,
+    projectName,
+    registeredAt: Date.now(),
+    lastActive: Date.now(),
+    isDefault,
+  };
+
+  channelRegistry.set(sessionId, channelInfo);
+
+  // 初始化消息队列
+  if (!channelQueues.has(sessionId)) {
+    channelQueues.set(sessionId, []);
+  }
+
+  // 设置为默认 Channel
+  if (isDefault) {
+    defaultChannelId = sessionId;
+    activeMode = 'channel'; // 切换到 Channel 模式
+  }
+
+  log('green', `   ✅ Channel 已注册: ${sessionId} (${projectName})${isDefault ? ' [默认]' : ''}`);
+  return { success: true, channelId: sessionId };
+}
+
+/**
+ * 注销 Channel
+ * @param {string} sessionId - 会话 ID
+ * @returns {{success: boolean, error?: string}}
+ */
+function unregisterChannel(sessionId) {
+  if (!channelRegistry.has(sessionId)) {
+    return { success: false, error: 'Channel 不存在' };
+  }
+
+  const channelInfo = channelRegistry.get(sessionId);
+  const wasDefault = channelInfo.isDefault;
+
+  channelRegistry.delete(sessionId);
+
+  // 清理消息队列
+  if (channelQueues.has(sessionId)) {
+    channelQueues.delete(sessionId);
+  }
+
+  // 如果注销的是默认 Channel，需要重新选择默认
+  if (wasDefault) {
+    if (channelRegistry.size > 0) {
+      // 选择第一个作为新的默认
+      const [newDefaultId, newDefaultInfo] = channelRegistry.entries().next().value;
+      newDefaultInfo.isDefault = true;
+      defaultChannelId = newDefaultId;
+      log('cyan', `   🔄 默认 Channel 已切换: ${newDefaultId}`);
+    } else {
+      // 没有注册的 Channel 了
+      defaultChannelId = null;
+      activeMode = 'notify'; // 回退到通知模式
+      log('yellow', `   ⚠️ 所有 Channel 已注销，回退到通知模式`);
+    }
+  }
+
+  log('green', `   ✅ Channel 已注销: ${sessionId}`);
+  return { success: true };
+}
+
+/**
+ * 获取所有 Channel 信息
+ * @returns {Array<Object>}
+ */
+function getAllChannels() {
+  return Array.from(channelRegistry.values()).map(info => ({
+    sessionId: info.sessionId,
+    projectName: info.projectName,
+    projectPath: info.projectPath,
+    registeredAt: info.registeredAt,
+    lastActive: info.lastActive,
+    isDefault: info.isDefault,
+    pendingMessages: channelQueues.has(info.sessionId) ? channelQueues.get(info.sessionId).length : 0,
+  }));
+}
+
+/**
+ * 解析消息前缀，确定目标 Channel
+ * @param {string} content - 消息内容
+ * @returns {{targetSessionId: string|null, cleanContent: string}}
+ */
+function resolveChannel(content) {
+  // 检查是否有 [project-name] 前缀
+  const prefixMatch = content.match(/^\[([^\]]+)\]\s*(.*)$/s);
+
+  if (prefixMatch) {
+    const [, prefix, cleanContent] = prefixMatch;
+
+    // 根据前缀查找匹配的 Channel
+    for (const [sessionId, info] of channelRegistry) {
+      if (info.projectName === prefix || info.projectPath.includes(prefix)) {
+        return { targetSessionId: sessionId, cleanContent };
+      }
+    }
+
+    // 没有匹配的前缀，使用默认 Channel
+    return { targetSessionId: defaultChannelId, cleanContent };
+  }
+
+  // 无前缀，使用默认 Channel
+  return { targetSessionId: defaultChannelId, cleanContent: content };
+}
+
+/**
+ * 添加消息到 Channel 队列
+ * @param {string} sessionId - 目标 Channel
+ * @param {Object} message - 消息对象
+ */
+function addMessageToChannelQueue(sessionId, message) {
+  if (!channelQueues.has(sessionId)) {
+    channelQueues.set(sessionId, []);
+  }
+
+  const queue = channelQueues.get(sessionId);
+  queue.push({
+    id: generateId(),
+    sessionId,
+    ...message,
+    timestamp: Date.now(),
+    delivered: false,
+  });
+
+  // 更新 Channel 活跃时间
+  if (channelRegistry.has(sessionId)) {
+    channelRegistry.get(sessionId).lastActive = Date.now();
+  }
+}
+
+/**
+ * 获取 Channel 的未读消息
+ * @param {string} sessionId - Channel ID
+ * @param {number} limit - 最大数量
+ * @returns {Array<Object>}
+ */
+function getChannelMessages(sessionId, limit = 10) {
+  if (!channelQueues.has(sessionId)) {
+    return [];
+  }
+
+  const queue = channelQueues.get(sessionId);
+  return queue.filter(m => !m.delivered).slice(0, limit);
+}
+
+/**
+ * 标记 Channel 消息为已读
+ * @param {string} sessionId - Channel ID
+ * @param {Array<string>} messageIds - 消息 ID 列表
+ */
+function markChannelMessagesDelivered(sessionId, messageIds) {
+  if (!channelQueues.has(sessionId)) {
+    return;
+  }
+
+  const queue = channelQueues.get(sessionId);
+  for (const msg of queue) {
+    if (messageIds.includes(msg.id)) {
+      msg.delivered = true;
+    }
+  }
+
+  // 清理已读消息
+  channelQueues.set(sessionId, queue.filter(m => !m.delivered));
+}
+
+/**
+ * 检查是否有活跃的 Channel
+ * @returns {boolean}
+ */
+function hasActiveChannels() {
+  return channelRegistry.size > 0;
+}
+
+/**
+ * 获取当前运行模式
+ * @returns {string}
+ */
+function getActiveMode() {
+  return activeMode;
+}
+
+/**
+ * 设置运行模式
+ * @param {string} newMode - 'channel' | 'headless' | 'notify'
+ */
+function setActiveMode(newMode) {
+  activeMode = newMode;
+}
 
 /**
  * 指数退避重试工具函数
@@ -244,7 +514,7 @@ function saveHookBatchConfig(config) {
 }
 
 /**
- * 添加 Hook 消息到缓存
+ * 添加 Hook 消息到缓存（5 秒超时机制）
  * @param {string} openid - 用户 openid
  * @param {string} message - 消息内容
  * @param {string} project - 项目名称
@@ -254,6 +524,7 @@ function addHookToCache(openid, message, project) {
     hookCache.set(openid, {
       messages: [],
       firstMessageTime: Date.now(),
+      timer: null, // 5 秒超时定时器
     });
   }
 
@@ -266,13 +537,173 @@ function addHookToCache(openid, message, project) {
 
   log('cyan', `   📬 Hook 消息已缓存 (用户: ${openid.slice(0, 8)}..., 缓存数: ${entry.messages.length})`);
 
-  // 检查是否达到最大批次大小
-  const config = loadHookBatchConfig();
-  if (entry.messages.length >= config.maxBatchSize) {
-    log('yellow', `   ⚠️ 达到最大批次大小 (${config.maxBatchSize})，立即处理`);
-    processHookBatch(openid).catch(err => {
+  // 重置 5 秒超时定时器（有新消息就重置）
+  if (entry.timer) {
+    clearTimeout(entry.timer);
+  }
+  entry.timer = setTimeout(() => {
+    processHookBatchWithTimeout(openid).catch(err => {
       log('red', `   ❌ 批次处理失败: ${err.message}`);
     });
+  }, HOOK_MESSAGE_CONFIG.batchTimeoutMs);
+}
+
+/**
+ * 处理超时触发的 Hook 消息批次（5 秒超时 + 300 字节阈值压缩）
+ * @param {string} openid - 用户 openid
+ */
+async function processHookBatchWithTimeout(openid) {
+  const entry = hookCache.get(openid);
+  if (!entry || entry.messages.length === 0) {
+    return;
+  }
+
+  const messages = entry.messages;
+  const waitTime = Math.round((Date.now() - entry.firstMessageTime) / 1000);
+
+  // 清理缓存和定时器
+  if (entry.timer) {
+    clearTimeout(entry.timer);
+  }
+  hookCache.delete(openid);
+
+  log('cyan', `   🗜️ 5秒超时触发 Hook 批次: ${messages.length} 条消息 (等待 ${waitTime} 秒)`);
+
+  try {
+    // 合并消息
+    const mergedContent = mergeHookMessages(messages);
+    const mergedBytes = getByteLength(mergedContent);
+
+    let finalContent;
+
+    // 检查是否需要压缩（超过 300 字节阈值）
+    if (mergedBytes > HOOK_MESSAGE_CONFIG.compressThreshold) {
+      log('cyan', `   📊 合并后 ${mergedBytes} 字节 > 阈值 ${HOOK_MESSAGE_CONFIG.compressThreshold}，启动内部 Headless 压缩...`);
+      const summary = await compressHookMessagesToSize(messages, HOOK_MESSAGE_CONFIG.compressedMaxSize);
+      finalContent = `📋 Hook 摘要 (${messages.length} 条, 原始 ${mergedBytes} 字节)\n\n${summary}`;
+    } else {
+      log('cyan', `   📊 合并后 ${mergedBytes} 字节 <= 阈值 ${HOOK_MESSAGE_CONFIG.compressThreshold}，直接发送`);
+      finalContent = `📋 Hook 消息 (${messages.length} 条)\n\n${mergedContent}`;
+    }
+
+    // 获取用户激活状态
+    const userStatus = getUserActivationStatus(openid);
+
+    if (userStatus === 'expired' || !userStatus) {
+      // 用户未激活，缓存消息
+      addPendingMessage({
+        targetOpenid: openid,
+        content: finalContent,
+        source: 'hook_batch',
+        priority: 5,
+      });
+      log('cyan', `   📬 Hook 批次已缓存 (目标未激活)`);
+      return;
+    }
+
+    // 用户已激活，发送消息
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(openid);
+    const result = await sendMessageSmart(token, openid, finalContent, usageInfo);
+
+    if (result.success) {
+      const methodText = result.method === 'passive' ? `被动回复 (剩余 ${result.remaining} 次)` : '主动消息';
+      log('green', `   ✅ Hook 批次已发送 [${methodText}]`);
+    } else {
+      // 发送失败，缓存消息
+      addPendingMessage({
+        targetOpenid: openid,
+        content: finalContent,
+        source: 'hook_batch',
+        priority: 5,
+      });
+      log('yellow', `   ⚠️ Hook 批次发送失败，已缓存: ${result.error}`);
+    }
+  } catch (err) {
+    log('red', `   ❌ Hook 批次处理失败: ${err.message}`);
+    // 处理失败，将消息重新放回待发送队列
+    for (const msg of messages) {
+      addPendingMessage({
+        targetOpenid: openid,
+        content: `[${msg.project || 'Hook'}] ${msg.message}`,
+        source: 'hook_notification',
+        priority: 5,
+      });
+    }
+  }
+}
+
+/**
+ * 使用 Claude headless 压缩 Hook 消息到指定大小
+ * @param {Array} messages - 消息数组
+ * @param {number} maxSize - 最大字节数
+ * @returns {Promise<string>} 压缩后的摘要
+ */
+async function compressHookMessagesToSize(messages, maxSize) {
+  const messagesText = messages
+    .map((m, i) => `[${i + 1}] ${new Date(m.timestamp).toLocaleTimeString('zh-CN')} | ${m.project || 'Hook'}\n${m.message}`)
+    .join('\n\n');
+
+  const compressPrompt = `请将以下 ${messages.length} 条 Hook 消息压缩成简洁摘要。
+
+严格要求:
+1. 使用中文
+2. 总长度不超过 ${maxSize} 字节（约 ${Math.floor(maxSize / 3)} 个汉字）
+3. 保留最重要的信息
+4. 格式: 每条一行，"时间 | 简要内容"
+
+待压缩内容:
+${messagesText}`;
+
+  try {
+    const claudePath = process.env.CLAUDE_CODE_PATH || 'claude';
+    const compressResult = await new Promise((resolve, reject) => {
+      const child = spawn(claudePath, [
+        '--print',
+        '--allowedTools', 'none',
+        compressPrompt
+      ], {
+        timeout: 30000, // 30 秒超时（压缩任务较快）
+        maxBuffer: 1024 * 1024,
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          resolve(stdout.trim());
+        } else {
+          reject(new Error(`Claude exited with code ${code}: ${stderr}`));
+        }
+      });
+
+      child.on('error', reject);
+    });
+
+    // 确保压缩后不超过目标大小
+    let result = compressResult || '（压缩失败）';
+    if (getByteLength(result) > maxSize) {
+      // 再次截断
+      result = result.slice(0, Math.floor(maxSize / 3)) + '...';
+    }
+
+    return result;
+  } catch (err) {
+    log('red', `   ❌ Hook 消息压缩失败: ${err.message}`);
+    // 压缩失败时返回简化版本
+    return messages
+      .slice(0, 3)
+      .map((m, i) => `[${i + 1}] ${m.message.slice(0, 50)}...`)
+      .join('\n');
   }
 }
 
@@ -1775,6 +2206,121 @@ function startInternalApi() {
       return;
     }
 
+    // ============ Channel API 端点 ============
+
+    // API: POST /api/channels/register - 注册 Channel
+    if (req.method === 'POST' && req.url === '/api/channels/register') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { sessionId, projectPath, projectName } = data;
+
+          if (!sessionId || !projectPath) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ error: '缺少 sessionId 或 projectPath' }));
+            return;
+          }
+
+          const result = registerChannel(sessionId, projectPath, projectName);
+          if (result.success) {
+            res.writeHead(200);
+            res.end(JSON.stringify({
+              status: 'registered',
+              channelId: result.channelId,
+              isDefault: channelRegistry.get(result.channelId)?.isDefault || false,
+              activeMode: getActiveMode(),
+            }));
+          } else {
+            res.writeHead(400);
+            res.end(JSON.stringify({ error: result.error }));
+          }
+        } catch (parseErr) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: '无效的 JSON 格式' }));
+        }
+      });
+      return;
+    }
+
+    // API: DELETE /api/channels/:sessionId - 注销 Channel
+    if (req.method === 'DELETE' && req.url.startsWith('/api/channels/')) {
+      const sessionId = decodeURIComponent(req.url.replace('/api/channels/', ''));
+      const result = unregisterChannel(sessionId);
+
+      if (result.success) {
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          status: 'unregistered',
+          sessionId,
+          activeMode: getActiveMode(),
+          remainingChannels: channelRegistry.size,
+        }));
+      } else {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: result.error }));
+      }
+      return;
+    }
+
+    // API: GET /api/channels - 列出所有 Channel
+    if (req.method === 'GET' && req.url === '/api/channels') {
+      const channels = getAllChannels();
+      res.writeHead(200);
+      res.end(JSON.stringify({
+        activeMode: getActiveMode(),
+        totalChannels: channels.length,
+        defaultChannelId,
+        channels,
+      }));
+      return;
+    }
+
+    // API: GET /api/messages - 获取指定 Channel 的消息
+    if (req.method === 'GET' && req.url.startsWith('/api/messages?')) {
+      const urlObj = new URL(req.url, `http://127.0.0.1:${INTERNAL_API_PORT}`);
+      const sessionId = urlObj.searchParams.get('channel');
+      const limit = parseInt(urlObj.searchParams.get('limit') || '10', 10);
+
+      if (!sessionId) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: '缺少 channel 参数' }));
+        return;
+      }
+
+      const messages = getChannelMessages(sessionId, limit);
+      res.writeHead(200);
+      res.end(JSON.stringify({
+        sessionId,
+        count: messages.length,
+        messages,
+      }));
+      return;
+    }
+
+    // API: DELETE /api/messages - 清理已读消息
+    if (req.method === 'DELETE' && req.url.startsWith('/api/messages?')) {
+      const urlObj = new URL(req.url, `http://127.0.0.1:${INTERNAL_API_PORT}`);
+      const sessionId = urlObj.searchParams.get('channel');
+      const messageIds = urlObj.searchParams.get('ids')?.split(',') || [];
+
+      if (!sessionId) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: '缺少 channel 参数' }));
+        return;
+      }
+
+      markChannelMessagesDelivered(sessionId, messageIds);
+      res.writeHead(200);
+      res.end(JSON.stringify({
+        status: 'cleared',
+        sessionId,
+        clearedCount: messageIds.length,
+      }));
+      return;
+    }
+
     // 404
     res.writeHead(404);
     res.end(JSON.stringify({ error: 'Not found' }));
@@ -2384,6 +2930,40 @@ async function handleMessage(type, data) {
   const parsed = parseMessage(content);
   log('cyan', `   解析结果: 项目=${parsed.projectName || '默认'}, cwd=${parsed.cwd || '无'}`);
 
+  // ============ Channel 模式优先（互斥原则） ============
+  // 检查是否有注册的 Channel，如果有则路由到 Channel，否则使用 Headless/Notify 模式
+  if (hasActiveChannels()) {
+    // Channel 模式：路由消息到对应的 Channel 队列
+    const { targetSessionId, cleanContent } = resolveChannel(finalContent);
+
+    if (targetSessionId) {
+      addMessageToChannelQueue(targetSessionId, {
+        sourceType: type,
+        sourceId: type === 'group' ? groupId : authorId,
+        authorId,
+        authorNickname,
+        content: cleanContent,
+        msgId,
+        messageReference,
+      });
+
+      const channelInfo = channelRegistry.get(targetSessionId);
+      log('green', `   📨 消息已路由到 Channel: ${targetSessionId} (${channelInfo?.projectName || '未知项目'})`);
+      log('cyan', `   📊 Channel 队列: ${channelQueues.get(targetSessionId)?.length || 0} 条待处理`);
+
+      // 发送确认消息给用户
+      const token = await getAccessToken();
+      const usageInfo = incrementMsgIdUsage(authorId);
+      await sendMessageSmart(token, authorId, `✅ 消息已推送到 Channel: ${channelInfo?.projectName || targetSessionId}`, usageInfo);
+
+      return; // Channel 模式处理完成，不再走 Headless 流程
+    } else {
+      log('yellow', `   ⚠️ 无可用 Channel，回退到 Headless 模式`);
+      // 继续执行下面的 Headless/Notify 逻辑
+    }
+  }
+
+  // ============ Headless/Notify 模式（无活跃 Channel 时） ============
   if (mode === 'notify') {
     // 通知模式：只发送桌面通知
     log('yellow', '   📢 通知模式：发送桌面通知');

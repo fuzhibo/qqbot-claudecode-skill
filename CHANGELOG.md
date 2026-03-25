@@ -2,6 +2,32 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.13.5] - 2026-03-25
+
+### 新增功能
+
+- **Gateway → MCP Server 多会话消息桥接架构**
+  - Channel 注册 API: `POST /api/channels/register`, `DELETE /api/channels/:id`, `GET /api/channels`
+  - 多 Channel 注册和消息路由支持
+  - MCP Server 启动时自动注册到 Gateway，关闭时自动注销
+  - 模式互斥：Channel 模式和 Headless 模式只能切换，不能同时运行
+
+- **Hook 消息智能合并与压缩**
+  - 5 秒超时机制：有新消息时重置定时器
+  - 300 字节压缩阈值：超过阈值触发内部 Headless 压缩
+  - 压缩后消息限制在 150 字节内
+
+- **用户提醒机制**
+  - `qqbot-service start`: 启动时显示 Channel 模式注意事项
+  - `qqbot-doctor`: 诊断时显示 Channel 模式提醒
+  - `channel-pusher`: 首次注册时输出提醒日志
+
+### 改进
+
+- **消息队列按 Channel 分组**
+  - 每个 Channel 有独立的消息队列
+  - 支持前缀路由和无前缀默认路由
+
 ## [1.13.4] - 2026-03-24
 
 ### 新增功能

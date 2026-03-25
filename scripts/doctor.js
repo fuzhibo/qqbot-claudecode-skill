@@ -406,6 +406,14 @@ async function runDiagnostics() {
       log('dim', `      • Claude Code 可直接回复`);
       log('dim', `      • 支持权限中继`);
       results.communicationMode = 'channel-bidirectional';
+
+      // Channel 模式使用提醒
+      log('');
+      log('yellow', `  ⚠️  Channel 模式注意事项：`);
+      log('dim', `      • QQ 消息会直接推送到当前 Claude Code 会话`);
+      log('dim', `      • 如有多人会话，消息可能混合显示`);
+      log('dim', `      • 建议合理安排消息收发，避免混淆`);
+      log('dim', `      • 如有影响，可设置 QQBOT_CHANNEL_MODE=tools 关闭 Channel`);
     } else if (results.standaloneMode) {
       // 独立进程模式
       log('cyan', `  📨 通信模式: Gateway 单向通信 + MCP Tools`);

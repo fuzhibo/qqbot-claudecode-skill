@@ -32,6 +32,13 @@ import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { toolDefinitions, handleToolCall } from './tools.js';
 import { loadFromEnv, setBot, getAllBots } from './config.js';
 import { getClient, cleanupAllClients } from './qq-client.js';
+import {
+  startChannelPusher,
+  stopChannelPusher,
+  registerChannel,
+  unregisterChannel,
+  isGatewayRegistered,
+} from './channel-pusher.js';
 
 // ============ 版本检测与模式切换 ============
 
@@ -230,6 +237,7 @@ function initializeBots(): void {
  */
 async function run(): Promise<void> {
   console.error('[qqbot-mcp] Starting QQ Bot MCP Server...');
+  console.error(`[qqbot-mcp] Operation mode: ${operationMode}`);
 
   // 初始化机器人
   initializeBots();
@@ -241,7 +249,44 @@ async function run(): Promise<void> {
   await server.connect(transport);
 
   console.error('[qqbot-mcp] Server started successfully');
+
+  // Channel 模式：启动推送器并注册到 Gateway
+  if (operationMode === 'channel') {
+    // 启动 Channel 推送器
+    startChannelPusher(server, {
+      registerToGateway: true,
+      interval: 1000,
+      mergeMessages: true,
+    });
+
+    // 注册到 Gateway
+    const sessionId = process.env.CLAUDE_SESSION_ID || generateSessionId();
+    const projectPath = process.env.CLAUDE_PROJECT_PATH || process.cwd();
+    const projectName = process.env.CLAUDE_PROJECT_NAME || projectPath.split('/').pop() || 'unknown';
+
+    try {
+      const registered = await registerChannel(sessionId, projectPath, projectName);
+      if (registered) {
+        console.error(`[qqbot-mcp] ✅ Registered to Gateway: ${sessionId}`);
+        console.error(`[qqbot-mcp]    Project: ${projectName}`);
+      } else {
+        console.error(`[qqbot-mcp] ⚠️ Failed to register to Gateway, will use local queue only`);
+      }
+    } catch (error) {
+      console.error(`[qqbot-mcp] ⚠️ Gateway registration error: ${error}`);
+    }
+  }
+
   console.error('[qqbot-mcp] Waiting for Claude Code requests...');
+}
+
+/**
+ * 生成唯一会话 ID
+ */
+function generateSessionId(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 9);
+  return `session-${timestamp}-${random}`;
 }
 
 // 错误处理
@@ -256,14 +301,32 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // 优雅关闭
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.error('[qqbot-mcp] Received SIGINT, shutting down...');
+
+  // Channel 模式：停止推送器并注销
+  if (operationMode === 'channel') {
+    stopChannelPusher();
+    if (isGatewayRegistered()) {
+      await unregisterChannel();
+    }
+  }
+
   cleanupAllClients();
   process.exit(0);
 });
 
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.error('[qqbot-mcp] Received SIGTERM, shutting down...');
+
+  // Channel 模式：停止推送器并注销
+  if (operationMode === 'channel') {
+    stopChannelPusher();
+    if (isGatewayRegistered()) {
+      await unregisterChannel();
+    }
+  }
+
   cleanupAllClients();
   process.exit(0);
 });

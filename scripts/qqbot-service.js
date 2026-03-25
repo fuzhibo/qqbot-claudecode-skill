@@ -704,6 +704,16 @@ async function cmdStart(options) {
             console.log(`      💡 在 Claude Code 内运行 MCP Server 可启用双向通信`);
           }
         }
+
+        // Channel 模式使用提醒
+        if (result.channel?.enabled || result.channel?.mode === 'bidirectional') {
+          console.log(``);
+          console.log(`   ⚠️  Channel 模式注意事项：`);
+          console.log(`      • QQ 消息会直接推送到当前 Claude Code 会话`);
+          console.log(`      • 如有多人会话，消息可能混合显示`);
+          console.log(`      • 建议合理安排消息收发，避免混淆`);
+          console.log(`      • 如有影响，可使用 --channel=unidirectional 或关闭 Channel`);
+        }
       } else {
         // JSON 输出中添加通信模式信息
         result.communicationMode = {

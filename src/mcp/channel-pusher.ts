@@ -3,11 +3,19 @@
  *
  * 实现事件驱动的消息推送机制，将 QQ 消息实时推送到 Claude Code
  * 通过 MCP notification 机制实现
+ *
+ * 支持 Gateway 注册模式：
+ * - 向 Gateway 注册 Channel
+ * - 轮询 Gateway 获取本 Channel 的消息
+ * - 关闭时注销 Channel
  */
 
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { fetchAllUnreadTasks, clearReadMessages } from './message-queue.js';
 import type { PendingTask } from './types.js';
+
+/** Gateway API 地址 */
+const GATEWAY_API_URL = process.env.QQBOT_GATEWAY_URL || 'http://127.0.0.1:3310';
 
 /** Channel 消息元数据 */
 interface ChannelMeta {
@@ -39,6 +47,8 @@ interface ChannelPusherConfig {
   mergeMessages?: boolean;
   /** 合并消息的最大条数 */
   maxMergeCount?: number;
+  /** 是否注册到 Gateway */
+  registerToGateway?: boolean;
 }
 
 /** 默认配置 */
@@ -46,6 +56,7 @@ const DEFAULT_CONFIG: Required<ChannelPusherConfig> = {
   interval: 1000,
   mergeMessages: true,
   maxMergeCount: 5,
+  registerToGateway: true,
 };
 
 /** 推送器状态 */
@@ -53,6 +64,12 @@ let pusherInterval: ReturnType<typeof setInterval> | null = null;
 let isRunning = false;
 let mcpServer: Server | null = null;
 let config = DEFAULT_CONFIG;
+
+/** Gateway 注册状态 */
+let sessionId: string | null = null;
+let projectPath: string | null = null;
+let projectName: string | null = null;
+let isRegisteredWithGateway = false;
 
 /**
  * 将队列消息转换为 Channel 消息格式
@@ -215,19 +232,34 @@ async function checkAndPush(): Promise<void> {
   if (!mcpServer || !isRunning) return;
 
   try {
-    // 从消息队列获取未读任务
-    const tasks = fetchAllUnreadTasks();
+    let totalSent = 0;
 
-    if (tasks.length === 0) return;
+    // 1. 从本地消息队列获取未读任务
+    const localTasks = fetchAllUnreadTasks();
+    if (localTasks.length > 0) {
+      console.error(`[channel-pusher] Processing ${localTasks.length} local messages`);
+      const sentCount = await sendBatchNotifications(mcpServer, localTasks);
+      if (sentCount > 0) {
+        clearReadMessages();
+        totalSent += sentCount;
+      }
+    }
 
-    console.error(`[channel-pusher] Processing ${tasks.length} messages`);
+    // 2. 如果已注册到 Gateway，也从 Gateway 获取消息
+    if (config.registerToGateway && isRegisteredWithGateway) {
+      const gatewayMessages = await fetchChannelMessages(10);
+      if (gatewayMessages.length > 0) {
+        console.error(`[channel-pusher] Processing ${gatewayMessages.length} Gateway messages`);
+        // Gateway 消息已经是 ChannelNotificationParams 格式，直接发送
+        for (const msg of gatewayMessages) {
+          await sendChannelNotification(mcpServer, msg);
+          totalSent++;
+        }
+      }
+    }
 
-    // 批量发送
-    const sentCount = await sendBatchNotifications(mcpServer, tasks);
-
-    // 清除已推送的消息
-    if (sentCount > 0) {
-      clearReadMessages();
+    if (totalSent > 0) {
+      console.error(`[channel-pusher] Total sent: ${totalSent} messages`);
     }
   } catch (error) {
     console.error('[channel-pusher] Error in checkAndPush:', error);
@@ -258,14 +290,32 @@ export function startChannelPusher(
   pusherInterval = setInterval(checkAndPush, config.interval);
 
   console.error(`[channel-pusher] Started (interval: ${config.interval}ms)`);
+
+  // 如果配置了注册到 Gateway 且有 sessionId，则注册
+  if (config.registerToGateway && sessionId) {
+    registerChannel(sessionId, projectPath ?? process.cwd(), projectName ?? undefined).then(success => {
+      if (success) {
+        console.error('[channel-pusher] ✅ Registered to Gateway successfully');
+      } else {
+        console.error('[channel-pusher] ⚠️ Failed to register to Gateway');
+      }
+    }).catch(err => {
+      console.error(`[channel-pusher] ❌ Gateway registration error: ${err}`);
+    });
+  }
 }
 
 /**
  * 停止 Channel 推送器
  */
-export function stopChannelPusher(): void {
+export async function stopChannelPusher(): Promise<void> {
   if (!isRunning) {
     return;
+  }
+
+  // 先从 Gateway 注销
+  if (isRegisteredWithGateway) {
+    await unregisterChannel();
   }
 
   if (pusherInterval) {
@@ -314,3 +364,186 @@ export async function triggerPush(): Promise<number> {
 
   return sendBatchNotifications(mcpServer, tasks);
 }
+
+// ============ Gateway 注册相关函数 ============
+
+/**
+ * 向 Gateway 注册 Channel
+ * @param sid - 会话 ID
+ * @param pPath - 项目路径
+ * @param pName - 项目名称（可选）
+ */
+export async function registerChannel(
+  sid: string,
+  pPath: string,
+  pName?: string
+): Promise<boolean> {
+  sessionId = sid;
+  projectPath = pPath;
+  projectName = pName || pPath.split('/').pop() || 'unknown';
+
+  if (!config.registerToGateway) {
+    console.error('[channel-pusher] Gateway registration disabled by config');
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${GATEWAY_API_URL}/api/channels/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId,
+        projectPath,
+        projectName,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (result.status === 'registered') {
+      isRegisteredWithGateway = true;
+      console.error(`[channel-pusher] ✅ Channel 已注册到 Gateway: ${sessionId}`);
+      console.error(`[channel-pusher]    项目: ${projectName}`);
+      console.error(`[channel-pusher]    默认: ${result.isDefault ? '是' : '否'}`);
+
+      // 显示 Channel 模式提醒
+      console.error('');
+      console.error('[channel-pusher] ⚠️ Channel 模式已激活，QQ 消息将推送到当前会话');
+      console.error('[channel-pusher] 如有多人会话请注意消息管理，或使用 unidirectional 模式');
+
+      return true;
+    }
+
+    console.error(`[channel-pusher] ❌ 注册失败: ${result.error}`);
+    return false;
+  } catch (error) {
+    console.error(`[channel-pusher] ❌ 注册请求失败: ${error}`);
+    return false;
+  }
+}
+
+/**
+ * 从 Gateway 注销 Channel
+ */
+export async function unregisterChannel(): Promise<boolean> {
+  if (!isRegisteredWithGateway || !sessionId) {
+    return true; // 未注册，无需注销
+  }
+
+  try {
+    const response = await fetch(
+      `${GATEWAY_API_URL}/api/channels/${encodeURIComponent(sessionId)}`,
+      { method: 'DELETE' }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (result.status === 'unregistered') {
+      console.error(`[channel-pusher] ✅ Channel 已从 Gateway 注销: ${sessionId}`);
+      isRegisteredWithGateway = false;
+      sessionId = null;
+      projectPath = null;
+      projectName = null;
+      return true;
+    }
+
+    console.error(`[channel-pusher] ❌ 注销失败: ${result.error}`);
+    return false;
+  } catch (error) {
+    console.error(`[channel-pusher] ❌ 注销请求失败: ${error}`);
+    return false;
+  }
+}
+
+/**
+ * 从 Gateway 获取本 Channel 的消息
+ * @param limit - 最大获取数量
+ */
+export async function fetchChannelMessages(
+  limit: number = 10
+): Promise<ChannelNotificationParams[]> {
+  if (!isRegisteredWithGateway || !sessionId) {
+    return [];
+  }
+
+  try {
+    const url = `${GATEWAY_API_URL}/api/messages?channel=${encodeURIComponent(sessionId)}&limit=${limit}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (result.messages && result.messages.length > 0) {
+      // 标记消息为已读
+      const messageIds = result.messages.map((m: any) => m.id);
+      await markMessagesDelivered(messageIds);
+
+      // 转换为 ChannelNotificationParams 格式
+      return result.messages.map((msg: any) => ({
+        content: msg.content,
+        meta: {
+          chat_id: msg.sourceId,
+          sender: msg.authorNickname || msg.authorId,
+          type: msg.sourceType === 'group' ? 'group' : 'user',
+          message_id: msg.msgId,
+          timestamp: msg.timestamp,
+        },
+      }));
+    }
+
+    return [];
+  } catch (error) {
+    console.error(`[channel-pusher] ❌ 获取消息失败: ${error}`);
+    return [];
+  }
+}
+
+/**
+ * 标记消息为已读
+ */
+async function markMessagesDelivered(messageIds: string[]): Promise<void> {
+  if (!sessionId || messageIds.length === 0) return;
+
+  try {
+    const url = `${GATEWAY_API_URL}/api/messages?channel=${encodeURIComponent(sessionId)}&ids=${messageIds.join(',')}`;
+    await fetch(url, { method: 'DELETE' });
+  } catch (error) {
+    console.error(`[channel-pusher] ⚠️ 标记消息已读失败: ${error}`);
+  }
+}
+
+/**
+ * 检查是否已注册到 Gateway
+ */
+export function isGatewayRegistered(): boolean {
+  return isRegisteredWithGateway;
+}
+
+/**
+ * 获取当前 Channel 信息
+ */
+export function getChannelInfo(): {
+  sessionId: string | null;
+  projectPath: string | null;
+  projectName: string | null;
+  isRegistered: boolean;
+} {
+  return {
+    sessionId,
+    projectPath,
+    projectName,
+    isRegistered: isRegisteredWithGateway,
+  };
+}
+
