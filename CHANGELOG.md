@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.16.0] - 2026-03-26
+
+### 功能更新
+
+  - a300d75 feat: Hook消息推送开关与 Channel 模式 sessionId 前缀
+  - daa46f1 feat: v1.15.0 - Hook消息处理重构与Channel增强
+  - 8bc8fee chore: release v1.14.5
+  - ca809f4 chore: release v1.14.4 - 添加 qqbot-doctor skill 文件
+  - b99279e chore: release v1.14.3
+  - 1983fb3 chore: release v1.14.2
+  - acb7e8f chore: release v1.14.1 - 修复网关启动失败问题
+  - 82ecd19 fix: 添加 API 模块打包以支持 qqbot-gateway.js
+  - 4307cc9 chore: release v1.14.0 - esbuild 打包构建
+  - 6194061 feat: 使用 esbuild 打包构建，用户无需 npm install
+
 ## [1.15.0] - 2026-03-26
 
 ### 新功能
