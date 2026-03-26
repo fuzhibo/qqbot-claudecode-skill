@@ -6,6 +6,7 @@ import type { McpToolResponse } from './types.js';
 import { getAllBots, getBot, setBot, removeBot, botExists, loadFromEnv } from './config.js';
 import { getClient, getActiveClients, parseTargetId } from './qq-client.js';
 import { fetchUnreadTasks, fetchAllUnreadTasks, getMessageContext, getQueueStatus } from './message-queue.js';
+import { getChannelInfo } from './channel-pusher.js';
 import { MediaFileType } from '../api.js';
 import * as path from 'path';
 
@@ -282,8 +283,13 @@ async function handleSendMessage(args: Record<string, unknown>): Promise<McpTool
   const content = args.content as string;
   const msgId = args.msgId as string | undefined;
 
+  // 获取 sessionId 并添加前缀（Channel 模式）
+  const channelInfo = getChannelInfo();
+  const sessionId = channelInfo.sessionId;
+  const finalContent = sessionId ? `[${sessionId}] ${content}` : content;
+
   const client = getClient(bot);
-  const result = await client.sendMessage(targetId, content, msgId);
+  const result = await client.sendMessage(targetId, finalContent, msgId);
 
   if (result.success) {
     const { type, id } = parseTargetId(targetId);

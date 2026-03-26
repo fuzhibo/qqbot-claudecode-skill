@@ -21682,360 +21682,6 @@ function cleanupAllClients() {
   console.error("[qqbot-mcp] All clients cleaned up");
 }
 
-// src/mcp/tools.ts
-var path3 = __toESM(require("path"), 1);
-var toolDefinitions = [
-  {
-    name: "get_active_bots",
-    description: `\u611F\u77E5\u80FD\u529B\uFF1A\u8FD4\u56DE\u5F53\u524D\u5DF2\u914D\u7F6E\u4E14\u53EF\u7528\u7684\u673A\u5668\u4EBA\u540D\u79F0\u5217\u8868\u3002
-\u5F53\u7528\u6237\u6CA1\u6709\u6307\u5B9A botName \u65F6\uFF0C\u5FC5\u987B\u5148\u8C03\u7528\u6B64\u63A5\u53E3\u8FDB\u884C"\u8EAB\u4EFD\u786E\u8BA4"\u3002
-\u8FD4\u56DE\u6BCF\u4E2A\u673A\u5668\u4EBA\u7684\u540D\u79F0\u3001\u8FDE\u63A5\u72B6\u6001\u53CA\u9ED8\u8BA4 targetId\u3002`,
-    inputSchema: {
-      type: "object",
-      properties: {}
-    }
-  },
-  {
-    name: "send_qq_message",
-    description: `\u5411\u6307\u5B9A\u7684 QQ \u7FA4\u6216\u9891\u9053\u53D1\u9001\u6587\u672C\u6D88\u606F\u3002
-\u5F53\u7528\u6237\u8981\u6C42\u5C06\u5F53\u524D\u4EE3\u7801\u5206\u6790\u3001\u62A5\u9519\u65E5\u5FD7\u6216\u9879\u76EE\u8FDB\u5EA6\u901A\u77E5\u7ED9 QQ \u7FA4\u53CB\u65F6\u4F7F\u7528\u6B64\u5DE5\u5177\u3002
-
-\u3010Channel \u6A21\u5F0F\u3011\u5F53\u6536\u5230 channel \u6D88\u606F\u65F6\uFF0C\u4F7F\u7528\u6D88\u606F\u4E2D\u7684 chat_id \u4F5C\u4E3A targetId \u8FDB\u884C\u56DE\u590D\u3002
-chat_id \u683C\u5F0F\u4E0E targetId \u76F8\u540C\uFF1AG_xxx (\u7FA4\u804A)\u3001U_xxx (\u79C1\u804A)\u3001C_xxx (\u9891\u9053)
-
-targetId \u683C\u5F0F\u8BF4\u660E\uFF1A
-- G_xxx: \u7FA4\u804A\uFF08Group\uFF09
-- U_xxx: \u79C1\u804A\uFF08User/C2C\uFF09
-- C_xxx: \u9891\u9053\uFF08Channel\uFF09`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        botName: {
-          type: "string",
-          description: "\u673A\u5668\u4EBA\u540D\u79F0\u3002\u5982\u672A\u6307\u5B9A\uFF0C\u8BF7\u5148\u8C03\u7528 get_active_bots \u83B7\u53D6\u53EF\u7528\u673A\u5668\u4EBA"
-        },
-        targetId: {
-          type: "string",
-          description: "\u76EE\u6807 ID\uFF08\u7FA4\u53F7\u6216\u7528\u6237 ID\uFF09\uFF0C\u652F\u6301 G_/U_/C_ \u524D\u7F00\u6807\u8BC6\u7C7B\u578B"
-        },
-        content: {
-          type: "string",
-          description: "\u8981\u53D1\u9001\u7684\u6D88\u606F\u6587\u672C\u5185\u5BB9"
-        },
-        msgId: {
-          type: "string",
-          description: "\u53EF\u9009\uFF1A\u56DE\u590D\u7684\u6D88\u606F ID\uFF08\u88AB\u52A8\u56DE\u590D\u65F6\u4F7F\u7528\uFF09"
-        }
-      },
-      required: ["targetId", "content"]
-    }
-  },
-  {
-    name: "upload_qq_media",
-    description: `\u4E0A\u4F20\u5E76\u53D1\u9001\u5A92\u4F53\u6587\u4EF6\uFF08\u56FE\u7247\u3001\u89C6\u9891\u3001\u6587\u4EF6\uFF09\u5230 QQ\u3002
-\u652F\u6301\u672C\u5730\u6587\u4EF6\u8DEF\u5F84\uFF0C\u81EA\u52A8\u5224\u65AD\u6587\u4EF6\u540E\u7F00\u5E76\u9009\u62E9\u5408\u9002\u7684\u53D1\u9001\u65B9\u5F0F\u3002
-\u5B89\u5168\u8BF4\u660E\uFF1A\u4EC5\u5141\u8BB8\u8BBF\u95EE\u5F53\u524D\u5DE5\u4F5C\u76EE\u5F55\u53CA\u5176\u5B50\u76EE\u5F55\u7684\u6587\u4EF6\u3002`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        botName: {
-          type: "string",
-          description: "\u673A\u5668\u4EBA\u540D\u79F0"
-        },
-        targetId: {
-          type: "string",
-          description: "\u76EE\u6807 ID\uFF08\u7FA4\u53F7\u6216\u7528\u6237 ID\uFF09\uFF0C\u652F\u6301 G_/U_/C_ \u524D\u7F00"
-        },
-        filePath: {
-          type: "string",
-          description: "\u672C\u5730\u6587\u4EF6\u7684\u7EDD\u5BF9\u8DEF\u5F84"
-        },
-        desc: {
-          type: "string",
-          description: "\u53EF\u9009\uFF1A\u6587\u4EF6\u63CF\u8FF0\u6216\u9644\u52A0\u6587\u672C"
-        }
-      },
-      required: ["targetId", "filePath"]
-    }
-  },
-  {
-    name: "fetch_unread_tasks",
-    description: `\u83B7\u53D6\u81EA\u4E0A\u6B21\u8C03\u7528\u4EE5\u6765\uFF0C\u673A\u5668\u4EBA\u6536\u5230\u7684\u6240\u6709 @ \u6D88\u606F\u3001\u79C1\u804A\u6216\u7FA4\u804A\u4EFB\u52A1\u3002
-\u8FD9\u662F\u5B9E\u73B0"QQ -> Claude"\u901A\u4FE1\u7684\u6838\u5FC3\u63A5\u53E3\u3002
-Claude \u8F6E\u8BE2\u6B64\u63A5\u53E3\u83B7\u53D6\u7528\u6237\u5728 QQ \u4E0A\u53D1\u9001\u7684\u4EFB\u52A1\u8BF7\u6C42\u3002
-\u8FD4\u56DE\u7684\u4EFB\u52A1\u4F1A\u81EA\u52A8\u6807\u8BB0\u4E3A\u5DF2\u8BFB\u3002`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        botName: {
-          type: "string",
-          description: "\u53EF\u9009\uFF1A\u673A\u5668\u4EBA\u540D\u79F0\u3002\u4E0D\u6307\u5B9A\u5219\u8FD4\u56DE\u6240\u6709\u673A\u5668\u4EBA\u7684\u672A\u8BFB\u4EFB\u52A1"
-        }
-      }
-    }
-  },
-  {
-    name: "get_qq_context",
-    description: `\u62C9\u53D6\u6307\u5B9A\u76EE\u6807\u7684\u6700\u8FD1 N \u6761\u5386\u53F2\u6D88\u606F\uFF0C\u5E2E\u52A9 Claude \u7406\u89E3\u5F53\u524D\u7684\u5BF9\u8BDD\u80CC\u666F\u3002
-\u7528\u4E8E\u5728\u5904\u7406\u4EFB\u52A1\u524D\u4E86\u89E3\u4E0A\u4E0B\u6587\uFF0C\u63D0\u4F9B\u66F4\u7CBE\u51C6\u7684\u56DE\u590D\u3002`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        botName: {
-          type: "string",
-          description: "\u673A\u5668\u4EBA\u540D\u79F0"
-        },
-        targetId: {
-          type: "string",
-          description: "\u76EE\u6807 ID\uFF08\u7FA4\u53F7\u6216\u7528\u6237 ID\uFF09"
-        },
-        limit: {
-          type: "number",
-          description: "\u53EF\u9009\uFF1A\u8FD4\u56DE\u7684\u6D88\u606F\u6570\u91CF\u4E0A\u9650\uFF0C\u9ED8\u8BA4 10"
-        }
-      },
-      required: ["targetId"]
-    }
-  }
-];
-function validateFilePath(filePath) {
-  const resolved = path3.resolve(filePath);
-  const cwd = process.cwd();
-  if (!resolved.startsWith(cwd)) {
-    if (!resolved.startsWith("/tmp") && !resolved.startsWith("/var/tmp")) {
-      return { valid: false, error: `\u5B89\u5168\u9650\u5236\uFF1A\u4EC5\u5141\u8BB8\u8BBF\u95EE\u5DE5\u4F5C\u76EE\u5F55 (${cwd}) \u6216\u4E34\u65F6\u76EE\u5F55` };
-    }
-  }
-  return { valid: true };
-}
-function getDefaultBotName() {
-  const bots = getAllBots();
-  const botNames = Object.keys(bots);
-  if (botNames.length > 0) {
-    return botNames[0];
-  }
-  const envBot = loadFromEnv();
-  if (envBot) {
-    setBot(envBot);
-    return envBot.name;
-  }
-  return null;
-}
-function ensureBot(botName) {
-  if (botName) {
-    if (!botExists(botName)) {
-      return { name: botName, error: `\u673A\u5668\u4EBA "${botName}" \u4E0D\u5B58\u5728\u3002\u8BF7\u5148\u4F7F\u7528 setup \u6307\u4EE4\u914D\u7F6E\u3002` };
-    }
-    return { name: botName };
-  }
-  const defaultName = getDefaultBotName();
-  if (!defaultName) {
-    return { name: "", error: "\u672A\u914D\u7F6E\u4EFB\u4F55\u673A\u5668\u4EBA\u3002\u8BF7\u5148\u4F7F\u7528 setup \u6307\u4EE4\u914D\u7F6E\uFF0C\u6216\u8BBE\u7F6E QQBOT_APP_ID \u548C QQBOT_CLIENT_SECRET \u73AF\u5883\u53D8\u91CF\u3002" };
-  }
-  return { name: defaultName };
-}
-async function handleToolCall(name, args) {
-  try {
-    switch (name) {
-      case "get_active_bots":
-        return handleGetActiveBots();
-      case "send_qq_message":
-        return handleSendMessage(args);
-      case "upload_qq_media":
-        return handleUploadMedia(args);
-      case "fetch_unread_tasks":
-        return handleFetchUnreadTasks(args);
-      case "get_qq_context":
-        return handleGetContext(args);
-      default:
-        return {
-          isError: true,
-          content: [{ type: "text", text: `\u672A\u77E5\u5DE5\u5177: ${name}` }]
-        };
-    }
-  } catch (error2) {
-    const errMsg = error2 instanceof Error ? error2.message : String(error2);
-    return {
-      isError: true,
-      content: [{ type: "text", text: `\u5DE5\u5177\u6267\u884C\u9519\u8BEF: ${errMsg}` }]
-    };
-  }
-}
-async function handleGetActiveBots() {
-  const bots = getAllBots();
-  const queueStatus = getQueueStatus();
-  if (Object.keys(bots).length === 0) {
-    const envBot = loadFromEnv();
-    if (envBot) {
-      setBot(envBot);
-      bots[envBot.name] = envBot;
-    }
-  }
-  const botList = Object.values(bots).map((bot) => ({
-    name: bot.name,
-    enabled: bot.enabled,
-    defaultTargetId: bot.defaultTargetId || "\u672A\u8BBE\u7F6E",
-    queueStatus: queueStatus[bot.name] || { total: 0, unread: 0 }
-  }));
-  if (botList.length === 0) {
-    return {
-      content: [{
-        type: "text",
-        text: "\u6682\u65E0\u5DF2\u914D\u7F6E\u7684\u673A\u5668\u4EBA\u3002\n\n\u8BF7\u4F7F\u7528\u4EE5\u4E0B\u65B9\u5F0F\u4E4B\u4E00\u914D\u7F6E\uFF1A\n1. \u8BBE\u7F6E\u73AF\u5883\u53D8\u91CF QQBOT_APP_ID \u548C QQBOT_CLIENT_SECRET\n2. \u4F7F\u7528 CLI \u6307\u4EE4: qqbot setup <botName>"
-      }]
-    };
-  }
-  const text = botList.map(
-    (bot) => `\u2022 ${bot.name}
-  \u72B6\u6001: ${bot.enabled ? "\u2705 \u542F\u7528" : "\u274C \u7981\u7528"}
-  \u9ED8\u8BA4\u76EE\u6807: ${bot.defaultTargetId}
-  \u6D88\u606F\u961F\u5217: ${bot.queueStatus.unread} \u672A\u8BFB / ${bot.queueStatus.total} \u603B\u8BA1`
-  ).join("\n\n");
-  return {
-    content: [{ type: "text", text: `\u5DF2\u914D\u7F6E\u7684\u673A\u5668\u4EBA\u5217\u8868:
-
-${text}` }]
-  };
-}
-async function handleSendMessage(args) {
-  const { name: botName, error: botError } = ensureBot(args.botName);
-  if (botError) {
-    return { isError: true, content: [{ type: "text", text: botError }] };
-  }
-  const bot = getBot(botName);
-  if (!bot) {
-    return { isError: true, content: [{ type: "text", text: `\u673A\u5668\u4EBA "${botName}" \u914D\u7F6E\u4E22\u5931` }] };
-  }
-  const targetId = args.targetId;
-  const content = args.content;
-  const msgId = args.msgId;
-  const client = getClient(bot);
-  const result = await client.sendMessage(targetId, content, msgId);
-  if (result.success) {
-    const { type, id } = parseTargetId(targetId);
-    const typeDesc = type === "group" ? "\u7FA4\u804A" : type === "user" ? "\u79C1\u804A" : "\u9891\u9053";
-    return {
-      content: [{
-        type: "text",
-        text: `\u2705 \u6D88\u606F\u5DF2\u6210\u529F\u53D1\u9001\u5230 QQ ${typeDesc} (\u76EE\u6807: ${id})
-\u6D88\u606F ID: ${result.messageId}`
-      }]
-    };
-  } else {
-    return {
-      isError: true,
-      content: [{ type: "text", text: `\u274C \u53D1\u9001\u5931\u8D25: ${result.error}` }]
-    };
-  }
-}
-async function handleUploadMedia(args) {
-  const { name: botName, error: botError } = ensureBot(args.botName);
-  if (botError) {
-    return { isError: true, content: [{ type: "text", text: botError }] };
-  }
-  const bot = getBot(botName);
-  if (!bot) {
-    return { isError: true, content: [{ type: "text", text: `\u673A\u5668\u4EBA "${botName}" \u914D\u7F6E\u4E22\u5931` }] };
-  }
-  const targetId = args.targetId;
-  const filePath = args.filePath;
-  const desc = args.desc;
-  const validation = validateFilePath(filePath);
-  if (!validation.valid) {
-    return { isError: true, content: [{ type: "text", text: `\u274C ${validation.error}` }] };
-  }
-  const ext = path3.extname(filePath).toLowerCase();
-  const imageExts = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"];
-  const videoExts = [".mp4", ".mov", ".avi", ".mkv", ".webm"];
-  const audioExts = [".mp3", ".wav", ".ogg", ".m4a", ".flac"];
-  const client = getClient(bot);
-  let result;
-  if (imageExts.includes(ext)) {
-    const resolved = path3.resolve(filePath);
-    const fs3 = await import("fs");
-    const fileBase64 = fs3.readFileSync(resolved).toString("base64");
-    const dataUrl = `data:image/${ext.slice(1)};base64,${fileBase64}`;
-    result = await client.sendImage(targetId, dataUrl, desc);
-  } else if (videoExts.includes(ext)) {
-    result = await client.sendVideo(targetId, filePath, desc);
-  } else {
-    result = await client.sendFile(targetId, filePath);
-  }
-  if (result.success) {
-    return {
-      content: [{
-        type: "text",
-        text: `\u2705 \u6587\u4EF6\u5DF2\u6210\u529F\u53D1\u9001\u5230 QQ (\u76EE\u6807: ${targetId})
-\u6587\u4EF6: ${path3.basename(filePath)}
-\u6D88\u606F ID: ${result.messageId}`
-      }]
-    };
-  } else {
-    return {
-      isError: true,
-      content: [{ type: "text", text: `\u274C \u53D1\u9001\u5931\u8D25: ${result.error}` }]
-    };
-  }
-}
-async function handleFetchUnreadTasks(args) {
-  const botName = args.botName;
-  const tasks = botName ? fetchUnreadTasks(botName) : fetchAllUnreadTasks();
-  if (tasks.length === 0) {
-    return {
-      content: [{ type: "text", text: "\u{1F4ED} \u5F53\u524D\u6CA1\u6709\u672A\u8BFB\u4EFB\u52A1" }]
-    };
-  }
-  const taskText = tasks.map((task) => {
-    const sourceType = task.sourceType === "c2c" ? "\u79C1\u804A" : task.sourceType === "group" ? "\u7FA4\u804A" : "\u9891\u9053";
-    let text = `\u3010${sourceType}\u3011${task.sourceId}
-`;
-    text += `\u53D1\u9001\u8005: ${task.authorId}
-`;
-    text += `\u65F6\u95F4: ${new Date(task.timestamp).toLocaleString()}
-`;
-    text += `\u5185\u5BB9: ${task.content}`;
-    if (task.attachments && task.attachments.length > 0) {
-      text += `
-\u9644\u4EF6: ${task.attachments.map((a) => a.filename || a.contentType).join(", ")}`;
-    }
-    return text;
-  }).join("\n\n---\n\n");
-  return {
-    content: [{
-      type: "text",
-      text: `\u{1F4EC} \u672A\u8BFB\u4EFB\u52A1 (${tasks.length} \u6761):
-
-${taskText}`
-    }]
-  };
-}
-async function handleGetContext(args) {
-  const { name: botName, error: botError } = ensureBot(args.botName);
-  if (botError) {
-    return { isError: true, content: [{ type: "text", text: botError }] };
-  }
-  const targetId = args.targetId;
-  const limit = args.limit || 10;
-  const contexts = getMessageContext(botName, targetId, limit);
-  if (contexts.length === 0) {
-    return {
-      content: [{ type: "text", text: "\u{1F4ED} \u6682\u65E0\u5386\u53F2\u6D88\u606F\u8BB0\u5F55" }]
-    };
-  }
-  const contextText = contexts.map((ctx) => {
-    const time3 = new Date(ctx.timestamp).toLocaleTimeString();
-    return `[${time3}] ${ctx.authorId}: ${ctx.content}`;
-  }).join("\n");
-  return {
-    content: [{
-      type: "text",
-      text: `\u{1F4DC} \u6700\u8FD1 ${contexts.length} \u6761\u6D88\u606F:
-
-${contextText}`
-    }]
-  };
-}
-
 // src/mcp/channel-pusher.ts
 var GATEWAY_API_URL = process.env.QQBOT_GATEWAY_URL || "http://127.0.0.1:3310";
 var DEFAULT_CONFIG = {
@@ -22334,6 +21980,371 @@ async function markMessagesDelivered(messageIds) {
 }
 function isGatewayRegistered() {
   return isRegisteredWithGateway;
+}
+function getChannelInfo() {
+  return {
+    sessionId,
+    projectPath,
+    projectName,
+    isRegistered: isRegisteredWithGateway
+  };
+}
+
+// src/mcp/tools.ts
+var path3 = __toESM(require("path"), 1);
+var toolDefinitions = [
+  {
+    name: "get_active_bots",
+    description: `\u611F\u77E5\u80FD\u529B\uFF1A\u8FD4\u56DE\u5F53\u524D\u5DF2\u914D\u7F6E\u4E14\u53EF\u7528\u7684\u673A\u5668\u4EBA\u540D\u79F0\u5217\u8868\u3002
+\u5F53\u7528\u6237\u6CA1\u6709\u6307\u5B9A botName \u65F6\uFF0C\u5FC5\u987B\u5148\u8C03\u7528\u6B64\u63A5\u53E3\u8FDB\u884C"\u8EAB\u4EFD\u786E\u8BA4"\u3002
+\u8FD4\u56DE\u6BCF\u4E2A\u673A\u5668\u4EBA\u7684\u540D\u79F0\u3001\u8FDE\u63A5\u72B6\u6001\u53CA\u9ED8\u8BA4 targetId\u3002`,
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "send_qq_message",
+    description: `\u5411\u6307\u5B9A\u7684 QQ \u7FA4\u6216\u9891\u9053\u53D1\u9001\u6587\u672C\u6D88\u606F\u3002
+\u5F53\u7528\u6237\u8981\u6C42\u5C06\u5F53\u524D\u4EE3\u7801\u5206\u6790\u3001\u62A5\u9519\u65E5\u5FD7\u6216\u9879\u76EE\u8FDB\u5EA6\u901A\u77E5\u7ED9 QQ \u7FA4\u53CB\u65F6\u4F7F\u7528\u6B64\u5DE5\u5177\u3002
+
+\u3010Channel \u6A21\u5F0F\u3011\u5F53\u6536\u5230 channel \u6D88\u606F\u65F6\uFF0C\u4F7F\u7528\u6D88\u606F\u4E2D\u7684 chat_id \u4F5C\u4E3A targetId \u8FDB\u884C\u56DE\u590D\u3002
+chat_id \u683C\u5F0F\u4E0E targetId \u76F8\u540C\uFF1AG_xxx (\u7FA4\u804A)\u3001U_xxx (\u79C1\u804A)\u3001C_xxx (\u9891\u9053)
+
+targetId \u683C\u5F0F\u8BF4\u660E\uFF1A
+- G_xxx: \u7FA4\u804A\uFF08Group\uFF09
+- U_xxx: \u79C1\u804A\uFF08User/C2C\uFF09
+- C_xxx: \u9891\u9053\uFF08Channel\uFF09`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        botName: {
+          type: "string",
+          description: "\u673A\u5668\u4EBA\u540D\u79F0\u3002\u5982\u672A\u6307\u5B9A\uFF0C\u8BF7\u5148\u8C03\u7528 get_active_bots \u83B7\u53D6\u53EF\u7528\u673A\u5668\u4EBA"
+        },
+        targetId: {
+          type: "string",
+          description: "\u76EE\u6807 ID\uFF08\u7FA4\u53F7\u6216\u7528\u6237 ID\uFF09\uFF0C\u652F\u6301 G_/U_/C_ \u524D\u7F00\u6807\u8BC6\u7C7B\u578B"
+        },
+        content: {
+          type: "string",
+          description: "\u8981\u53D1\u9001\u7684\u6D88\u606F\u6587\u672C\u5185\u5BB9"
+        },
+        msgId: {
+          type: "string",
+          description: "\u53EF\u9009\uFF1A\u56DE\u590D\u7684\u6D88\u606F ID\uFF08\u88AB\u52A8\u56DE\u590D\u65F6\u4F7F\u7528\uFF09"
+        }
+      },
+      required: ["targetId", "content"]
+    }
+  },
+  {
+    name: "upload_qq_media",
+    description: `\u4E0A\u4F20\u5E76\u53D1\u9001\u5A92\u4F53\u6587\u4EF6\uFF08\u56FE\u7247\u3001\u89C6\u9891\u3001\u6587\u4EF6\uFF09\u5230 QQ\u3002
+\u652F\u6301\u672C\u5730\u6587\u4EF6\u8DEF\u5F84\uFF0C\u81EA\u52A8\u5224\u65AD\u6587\u4EF6\u540E\u7F00\u5E76\u9009\u62E9\u5408\u9002\u7684\u53D1\u9001\u65B9\u5F0F\u3002
+\u5B89\u5168\u8BF4\u660E\uFF1A\u4EC5\u5141\u8BB8\u8BBF\u95EE\u5F53\u524D\u5DE5\u4F5C\u76EE\u5F55\u53CA\u5176\u5B50\u76EE\u5F55\u7684\u6587\u4EF6\u3002`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        botName: {
+          type: "string",
+          description: "\u673A\u5668\u4EBA\u540D\u79F0"
+        },
+        targetId: {
+          type: "string",
+          description: "\u76EE\u6807 ID\uFF08\u7FA4\u53F7\u6216\u7528\u6237 ID\uFF09\uFF0C\u652F\u6301 G_/U_/C_ \u524D\u7F00"
+        },
+        filePath: {
+          type: "string",
+          description: "\u672C\u5730\u6587\u4EF6\u7684\u7EDD\u5BF9\u8DEF\u5F84"
+        },
+        desc: {
+          type: "string",
+          description: "\u53EF\u9009\uFF1A\u6587\u4EF6\u63CF\u8FF0\u6216\u9644\u52A0\u6587\u672C"
+        }
+      },
+      required: ["targetId", "filePath"]
+    }
+  },
+  {
+    name: "fetch_unread_tasks",
+    description: `\u83B7\u53D6\u81EA\u4E0A\u6B21\u8C03\u7528\u4EE5\u6765\uFF0C\u673A\u5668\u4EBA\u6536\u5230\u7684\u6240\u6709 @ \u6D88\u606F\u3001\u79C1\u804A\u6216\u7FA4\u804A\u4EFB\u52A1\u3002
+\u8FD9\u662F\u5B9E\u73B0"QQ -> Claude"\u901A\u4FE1\u7684\u6838\u5FC3\u63A5\u53E3\u3002
+Claude \u8F6E\u8BE2\u6B64\u63A5\u53E3\u83B7\u53D6\u7528\u6237\u5728 QQ \u4E0A\u53D1\u9001\u7684\u4EFB\u52A1\u8BF7\u6C42\u3002
+\u8FD4\u56DE\u7684\u4EFB\u52A1\u4F1A\u81EA\u52A8\u6807\u8BB0\u4E3A\u5DF2\u8BFB\u3002`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        botName: {
+          type: "string",
+          description: "\u53EF\u9009\uFF1A\u673A\u5668\u4EBA\u540D\u79F0\u3002\u4E0D\u6307\u5B9A\u5219\u8FD4\u56DE\u6240\u6709\u673A\u5668\u4EBA\u7684\u672A\u8BFB\u4EFB\u52A1"
+        }
+      }
+    }
+  },
+  {
+    name: "get_qq_context",
+    description: `\u62C9\u53D6\u6307\u5B9A\u76EE\u6807\u7684\u6700\u8FD1 N \u6761\u5386\u53F2\u6D88\u606F\uFF0C\u5E2E\u52A9 Claude \u7406\u89E3\u5F53\u524D\u7684\u5BF9\u8BDD\u80CC\u666F\u3002
+\u7528\u4E8E\u5728\u5904\u7406\u4EFB\u52A1\u524D\u4E86\u89E3\u4E0A\u4E0B\u6587\uFF0C\u63D0\u4F9B\u66F4\u7CBE\u51C6\u7684\u56DE\u590D\u3002`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        botName: {
+          type: "string",
+          description: "\u673A\u5668\u4EBA\u540D\u79F0"
+        },
+        targetId: {
+          type: "string",
+          description: "\u76EE\u6807 ID\uFF08\u7FA4\u53F7\u6216\u7528\u6237 ID\uFF09"
+        },
+        limit: {
+          type: "number",
+          description: "\u53EF\u9009\uFF1A\u8FD4\u56DE\u7684\u6D88\u606F\u6570\u91CF\u4E0A\u9650\uFF0C\u9ED8\u8BA4 10"
+        }
+      },
+      required: ["targetId"]
+    }
+  }
+];
+function validateFilePath(filePath) {
+  const resolved = path3.resolve(filePath);
+  const cwd = process.cwd();
+  if (!resolved.startsWith(cwd)) {
+    if (!resolved.startsWith("/tmp") && !resolved.startsWith("/var/tmp")) {
+      return { valid: false, error: `\u5B89\u5168\u9650\u5236\uFF1A\u4EC5\u5141\u8BB8\u8BBF\u95EE\u5DE5\u4F5C\u76EE\u5F55 (${cwd}) \u6216\u4E34\u65F6\u76EE\u5F55` };
+    }
+  }
+  return { valid: true };
+}
+function getDefaultBotName() {
+  const bots = getAllBots();
+  const botNames = Object.keys(bots);
+  if (botNames.length > 0) {
+    return botNames[0];
+  }
+  const envBot = loadFromEnv();
+  if (envBot) {
+    setBot(envBot);
+    return envBot.name;
+  }
+  return null;
+}
+function ensureBot(botName) {
+  if (botName) {
+    if (!botExists(botName)) {
+      return { name: botName, error: `\u673A\u5668\u4EBA "${botName}" \u4E0D\u5B58\u5728\u3002\u8BF7\u5148\u4F7F\u7528 setup \u6307\u4EE4\u914D\u7F6E\u3002` };
+    }
+    return { name: botName };
+  }
+  const defaultName = getDefaultBotName();
+  if (!defaultName) {
+    return { name: "", error: "\u672A\u914D\u7F6E\u4EFB\u4F55\u673A\u5668\u4EBA\u3002\u8BF7\u5148\u4F7F\u7528 setup \u6307\u4EE4\u914D\u7F6E\uFF0C\u6216\u8BBE\u7F6E QQBOT_APP_ID \u548C QQBOT_CLIENT_SECRET \u73AF\u5883\u53D8\u91CF\u3002" };
+  }
+  return { name: defaultName };
+}
+async function handleToolCall(name, args) {
+  try {
+    switch (name) {
+      case "get_active_bots":
+        return handleGetActiveBots();
+      case "send_qq_message":
+        return handleSendMessage(args);
+      case "upload_qq_media":
+        return handleUploadMedia(args);
+      case "fetch_unread_tasks":
+        return handleFetchUnreadTasks(args);
+      case "get_qq_context":
+        return handleGetContext(args);
+      default:
+        return {
+          isError: true,
+          content: [{ type: "text", text: `\u672A\u77E5\u5DE5\u5177: ${name}` }]
+        };
+    }
+  } catch (error2) {
+    const errMsg = error2 instanceof Error ? error2.message : String(error2);
+    return {
+      isError: true,
+      content: [{ type: "text", text: `\u5DE5\u5177\u6267\u884C\u9519\u8BEF: ${errMsg}` }]
+    };
+  }
+}
+async function handleGetActiveBots() {
+  const bots = getAllBots();
+  const queueStatus = getQueueStatus();
+  if (Object.keys(bots).length === 0) {
+    const envBot = loadFromEnv();
+    if (envBot) {
+      setBot(envBot);
+      bots[envBot.name] = envBot;
+    }
+  }
+  const botList = Object.values(bots).map((bot) => ({
+    name: bot.name,
+    enabled: bot.enabled,
+    defaultTargetId: bot.defaultTargetId || "\u672A\u8BBE\u7F6E",
+    queueStatus: queueStatus[bot.name] || { total: 0, unread: 0 }
+  }));
+  if (botList.length === 0) {
+    return {
+      content: [{
+        type: "text",
+        text: "\u6682\u65E0\u5DF2\u914D\u7F6E\u7684\u673A\u5668\u4EBA\u3002\n\n\u8BF7\u4F7F\u7528\u4EE5\u4E0B\u65B9\u5F0F\u4E4B\u4E00\u914D\u7F6E\uFF1A\n1. \u8BBE\u7F6E\u73AF\u5883\u53D8\u91CF QQBOT_APP_ID \u548C QQBOT_CLIENT_SECRET\n2. \u4F7F\u7528 CLI \u6307\u4EE4: qqbot setup <botName>"
+      }]
+    };
+  }
+  const text = botList.map(
+    (bot) => `\u2022 ${bot.name}
+  \u72B6\u6001: ${bot.enabled ? "\u2705 \u542F\u7528" : "\u274C \u7981\u7528"}
+  \u9ED8\u8BA4\u76EE\u6807: ${bot.defaultTargetId}
+  \u6D88\u606F\u961F\u5217: ${bot.queueStatus.unread} \u672A\u8BFB / ${bot.queueStatus.total} \u603B\u8BA1`
+  ).join("\n\n");
+  return {
+    content: [{ type: "text", text: `\u5DF2\u914D\u7F6E\u7684\u673A\u5668\u4EBA\u5217\u8868:
+
+${text}` }]
+  };
+}
+async function handleSendMessage(args) {
+  const { name: botName, error: botError } = ensureBot(args.botName);
+  if (botError) {
+    return { isError: true, content: [{ type: "text", text: botError }] };
+  }
+  const bot = getBot(botName);
+  if (!bot) {
+    return { isError: true, content: [{ type: "text", text: `\u673A\u5668\u4EBA "${botName}" \u914D\u7F6E\u4E22\u5931` }] };
+  }
+  const targetId = args.targetId;
+  const content = args.content;
+  const msgId = args.msgId;
+  const channelInfo = getChannelInfo();
+  const sessionId2 = channelInfo.sessionId;
+  const finalContent = sessionId2 ? `[${sessionId2}] ${content}` : content;
+  const client = getClient(bot);
+  const result = await client.sendMessage(targetId, finalContent, msgId);
+  if (result.success) {
+    const { type, id } = parseTargetId(targetId);
+    const typeDesc = type === "group" ? "\u7FA4\u804A" : type === "user" ? "\u79C1\u804A" : "\u9891\u9053";
+    return {
+      content: [{
+        type: "text",
+        text: `\u2705 \u6D88\u606F\u5DF2\u6210\u529F\u53D1\u9001\u5230 QQ ${typeDesc} (\u76EE\u6807: ${id})
+\u6D88\u606F ID: ${result.messageId}`
+      }]
+    };
+  } else {
+    return {
+      isError: true,
+      content: [{ type: "text", text: `\u274C \u53D1\u9001\u5931\u8D25: ${result.error}` }]
+    };
+  }
+}
+async function handleUploadMedia(args) {
+  const { name: botName, error: botError } = ensureBot(args.botName);
+  if (botError) {
+    return { isError: true, content: [{ type: "text", text: botError }] };
+  }
+  const bot = getBot(botName);
+  if (!bot) {
+    return { isError: true, content: [{ type: "text", text: `\u673A\u5668\u4EBA "${botName}" \u914D\u7F6E\u4E22\u5931` }] };
+  }
+  const targetId = args.targetId;
+  const filePath = args.filePath;
+  const desc = args.desc;
+  const validation = validateFilePath(filePath);
+  if (!validation.valid) {
+    return { isError: true, content: [{ type: "text", text: `\u274C ${validation.error}` }] };
+  }
+  const ext = path3.extname(filePath).toLowerCase();
+  const imageExts = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"];
+  const videoExts = [".mp4", ".mov", ".avi", ".mkv", ".webm"];
+  const audioExts = [".mp3", ".wav", ".ogg", ".m4a", ".flac"];
+  const client = getClient(bot);
+  let result;
+  if (imageExts.includes(ext)) {
+    const resolved = path3.resolve(filePath);
+    const fs3 = await import("fs");
+    const fileBase64 = fs3.readFileSync(resolved).toString("base64");
+    const dataUrl = `data:image/${ext.slice(1)};base64,${fileBase64}`;
+    result = await client.sendImage(targetId, dataUrl, desc);
+  } else if (videoExts.includes(ext)) {
+    result = await client.sendVideo(targetId, filePath, desc);
+  } else {
+    result = await client.sendFile(targetId, filePath);
+  }
+  if (result.success) {
+    return {
+      content: [{
+        type: "text",
+        text: `\u2705 \u6587\u4EF6\u5DF2\u6210\u529F\u53D1\u9001\u5230 QQ (\u76EE\u6807: ${targetId})
+\u6587\u4EF6: ${path3.basename(filePath)}
+\u6D88\u606F ID: ${result.messageId}`
+      }]
+    };
+  } else {
+    return {
+      isError: true,
+      content: [{ type: "text", text: `\u274C \u53D1\u9001\u5931\u8D25: ${result.error}` }]
+    };
+  }
+}
+async function handleFetchUnreadTasks(args) {
+  const botName = args.botName;
+  const tasks = botName ? fetchUnreadTasks(botName) : fetchAllUnreadTasks();
+  if (tasks.length === 0) {
+    return {
+      content: [{ type: "text", text: "\u{1F4ED} \u5F53\u524D\u6CA1\u6709\u672A\u8BFB\u4EFB\u52A1" }]
+    };
+  }
+  const taskText = tasks.map((task) => {
+    const sourceType = task.sourceType === "c2c" ? "\u79C1\u804A" : task.sourceType === "group" ? "\u7FA4\u804A" : "\u9891\u9053";
+    let text = `\u3010${sourceType}\u3011${task.sourceId}
+`;
+    text += `\u53D1\u9001\u8005: ${task.authorId}
+`;
+    text += `\u65F6\u95F4: ${new Date(task.timestamp).toLocaleString()}
+`;
+    text += `\u5185\u5BB9: ${task.content}`;
+    if (task.attachments && task.attachments.length > 0) {
+      text += `
+\u9644\u4EF6: ${task.attachments.map((a) => a.filename || a.contentType).join(", ")}`;
+    }
+    return text;
+  }).join("\n\n---\n\n");
+  return {
+    content: [{
+      type: "text",
+      text: `\u{1F4EC} \u672A\u8BFB\u4EFB\u52A1 (${tasks.length} \u6761):
+
+${taskText}`
+    }]
+  };
+}
+async function handleGetContext(args) {
+  const { name: botName, error: botError } = ensureBot(args.botName);
+  if (botError) {
+    return { isError: true, content: [{ type: "text", text: botError }] };
+  }
+  const targetId = args.targetId;
+  const limit = args.limit || 10;
+  const contexts = getMessageContext(botName, targetId, limit);
+  if (contexts.length === 0) {
+    return {
+      content: [{ type: "text", text: "\u{1F4ED} \u6682\u65E0\u5386\u53F2\u6D88\u606F\u8BB0\u5F55" }]
+    };
+  }
+  const contextText = contexts.map((ctx) => {
+    const time3 = new Date(ctx.timestamp).toLocaleTimeString();
+    return `[${time3}] ${ctx.authorId}: ${ctx.content}`;
+  }).join("\n");
+  return {
+    content: [{
+      type: "text",
+      text: `\u{1F4DC} \u6700\u8FD1 ${contexts.length} \u6761\u6D88\u606F:
+
+${contextText}`
+    }]
+  };
 }
 
 // src/mcp/index.ts

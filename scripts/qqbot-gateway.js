@@ -118,6 +118,85 @@ if (fs.existsSync(localEnvPath)) {
 
 // 注意：APP_ID 和 CLIENT_SECRET 现在从项目配置获取，不再使用全局变量
 
+// ============ 网关状态管理 ============
+/**
+ * 默认网关状态
+ */
+const DEFAULT_GATEWAY_STATE = {
+  version: '2.0.0',
+  runtime: {
+    mode: null,
+    pid: null,
+    startedAt: null
+  },
+  channel: {
+    enabled: false,
+    mode: null
+  },
+  hookNotify: {
+    enabled: true,  // 默认开启 Hook 推送
+    updatedAt: null
+  }
+};
+
+/**
+ * 加载网关状态
+ * @returns {Object} 网关状态对象
+ */
+function loadGatewayState() {
+  try {
+    if (fs.existsSync(GATEWAY_STATE_FILE)) {
+      const content = fs.readFileSync(GATEWAY_STATE_FILE, 'utf-8');
+      const state = JSON.parse(content);
+      // 合并默认值，确保新字段存在
+      return {
+        ...DEFAULT_GATEWAY_STATE,
+        ...state,
+        hookNotify: {
+          ...DEFAULT_GATEWAY_STATE.hookNotify,
+          ...(state.hookNotify || {})
+        }
+      };
+    }
+  } catch (err) {
+    log('yellow', `   ⚠️ 加载网关状态失败: ${err.message}`);
+  }
+  return { ...DEFAULT_GATEWAY_STATE };
+}
+
+/**
+ * 保存网关状态
+ * @param {Object} state - 网关状态对象
+ */
+function saveGatewayState(state) {
+  try {
+    fs.writeFileSync(GATEWAY_STATE_FILE, JSON.stringify(state, null, 2));
+  } catch (err) {
+    log('red', `   ❌ 保存网关状态失败: ${err.message}`);
+  }
+}
+
+/**
+ * 获取 Hook 推送开关状态
+ * @returns {boolean} 是否启用 Hook 推送
+ */
+function getHookNotifyEnabled() {
+  const state = loadGatewayState();
+  return state.hookNotify.enabled !== false; // 默认 true
+}
+
+/**
+ * 设置 Hook 推送开关状态
+ * @param {boolean} enabled - 是否启用
+ */
+function setHookNotifyEnabled(enabled) {
+  const state = loadGatewayState();
+  state.hookNotify.enabled = enabled;
+  state.hookNotify.updatedAt = Date.now();
+  saveGatewayState(state);
+  log('cyan', `   📬 Hook 推送已${enabled ? '开启' : '关闭'}`);
+}
+
 // ============ 自愈机制配置 ============
 const SELF_HEALING_CONFIG = {
   // 启动重试配置
@@ -164,8 +243,10 @@ let hookCache = new Map();
  */
 const HOOK_MESSAGE_CONFIG = {
   batchTimeoutMs: 5000,      // 批量等待超时：5 秒（有新消息重置）
+  maxBatchWaitMs: 30000,     // 最大等待时间：30 秒（强制发送，防止无限延迟）
   compressThreshold: 300,    // 压缩阈值：300 字节
   compressedMaxSize: 150,    // 压缩后最大：150 字节
+  compressTimeoutMs: 60000,  // 压缩超时：60 秒（Claude headless）
 };
 
 // ============ Channel 注册表系统 ============
@@ -513,6 +594,13 @@ function saveHookBatchConfig(config) {
  * @param {string} project - 项目名称
  */
 function addHookToCache(openid, message, project) {
+  // 检查 Hook 推送全局开关
+  if (!getHookNotifyEnabled()) {
+    log('yellow', `   🔕 Hook 推送已关闭，跳过缓存`);
+    return;
+  }
+
+
   if (!hookCache.has(openid)) {
     hookCache.set(openid, {
       messages: [],
@@ -529,6 +617,21 @@ function addHookToCache(openid, message, project) {
   });
 
   log('cyan', `   📬 Hook 消息已缓存 (用户: ${openid.slice(0, 8)}..., 缓存数: ${entry.messages.length})`);
+
+  // 检查是否超过最大等待时间（防止高频消息无限延迟）
+  const elapsed = Date.now() - entry.firstMessageTime;
+  if (elapsed >= HOOK_MESSAGE_CONFIG.maxBatchWaitMs) {
+    log('yellow', `   ⏰ 已达最大等待时间 ${Math.round(elapsed / 1000)}s，强制触发处理`);
+    // 立即触发处理，不重置定时器
+    if (entry.timer) {
+      clearTimeout(entry.timer);
+      entry.timer = null;
+    }
+    processHookBatchWithTimeout(openid).catch(err => {
+      log('red', `   ❌ 批次处理失败: ${err.message}`);
+    });
+    return;
+  }
 
   // 重置 5 秒超时定时器（有新消息就重置）
   if (entry.timer) {
@@ -656,7 +759,7 @@ ${messagesText}`;
         '--allowedTools', 'none',
         compressPrompt
       ], {
-        timeout: 30000, // 30 秒超时（压缩任务较快）
+        timeout: HOOK_MESSAGE_CONFIG.compressTimeoutMs, // 使用配置的压缩超时（默认 60 秒）
         maxBuffer: 1024 * 1024,
       });
 
@@ -1303,14 +1406,28 @@ async function sendMessageSmart(token, openid, content, usageInfo) {
     }
   }
 
-  // 被动回复不可用或失败，尝试主动消息
-  try {
-    await sendProactiveMessage(token, openid, content);
-    return { success: true, method: 'proactive' };
-  } catch (err) {
-    log('red', `   ❌ 主动消息发送失败: ${err.message}`);
-    return { success: false, method: 'proactive', error: err.message };
+  // 被动回复不可用或失败，尝试主动消息（带重试）
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // 指数退避等待
+      if (attempt > 1) {
+        const delay = 1000 * Math.pow(2, attempt - 1);
+        log('cyan', `   🔄 主动消息重试 ${attempt}/${maxRetries}，等待 ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      await sendProactiveMessage(token, openid, content);
+      return { success: true, method: 'proactive' };
+    } catch (err) {
+      if (attempt === maxRetries) {
+        log('red', `   ❌ 主动消息发送失败 (已重试 ${maxRetries} 次): ${err.message}`);
+        return { success: false, method: 'proactive', error: err.message };
+      }
+      log('yellow', `   ⚠️ 主动消息发送失败: ${err.message}，准备重试...`);
+    }
   }
+
+  return { success: false, method: 'proactive', error: 'Max retries exceeded' };
 }
 
 /**
@@ -1673,13 +1790,17 @@ async function sendRichMessage(token, openid, text, msgId = null, projectName = 
              .replace(/<\/img>/gi, '</qqimg>')
              .replace(/<(qqimg)([^>]*?)\/>/gi, '<qqimg>$2</qqimg>');
 
+  // 检查是否为 Channel 模式，用于决定是否添加项目名前缀
+  const state = loadGatewayState();
+  const isChannelMode = state?.channel?.enabled === true;
+
   // 匹配富媒体标签
   const mediaTagRegex = /<(qqimg|qqvoice|qqvideo|qqfile)>([^<>]+)<\/(?:qqimg|qqvoice|qqvideo|qqfile|img)>/gi;
   const matches = text.match(mediaTagRegex);
 
   if (!matches || matches.length === 0) {
     // 没有富媒体标签，发送纯文本
-    const finalText = projectName ? `[${projectName}] ${text}` : text;
+    const finalText = isChannelMode && projectName ? `[${projectName}] ${text}` : text;
     return sendC2CMessage(token, openid, finalText, msgId);
   }
 
@@ -1728,14 +1849,15 @@ async function sendRichMessage(token, openid, text, msgId = null, projectName = 
 
   log('cyan', `   发送队列: ${sendQueue.map(i => i.type).join(' -> ')}`);
 
-  // 按顺序发送
+  // 按顺序发送 - Channel 模式下每条消息都添加前缀
   let lastResult = null;
   let isFirstMessage = true;
 
   for (const item of sendQueue) {
     try {
       if (item.type === 'text') {
-        const content = isFirstMessage && projectName ? `[${projectName}] ${item.content}` : item.content;
+        // Channel 模式下每条消息都添加前缀
+        const content = isChannelMode && projectName ? `[${projectName}] ${item.content}` : item.content;
         lastResult = await sendC2CMessage(token, openid, content, isFirstMessage ? msgId : null);
         log('green', `   ✅ 文本消息已发送`);
       } else if (item.type === 'image') {
@@ -2491,6 +2613,37 @@ async function handleMessage(type, data) {
     return;
   }
 
+  // ============ Hook 推送开关命令处理 ============
+  if (trimmedContent === 'hook on' || trimmedContent === 'hook off' || trimmedContent === 'hook status') {
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+    let replyMsg = '';
+
+    if (trimmedContent === 'hook on') {
+      setHookNotifyEnabled(true);
+      replyMsg = `✅ Hook 消息推送已开启\n\n所有 Hook 消息将正常推送到 QQ。`;
+      log('green', `   ✅ Hook 消息推送已开启`);
+    } else if (trimmedContent === 'hook off') {
+      setHookNotifyEnabled(false);
+      replyMsg = `🔕 Hook 消息推送已关闭\n\nHook 消息将不再推送到 QQ，但会继续在后台处理。\n\n💡 使用 "hook on" 可重新开启。`;
+      log('yellow', `   🔕 Hook 消息推送已关闭`);
+    } else if (trimmedContent === 'hook status') {
+      const enabled = getHookNotifyEnabled();
+      const status = getHookCacheStatus();
+      replyMsg = `📋 Hook 推送状态\n`;
+      replyMsg += `━━━━━━━━━━━━━━━━━━━━\n`;
+      replyMsg += `全局开关: ${enabled ? '✅ 已开启' : '🔕 已关闭'}\n`;
+      replyMsg += `当前缓存: ${status.totalCachedMessages} 条 (${status.cachedUsers} 个用户)\n`;
+      replyMsg += `\n💡 命令:\n`;
+      replyMsg += `• "hook on" - 开启推送\n`;
+      replyMsg += `• "hook off" - 关闭推送`;
+      log('cyan', `   📋 Hook 推送状态: ${enabled ? '已开启' : '已关闭'}`);
+    }
+
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    return;
+  }
+
   // 查看 Hook 缓存状态
   if (trimmedContent === '查看hook缓存') {
     const status = getHookCacheStatus();
@@ -2657,6 +2810,154 @@ async function handleMessage(type, data) {
     log('green', `   ✅ 已重置配置`);
     return;
   }
+
+  // ============ 扩展 status 命令 ============
+  if (trimmedContent === 'status' || trimmedContent === '状态') {
+    const gatewayState = loadGatewayState();
+    const hookConfig = HOOK_MESSAGE_CONFIG;
+    const hookCacheStatus = getHookCacheStatus();
+    const authStats = getAuthorizationStats();
+
+    let replyMsg = `📋 籋关配置状态\n`;
+    replyMsg += `━━━━━━━━━━━━━━━━━━━━\n`;
+
+    // 1. 运行时配置
+    replyMsg += `🔧 运行时:\n`;
+    replyMsg += `  模式: ${gatewayState.mode}\n`;
+    replyMsg += `  PID: ${gatewayState.pid || process.pid}\n`;
+    if (gatewayState.startedAt) {
+      replyMsg += `  运行时间: ${formatUptime(Date.now() - gatewayState.startedAt)}\n`;
+    }
+
+    // 2. Hook 推送配置
+    replyMsg += `\n📬 Hook 推送:\n`;
+    const hookEnabled = getHookNotifyEnabled();
+    replyMsg += `  全局开关: ${hookEnabled ? '✅ 开启' : '🔕 关闭'}\n`;
+    replyMsg += `  批量超时: ${hookConfig.batchTimeoutMs}ms\n`;
+    replyMsg += `  最大等待: ${hookConfig.maxBatchWaitMs}ms\n`;
+    replyMsg += `  压缩阈值: ${hookConfig.compressThreshold}字节\n`;
+    replyMsg += `  压缩超时: ${hookConfig.compressTimeoutMs}ms\n`;
+
+    // 3. 消息缓存状态
+    replyMsg += `\n📦 消息缓存:\n`;
+    replyMsg += `  缓存消息: ${hookCacheStatus.totalCachedMessages} 条\n`;
+    replyMsg += `  缓存用户: ${hookCacheStatus.cachedUsers} 个\n`;
+    replyMsg += `  压缩后上限: ${hookCacheStatus.config.compressedMaxSize}字节\n`;
+
+    // 4. Channel 模式配置
+    replyMsg += `\n📡 Channel 模式:\n`;
+    replyMsg += `  启用: ${gatewayState.channel?.enabled ? '✅' : '❌'}\n`;
+    replyMsg += `  模式: ${gatewayState.channel?.mode || '无'}\n`;
+    replyMsg += `  已注册: ${channelRegistry.size} 个\n`;
+
+    // 5. 授权管理概览
+    replyMsg += `\n🔐 授权管理:\n`;
+    replyMsg += `  已授权用户: ${authStats.totalUsers} 人\n`;
+    replyMsg += `  MCP 工具授权: ${authStats.mcpToolUsers} 人\n`;
+    replyMsg += `  文件路径授权: ${authStats.filePathUsers} 人\n`;
+    replyMsg += `  白名单: ${gatewayState.authorization?.whitelist?.length || 0} 人\n`;
+
+    // 提示
+    replyMsg += `\n💡 发送 "help <配置项>" 查看详细说明`;
+    replyMsg += `\n   可用: help hook, help cache, help channel, help auth`;
+
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    log('green', `   ✅ 已返回扩展状态`);
+    return;
+  }
+
+  // ============ help 命令 ============
+  const helpMatch = trimmedContent.match(/^help\s*(.*)$/i);
+  if (helpMatch) {
+    const topic = helpMatch[1].toLowerCase().trim();
+    let replyMsg = '';
+
+    if (!topic || topic === 'all') {
+      // 总览
+      replyMsg = `📖 QQ Bot 网关帮助\n`;
+      replyMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+      replyMsg += `📋 命令列表:\n`;
+      replyMsg += `  status - 查看状态和配置\n`;
+      replyMsg += `  hook on/off/status - Hook 开关控制\n`;
+      replyMsg += `  查看hook缓存 - 查看缓存详情\n`;
+      replyMsg += `  查看授权 - 查看授权状态\n`;
+      replyMsg += `\n📚 配置说明:\n`;
+      replyMsg += `  help hook - Hook 推送配置\n`;
+      replyMsg += `  help channel - Channel 模式\n`;
+      replyMsg += `  help cache - 消息缓存\n`;
+      replyMsg += `  help auth - 授权管理\n`;
+      replyMsg += `  help compress - 消息压缩\n`;
+
+    } else if (topic === 'hook') {
+      replyMsg = `📖 Hook 推送配置\n`;
+      replyMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+      replyMsg += `Hook 消息是 Claude Code 触发事件时推送到 QQ 的通知。\n\n`;
+      replyMsg += `🔧 配置项:\n`;
+      replyMsg += `  • 全局开关: hook on/off\n`;
+      replyMsg += `  • 批量超时: 多少毫秒后合并发送\n`;
+      replyMsg += `  • 压缩阈值: 超过多少字节启动压缩\n`;
+      replyMsg += `  • 压缩超时: 压缩操作最长等待时间\n\n`;
+      replyMsg += `💡 示例:\n`;
+      replyMsg += `  hook off - 临时关闭推送\n`;
+      replyMsg += `  hook status - 查看当前状态`;
+
+    } else if (topic === 'channel') {
+      replyMsg = `📖 Channel 模式\n`;
+      replyMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+      replyMsg += `Channel 模式允许多个 Claude Code 会话同时接收 QQ 消息。\n\n`;
+      replyMsg += `📡 工作原理:\n`;
+      replyMsg += `  1. MCP Server 启动时注册到 Gateway\n`;
+      replyMsg += `  2. Gateway 路由消息到对应 Channel\n`;
+      replyMsg += `  3. 每个 Channel 独立处理消息\n\n`;
+      replyMsg += `💬 消息前缀:\n`;
+      replyMsg += `  发送 [项目名] 消息 可指定目标 Channel\n`;
+      replyMsg += `  回复消息自动添加 [sessionId] 前缀\n\n`;
+      replyMsg += `💡 启动方式:\n`;
+      replyMsg += `  /qqbot-service start --mode auto --channel gateway-bridge`;
+
+    } else if (topic === 'cache' || topic === 'compress') {
+      replyMsg = `📖 消息缓存与压缩\n`;
+      replyMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+      replyMsg += `Hook 消息支持自动缓存和压缩，避免发送过长内容。\n\n`;
+      replyMsg += `📦 缓存机制:\n`;
+      replyMsg += `  • 多条消息自动合并\n`;
+      replyMsg += `  • 超过批量超时后发送\n`;
+      replyMsg += `  • 最大等待时间限制\n\n`;
+      replyMsg += `🗜️ 压缩流程:\n`;
+      replyMsg += `  1. 超过阈值启动 Claude headless 压缩\n`;
+      replyMsg += `  2. 压缩失败时发送简化版本\n`;
+      replyMsg += `  3. 压缩超时自动降级\n\n`;
+      replyMsg += `⚙️ 配置:\n`;
+      replyMsg += `  默认压缩阈值: 300 字节\n`;
+      replyMsg += `  默认压缩超时: 30000ms`;
+
+    } else if (topic === 'auth' || topic === 'authorization') {
+      replyMsg = `📖 授权管理\n`;
+      replyMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+      replyMsg += `控制哪些用户可以使用哪些功能。\n\n`;
+      replyMsg += `🔐 授权类型:\n`;
+      replyMsg += `  • MCP 工具: 允许使用特定工具\n`;
+      replyMsg += `  • 文件路径: 允许访问特定目录\n\n`;
+      replyMsg += `💡 命令:\n`;
+      replyMsg += `  授权工具: mcp - 授权所有 MCP 工具\n`;
+      replyMsg += `  授权路径: /home/user - 授权目录访问\n`;
+      replyMsg += `  查看授权 - 查看当前授权状态`;
+
+    } else {
+      replyMsg = `❌ 未找到 "${topic}" 的帮助\n\n`;
+      replyMsg += `💡 可用主题: hook, channel, cache, auth, compress`;
+    }
+
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    log('green', `   ✅ 已返回帮助信息: ${topic || 'all'}`);
+    return;
+  }
+
+  // 解析消息
 
   // 解析消息
   const parsed = parseMessage(content);
