@@ -2,6 +2,32 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.15.0] - 2026-03-26
+
+### 新功能
+
+- **统一 Hook 消息处理机制**: 移除旧的定时批处理，统一使用 5 秒超时合并机制
+  - 5 秒内无新消息则批量发送
+  - 300 字节阈值压缩（压缩后 150 字节）
+  - 新命令：`设置hook压缩阈值 <字节数>` 和 `查看hook缓存`
+
+- **Channel 配置持久化**: `--channel` 参数现在会保存到 `gateway-state.json`
+  - status 命令准确显示当前运行的 channel 模式
+  - 支持配置: `gateway-bridge`、`bidirectional`、`unidirectional`
+
+- **Channel 消息前缀自定义**: 支持自定义 Channel 显示名称
+  - 注册 Channel 时可指定 `displayName` 参数
+  - 消息确认使用自定义名称而非项目名
+
+- **Channel 模式完全禁用 Headless**: 当 Channel 模式启用但无活跃会话时
+  - 不再回退到 Headless 模式
+  - 发送提示信息引导用户启动 MCP Server
+
+### 问题修复
+
+- 修复 Hook 消息合并机制未生效的问题（入口逻辑绕过了缓存）
+- 修复 status 命令无法显示实际 channel 配置的问题
+
 ## [1.14.5] - 2026-03-26
 
 ### 问题修复

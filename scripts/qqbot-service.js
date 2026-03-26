@@ -343,6 +343,9 @@ async function getStatusData() {
   const channelSupport = checkChannelSupport();
   const mcpMode = getMcpMode();
 
+  // 从 gateway-state.json 读取实际的 channel 配置
+  const savedChannelConfig = gatewayState?.channel || null;
+
   return {
     running: pid !== null,
     pid,
@@ -352,14 +355,17 @@ async function getStatusData() {
     // 僵尸状态检测
     stalePidFile,
     stalePid,
-    // Channel 支持信息
+    // Channel 配置信息
     channel: {
+      // 检测能力
       supported: channelSupport.supported,
-      reason: channelSupport.reason,
       version: channelSupport.version,
       required: channelSupport.required,
-      message: channelSupport.message,
-      mcpMode // 当前配置的 MCP 模式: channel | tools | auto
+      // 实际配置（从 gateway-state.json）
+      configured: savedChannelConfig?.enabled || false,
+      configuredMode: savedChannelConfig?.mode || 'none',
+      // MCP 模式
+      mcpMode
     },
     projects: {
       list: Object.keys(projects.projects || {}),
@@ -443,18 +449,19 @@ function formatStatusHuman(data) {
   lines.push('━━━ Claude Code Channel ━━━');
   if (data.channel) {
     const ch = data.channel;
-    const statusIcon = ch.supported ? '✅' : '⚠️';
-    lines.push(`Channel 模式: ${statusIcon} ${ch.supported ? '可用' : '不可用'}`);
+    // 显示实际配置状态
+    if (ch.configured) {
+      lines.push(`Channel 配置: ✅ 已启用 (${ch.configuredMode})`);
+    } else {
+      lines.push(`Channel 配置: ⚪ 未启用`);
+    }
+    // 显示支持能力
+    const supportIcon = ch.supported ? '✅' : '⚠️';
+    lines.push(`Channel 能力: ${supportIcon} ${ch.supported ? '可用' : '不可用'} (需要 >= v${ch.required})`);
     if (ch.version) {
       lines.push(`当前版本: v${ch.version}`);
-    } else {
-      lines.push(`当前版本: 未知`);
     }
-    lines.push(`需要版本: >= v${ch.required}`);
     lines.push(`MCP 模式: ${ch.mcpMode}`);
-    if (!ch.supported && ch.message) {
-      lines.push(`说明: ${ch.message}`);
-    }
   } else {
     lines.push('Channel 模式: 未检测');
   }
@@ -655,6 +662,10 @@ async function cmdStart(options) {
     const args = [GATEWAY_SCRIPT, 'start'];
     if (mode === 'auto') {
       args.push('--mode', 'auto');
+    }
+    // 传递 channel 配置
+    if (result.channel?.enabled || result.channel?.mode === 'unidirectional') {
+      args.push('--channel', result.channel.actualMode || result.channel.mode);
     }
 
     const child = spawn('node', args, {

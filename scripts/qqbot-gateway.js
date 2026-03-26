@@ -158,8 +158,6 @@ const SELF_HEALING_CONFIG = {
  * @type {Map<string, {messages: Array, firstMessageTime: number, timer: NodeJS.Timeout|null}>}
  */
 let hookCache = new Map();
-let hookBatchTimer = null;
-let hookMaxWaitTimer = null; // 超时检查定时器
 
 /**
  * Hook 消息配置 - 5秒超时合并 + 300字节阈值压缩
@@ -168,16 +166,6 @@ const HOOK_MESSAGE_CONFIG = {
   batchTimeoutMs: 5000,      // 批量等待超时：5 秒（有新消息重置）
   compressThreshold: 300,    // 压缩阈值：300 字节
   compressedMaxSize: 150,    // 压缩后最大：150 字节
-};
-
-/**
- * 默认 Hook 批处理配置（兼容旧配置文件）
- */
-const DEFAULT_HOOK_BATCH_CONFIG = {
-  batchIntervalMinutes: 0,   // 0 = 立即发送（使用新的 5 秒超时机制）
-  maxBatchSize: 50,          // 单批次最大消息数
-  maxWaitMinutes: 0,         // 已废弃，使用 HOOK_MESSAGE_CONFIG.batchTimeoutMs
-  compressThresholdBytes: HOOK_MESSAGE_CONFIG.compressThreshold,
 };
 
 // ============ Channel 注册表系统 ============
@@ -222,7 +210,7 @@ function generateId() {
  * @param {string} projectName - 项目名称（可选，从路径提取）
  * @returns {{success: boolean, channelId?: string, error?: string}}
  */
-function registerChannel(sessionId, projectPath, projectName = null) {
+function registerChannel(sessionId, projectPath, projectName = null, displayName = null) {
   if (!sessionId || !projectPath) {
     return { success: false, error: '缺少 sessionId 或 projectPath' };
   }
@@ -232,14 +220,18 @@ function registerChannel(sessionId, projectPath, projectName = null) {
     projectName = path.basename(projectPath);
   }
 
+  // 显示名称默认使用项目名
+  const channelDisplayName = displayName || projectName;
+
   // 检查是否已存在同名 session
   if (channelRegistry.has(sessionId)) {
     // 更新已有注册
     const existing = channelRegistry.get(sessionId);
     existing.projectPath = projectPath;
     existing.projectName = projectName;
+    existing.displayName = channelDisplayName;
     existing.lastActive = Date.now();
-    log('cyan', `   🔄 Channel 已更新: ${sessionId} (${projectName})`);
+    log('cyan', `   🔄 Channel 已更新: ${sessionId} (${channelDisplayName})`);
     return { success: true, channelId: sessionId };
   }
 
@@ -251,6 +243,7 @@ function registerChannel(sessionId, projectPath, projectName = null) {
     sessionId,
     projectPath,
     projectName,
+    displayName: channelDisplayName,
     registeredAt: Date.now(),
     lastActive: Date.now(),
     isDefault,
@@ -269,7 +262,7 @@ function registerChannel(sessionId, projectPath, projectName = null) {
     activeMode = 'channel'; // 切换到 Channel 模式
   }
 
-  log('green', `   ✅ Channel 已注册: ${sessionId} (${projectName})${isDefault ? ' [默认]' : ''}`);
+  log('green', `   ✅ Channel 已注册: ${sessionId} (${channelDisplayName})${isDefault ? ' [默认]' : ''}`);
   return { success: true, channelId: sessionId };
 }
 
@@ -793,202 +786,24 @@ function mergeHookMessages(messages) {
 }
 
 /**
- * 处理单个用户的 Hook 消息批次
- * @param {string} openid - 用户 openid
- * @param {string} [reason='定时'] - 处理原因（定时/超时/满批次）
- */
-async function processHookBatch(openid, reason = '定时') {
-  const entry = hookCache.get(openid);
-  if (!entry || entry.messages.length === 0) {
-    return;
-  }
-
-  const messages = entry.messages;
-  const waitTime = Math.round((Date.now() - entry.firstMessageTime) / 1000);
-  hookCache.delete(openid); // 先清理缓存，避免重复处理
-
-  log('cyan', `   🗜️ 开始处理 Hook 批次 [${reason}]: ${messages.length} 条消息 (等待 ${waitTime} 秒)`);
-
-  try {
-    const config = loadHookBatchConfig();
-
-    // 先简单合并消息
-    const mergedContent = mergeHookMessages(messages);
-    const mergedBytes = getByteLength(mergedContent);
-
-    let summary;
-    let finalContent;
-
-    // 检查是否需要压缩（超过阈值才调用 Claude）
-    if (mergedBytes > config.compressThresholdBytes) {
-      log('cyan', `   📊 合并后 ${mergedBytes} 字节 > 阈值 ${config.compressThresholdBytes}，调用 Claude 压缩...`);
-      summary = await compressHookMessages(messages);
-      finalContent = `📋 Hook 消息摘要 (${messages.length} 条)\n\n${summary}`;
-    } else {
-      log('cyan', `   📊 合并后 ${mergedBytes} 字节 <= 阈值 ${config.compressThresholdBytes}，无需压缩`);
-      finalContent = `📋 Hook 消息合并 (${messages.length} 条)\n\n${mergedContent}`;
-    }
-
-    // 获取用户激活状态
-    const userStatus = getUserActivationStatus(openid);
-
-    if (userStatus === 'expired' || !userStatus) {
-      // 用户未激活，缓存消息
-      addPendingMessage({
-        targetOpenid: openid,
-        content: finalContent,
-        source: 'hook_batch',
-        priority: 5,
-      });
-      log('cyan', `   📬 Hook 批次已缓存 (目标未激活)`);
-      return;
-    }
-
-    // 用户已激活，发送消息
-    const token = await getAccessToken();
-    const usageInfo = incrementMsgIdUsage(openid);
-
-    const result = await sendMessageSmart(token, openid, finalContent, usageInfo);
-
-    if (result.success) {
-      const methodText = result.method === 'passive' ? `被动回复 (剩余 ${result.remaining} 次)` : '主动消息';
-      log('green', `   ✅ Hook 批次已发送 [${methodText}]`);
-    } else {
-      // 发送失败，缓存消息
-      addPendingMessage({
-        targetOpenid: openid,
-        content: finalContent,
-        source: 'hook_batch',
-        priority: 5,
-      });
-      log('yellow', `   ⚠️ Hook 批次发送失败，已缓存: ${result.error}`);
-    }
-  } catch (err) {
-    log('red', `   ❌ Hook 批次处理失败: ${err.message}`);
-    // 处理失败，将消息重新放回缓存或存入待发送队列
-    for (const msg of messages) {
-      addPendingMessage({
-        targetOpenid: openid,
-        content: `[${msg.project || 'Hook'}] ${msg.message}`,
-        source: 'hook_notification',
-        priority: 5,
-      });
-    }
-  }
-}
-
-/**
- * 处理所有用户的 Hook 消息批次
- */
-async function processAllHookBatches() {
-  if (hookCache.size === 0) {
-    return;
-  }
-
-  log('cyan', `\n🔄 定时处理 Hook 消息批次 (${hookCache.size} 个用户)`);
-
-  for (const [openid] of hookCache) {
-    await processHookBatch(openid, '定时');
-  }
-}
-
-/**
- * 检查并处理超时的 Hook 消息批次
- */
-async function processTimeoutBatches() {
-  if (hookCache.size === 0) {
-    return;
-  }
-
-  const config = loadHookBatchConfig();
-  const maxWaitMs = config.maxWaitMinutes * 60 * 1000;
-  const now = Date.now();
-  const timeoutUsers = [];
-
-  for (const [openid, entry] of hookCache) {
-    const waitTime = now - entry.firstMessageTime;
-    if (waitTime >= maxWaitMs) {
-      timeoutUsers.push({ openid, waitTime, messageCount: entry.messages.length });
-    }
-  }
-
-  if (timeoutUsers.length === 0) {
-    return;
-  }
-
-  log('yellow', `\n⏰ 检测到 ${timeoutUsers.length} 个用户的 Hook 消息超时`);
-
-  for (const { openid, waitTime, messageCount } of timeoutUsers) {
-    const waitSeconds = Math.round(waitTime / 1000);
-    log('cyan', `   ⏱️ 用户 ${openid.slice(0, 8)}... 超时: ${messageCount} 条消息, 等待 ${waitSeconds} 秒`);
-    await processHookBatch(openid, '超时');
-  }
-}
-
-/**
- * 启动 Hook 批处理定时器
+ * 启动 Hook 消息处理（5 秒超时合并机制）
+ * 注意：实际定时器在 addHookToCache 中按用户创建，这里只是打印日志
  */
 function startHookBatchTimer() {
-  const config = loadHookBatchConfig();
-
-  // 如果间隔为 0，不启动定时器（立即发送模式）
-  if (config.batchIntervalMinutes === 0) {
-    log('cyan', '   📤 Hook 消息模式: 立即发送（缓存已禁用）');
-    return;
-  }
-
-  const intervalMs = config.batchIntervalMinutes * 60 * 1000;
-  log('cyan', `   📤 Hook 消息模式: 批量压缩发送 (间隔: ${config.batchIntervalMinutes} 分钟)`);
-
-  hookBatchTimer = setInterval(async () => {
-    if (!running) return;
-    await processAllHookBatches();
-  }, intervalMs);
-
-  // 启动超时检查定时器（每 30 秒检查一次）
-  startHookMaxWaitTimer();
+  log('cyan', `   📤 Hook 消息模式: 5秒超时合并发送 (阈值 ${HOOK_MESSAGE_CONFIG.compressThreshold} 字节)`);
 }
 
 /**
- * 启动超时检查定时器
- */
-function startHookMaxWaitTimer() {
-  const config = loadHookBatchConfig();
-
-  if (config.maxWaitMinutes <= 0) {
-    log('cyan', '   ⏰ Hook 消息超时检查: 已禁用');
-    return;
-  }
-
-  // 每 30 秒检查一次超时
-  const checkIntervalMs = 30 * 1000;
-  log('cyan', `   ⏰ Hook 消息超时检查: ${config.maxWaitMinutes} 分钟 (检查间隔: 30 秒)`);
-
-  hookMaxWaitTimer = setInterval(async () => {
-    if (!running) return;
-    await processTimeoutBatches();
-  }, checkIntervalMs);
-}
-
-/**
- * 停止 Hook 批处理定时器
+ * 停止 Hook 消息处理（清理所有用户定时器）
  */
 function stopHookBatchTimer() {
-  if (hookBatchTimer) {
-    clearInterval(hookBatchTimer);
-    hookBatchTimer = null;
+  // 清理所有用户的 5 秒定时器
+  for (const [openid, entry] of hookCache) {
+    if (entry.timer) {
+      clearTimeout(entry.timer);
+    }
   }
-  stopHookMaxWaitTimer();
-}
-
-/**
- * 停止超时检查定时器
- */
-function stopHookMaxWaitTimer() {
-  if (hookMaxWaitTimer) {
-    clearInterval(hookMaxWaitTimer);
-    hookMaxWaitTimer = null;
-  }
+  hookCache.clear();
 }
 
 /**
@@ -996,27 +811,27 @@ function stopHookMaxWaitTimer() {
  * @returns {Object} 缓存状态
  */
 function getHookCacheStatus() {
-  const config = loadHookBatchConfig();
   const cacheInfo = [];
   const now = Date.now();
 
   for (const [openid, entry] of hookCache) {
     const waitSeconds = Math.round((now - entry.firstMessageTime) / 1000);
-    const maxWaitSeconds = config.maxWaitMinutes * 60;
     cacheInfo.push({
       openid: openid.slice(0, 8) + '...',
       messageCount: entry.messages.length,
       firstMessageTime: new Date(entry.firstMessageTime).toLocaleString('zh-CN'),
       waitSeconds,
-      maxWaitSeconds,
-      isTimeout: waitSeconds >= maxWaitSeconds,
+      timeoutSeconds: HOOK_MESSAGE_CONFIG.batchTimeoutMs / 1000,
     });
   }
 
   return {
-    config,
-    cacheEnabled: config.batchIntervalMinutes > 0,
-    maxWaitEnabled: config.maxWaitMinutes > 0,
+    mode: '5秒超时合并',
+    config: {
+      batchTimeoutMs: HOOK_MESSAGE_CONFIG.batchTimeoutMs,
+      compressThreshold: HOOK_MESSAGE_CONFIG.compressThreshold,
+      compressedMaxSize: HOOK_MESSAGE_CONFIG.compressedMaxSize,
+    },
     totalCachedMessages: cacheInfo.reduce((sum, c) => sum + c.messageCount, 0),
     cachedUsers: cacheInfo.length,
     cacheDetails: cacheInfo,
@@ -2022,73 +1837,15 @@ function startInternalApi() {
             return;
           }
 
-          // 检查是否启用 Hook 消息缓存
-          const batchConfig = loadHookBatchConfig();
-
-          if (batchConfig.batchIntervalMinutes > 0) {
-            // 缓存模式：添加到缓存，等待定时批量处理
-            addHookToCache(target, message, project);
-            res.writeHead(200);
-            res.end(JSON.stringify({
-              status: 'batched',
-              message: `消息已缓存，将在 ${batchConfig.batchIntervalMinutes} 分钟后批量发送`
-            }));
-            return;
-          }
-
-          // 立即发送模式（batchIntervalMinutes === 0）
-          // 获取目标用户的激活状态
-          const userStatus = getUserActivationStatus(target);
-
-          if (userStatus === 'expired' || !userStatus) {
-            // 用户未激活，缓存消息
-            addPendingMessage({
-              targetOpenid: target,
-              content: `[${project || 'Hook'}] ${message}`,
-              source: 'hook_notification',
-              priority: 5,
-            });
-            log('cyan', `   📬 Hook 消息已缓存 (目标未激活): ${message.slice(0, 50)}...`);
-            res.writeHead(200);
-            res.end(JSON.stringify({ status: 'cached', message: '消息已缓存，等待用户激活后发送' }));
-            return;
-          }
-
-          // 用户已激活，尝试发送（优先被动回复，自动降级到主动消息）
-          try {
-            const token = await getAccessToken();
-            const usageInfo = incrementMsgIdUsage(target);
-            const result = await sendMessageSmart(token, target, `[${project || 'Hook'}] ${message}`, usageInfo);
-
-            if (result.success) {
-              const methodText = result.method === 'passive' ? `被动回复 (剩余 ${result.remaining} 次)` : '主动消息';
-              log('green', `   ✅ Hook 消息已发送 [${methodText}]: ${message.slice(0, 50)}...`);
-              res.writeHead(200);
-              res.end(JSON.stringify({ status: 'sent', method: result.method, remaining: result.remaining }));
-            } else {
-              // 两种方式都失败，缓存消息
-              addPendingMessage({
-                targetOpenid: target,
-                content: `[${project || 'Hook'}] ${message}`,
-                source: 'hook_notification',
-                priority: 5,
-              });
-              log('yellow', `   ⚠️ Hook 消息发送失败，已缓存: ${result.error}`);
-              res.writeHead(200);
-              res.end(JSON.stringify({ status: 'cached', message: '发送失败，消息已缓存' }));
-            }
-          } catch (sendErr) {
-            // 发送失败，缓存消息
-            addPendingMessage({
-              targetOpenid: target,
-              content: `[${project || 'Hook'}] ${message}`,
-              source: 'hook_notification',
-              priority: 5,
-            });
-            log('yellow', `   ⚠️ Hook 消息发送失败，已缓存: ${sendErr.message}`);
-            res.writeHead(200);
-            res.end(JSON.stringify({ status: 'cached', message: '发送失败，消息已缓存' }));
-          }
+          // 统一使用 5 秒超时合并机制
+          // 所有 Hook 消息都会被缓存，5 秒内无新消息则批量发送
+          // 超过 300 字节自动调用 Claude 压缩
+          addHookToCache(target, message, project);
+          res.writeHead(200);
+          res.end(JSON.stringify({
+            status: 'batched',
+            message: '消息已缓存，将在 5 秒后批量发送'
+          }));
         } catch (parseErr) {
           res.writeHead(400);
           res.end(JSON.stringify({ error: '无效的 JSON 格式' }));
@@ -2110,65 +1867,41 @@ function startInternalApi() {
       return;
     }
 
-    // API: GET /api/hook-batch-config - 获取 Hook 批处理配置
+    // API: GET /api/hook-batch-config - 获取 Hook 消息配置
     if (req.method === 'GET' && req.url === '/api/hook-batch-config') {
-      const config = loadHookBatchConfig();
       const status = getHookCacheStatus();
       res.writeHead(200);
       res.end(JSON.stringify(status));
       return;
     }
 
-    // API: POST /api/hook-batch-config - 更新 Hook 批处理配置
+    // API: POST /api/hook-batch-config - 更新 Hook 消息配置（仅压缩阈值）
     if (req.method === 'POST' && req.url === '/api/hook-batch-config') {
       let body = '';
       req.on('data', chunk => body += chunk);
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
-          const config = loadHookBatchConfig();
 
-          // 更新配置
-          if (typeof data.batchIntervalMinutes === 'number' && data.batchIntervalMinutes >= 0) {
-            config.batchIntervalMinutes = data.batchIntervalMinutes;
+          // 只更新压缩阈值（其他参数固定为 5 秒超时）
+          if (typeof data.compressThreshold === 'number' && data.compressThreshold > 0) {
+            HOOK_MESSAGE_CONFIG.compressThreshold = data.compressThreshold;
           }
-          if (typeof data.maxBatchSize === 'number' && data.maxBatchSize > 0) {
-            config.maxBatchSize = data.maxBatchSize;
+          if (typeof data.compressedMaxSize === 'number' && data.compressedMaxSize > 0) {
+            HOOK_MESSAGE_CONFIG.compressedMaxSize = data.compressedMaxSize;
           }
-          if (typeof data.maxWaitMinutes === 'number' && data.maxWaitMinutes >= 0) {
-            config.maxWaitMinutes = data.maxWaitMinutes;
-          }
-          if (typeof data.compressThresholdBytes === 'number' && data.compressThresholdBytes > 0) {
-            config.compressThresholdBytes = data.compressThresholdBytes;
-          }
-
-          saveHookBatchConfig(config);
-
-          // 重启定时器
-          stopHookBatchTimer();
-          startHookBatchTimer();
 
           res.writeHead(200);
           res.end(JSON.stringify({
             status: 'ok',
-            config,
-            message: config.batchIntervalMinutes === 0
-              ? '已切换到立即发送模式'
-              : `已设置批处理间隔为 ${config.batchIntervalMinutes} 分钟，超时 ${config.maxWaitMinutes} 分钟，压缩阈值 ${config.compressThresholdBytes} 字节`
+            config: HOOK_MESSAGE_CONFIG,
+            message: `Hook 消息配置已更新: 5秒超时, 压缩阈值 ${HOOK_MESSAGE_CONFIG.compressThreshold} 字节`
           }));
         } catch (parseErr) {
           res.writeHead(400);
           res.end(JSON.stringify({ error: '无效的 JSON 格式' }));
         }
       });
-      return;
-    }
-
-    // API: POST /api/hook-batch-process - 手动触发 Hook 批次处理
-    if (req.method === 'POST' && req.url === '/api/hook-batch-process') {
-      await processAllHookBatches();
-      res.writeHead(200);
-      res.end(JSON.stringify({ status: 'ok', message: 'Hook 批次处理已完成' }));
       return;
     }
 
@@ -2215,7 +1948,7 @@ function startInternalApi() {
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
-          const { sessionId, projectPath, projectName } = data;
+          const { sessionId, projectPath, projectName, displayName } = data;
 
           if (!sessionId || !projectPath) {
             res.writeHead(400);
@@ -2223,13 +1956,15 @@ function startInternalApi() {
             return;
           }
 
-          const result = registerChannel(sessionId, projectPath, projectName);
+          const result = registerChannel(sessionId, projectPath, projectName, displayName);
           if (result.success) {
+            const channelInfo = channelRegistry.get(result.channelId);
             res.writeHead(200);
             res.end(JSON.stringify({
               status: 'registered',
               channelId: result.channelId,
-              isDefault: channelRegistry.get(result.channelId)?.isDefault || false,
+              displayName: channelInfo?.displayName || projectName,
+              isDefault: channelInfo?.isDefault || false,
               activeMode: getActiveMode(),
             }));
           } else {
@@ -2339,13 +2074,16 @@ function startInternalApi() {
   });
 }
 
-async function startGateway(gatewayMode = 'notify') {
+async function startGateway(gatewayMode = 'notify', channelConfig = null) {
   mode = gatewayMode;
   running = true;
   startupAttempts++;
 
   log('cyan', '🚀 启动 QQ Bot 全局网关...');
   log('cyan', `   模式: ${mode === 'auto' ? '自动回复' : '通知'}`);
+  if (channelConfig) {
+    log('cyan', `   Channel: ${channelConfig}`);
+  }
   if (startupAttempts > 1) {
     log('cyan', `   启动尝试: ${startupAttempts}/${SELF_HEALING_CONFIG.startupRetry.maxAttempts}`);
   }
@@ -2356,6 +2094,10 @@ async function startGateway(gatewayMode = 'notify') {
   // 持久化网关状态（模式等）
   const gatewayState = {
     mode,
+    channel: {
+      enabled: !!channelConfig,
+      mode: channelConfig || 'none'
+    },
     pid: process.pid,
     startedAt: Date.now(),
     startupAttempts
@@ -2734,26 +2476,18 @@ async function handleMessage(type, data) {
   // ============ Hook 缓存命令处理 ============
   const trimmedContent = content.trim();
 
-  // 设置 Hook 缓存间隔
-  const setIntervalMatch = trimmedContent.match(/^设置hook缓存间隔\s+(\d+)$/);
-  if (setIntervalMatch) {
-    const interval = parseInt(setIntervalMatch[1], 10);
-    const config = loadHookBatchConfig();
-    config.batchIntervalMinutes = interval;
-    saveHookBatchConfig(config);
-
-    // 重启定时器
-    stopHookBatchTimer();
-    startHookBatchTimer();
+  // 设置 Hook 压缩阈值
+  const setThresholdMatch = trimmedContent.match(/^设置hook压缩阈值\s+(\d+)$/);
+  if (setThresholdMatch) {
+    const threshold = parseInt(setThresholdMatch[1], 10);
+    HOOK_MESSAGE_CONFIG.compressThreshold = threshold;
 
     const token = await getAccessToken();
     const usageInfo = incrementMsgIdUsage(authorId);
-    const replyMsg = interval === 0
-      ? '✅ Hook 消息模式已切换为立即发送\n\nHook 消息将立即发送，不再缓存。'
-      : `✅ Hook 缓存间隔已设置为 ${interval} 分钟\n\nHook 消息将缓存并每 ${interval} 分钟批量压缩后发送。`;
+    const replyMsg = `✅ Hook 压缩阈值已设置为 ${threshold} 字节\n\n合并后超过此阈值的消息将调用 Claude 压缩。`;
 
     await sendMessageSmart(token, authorId, replyMsg, usageInfo);
-    log('green', `   ✅ Hook 缓存间隔已设置为 ${interval} 分钟`);
+    log('green', `   ✅ Hook 压缩阈值已设置为 ${threshold} 字节`);
     return;
   }
 
@@ -2763,20 +2497,18 @@ async function handleMessage(type, data) {
     const token = await getAccessToken();
     const usageInfo = incrementMsgIdUsage(authorId);
 
-    let replyMsg = `📋 Hook 缓存状态\n`;
+    let replyMsg = `📋 Hook 消息状态\n`;
     replyMsg += `━━━━━━━━━━━━━━━━━━━━\n`;
-    replyMsg += `模式: ${status.cacheEnabled ? '批量压缩发送' : '立即发送'}\n`;
-    replyMsg += `检查间隔: ${status.config.batchIntervalMinutes} 分钟\n`;
-    replyMsg += `最大批次: ${status.config.maxBatchSize} 条\n`;
-    replyMsg += `超时时间: ${status.config.maxWaitMinutes} 分钟\n`;
-    replyMsg += `压缩阈值: ${status.config.compressThresholdBytes} 字节\n`;
+    replyMsg += `模式: ${status.mode}\n`;
+    replyMsg += `超时: ${status.config.batchTimeoutMs / 1000} 秒\n`;
+    replyMsg += `压缩阈值: ${status.config.compressThreshold} 字节\n`;
+    replyMsg += `压缩后大小: ${status.config.compressedMaxSize} 字节\n`;
     replyMsg += `当前缓存: ${status.totalCachedMessages} 条 (${status.cachedUsers} 个用户)\n`;
 
     if (status.cacheDetails.length > 0) {
       replyMsg += `\n缓存详情:\n`;
       for (const detail of status.cacheDetails) {
-        const timeoutFlag = detail.isTimeout ? ' ⚠️超时' : '';
-        replyMsg += `  • ${detail.openid}: ${detail.messageCount} 条 (等待 ${detail.waitSeconds}s/${detail.maxWaitSeconds}s)${timeoutFlag}\n`;
+        replyMsg += `  • ${detail.openid}: ${detail.messageCount} 条 (等待 ${detail.waitSeconds}s)\n`;
       }
     }
 
@@ -2954,10 +2686,27 @@ async function handleMessage(type, data) {
       // 发送确认消息给用户
       const token = await getAccessToken();
       const usageInfo = incrementMsgIdUsage(authorId);
-      await sendMessageSmart(token, authorId, `✅ 消息已推送到 Channel: ${channelInfo?.projectName || targetSessionId}`, usageInfo);
+      const channelDisplayName = channelInfo?.displayName || channelInfo?.projectName || targetSessionId;
+      await sendMessageSmart(token, authorId, `✅ 消息已推送到 Channel: ${channelDisplayName}`, usageInfo);
 
       return; // Channel 模式处理完成，不再走 Headless 流程
     } else {
+      // 无可用 Channel
+      // 检查是否配置了 Channel 模式（通过 gateway-state.json）
+      const gatewayState = loadGatewayState();
+      const channelConfigured = gatewayState?.channel?.enabled;
+
+      if (channelConfigured) {
+        // Channel 模式已配置，不回退到 Headless，发送提示
+        log('yellow', `   ⚠️ Channel 模式已启用但无活跃会话`);
+        const token = await getAccessToken();
+        const usageInfo = incrementMsgIdUsage(authorId);
+        await sendMessageSmart(token, authorId,
+          `⚠️ 当前没有活跃的 Channel 会话\n\n请在 Claude Code 中启动 MCP Server 以接收消息。`,
+          usageInfo);
+        return; // 不回退到 Headless
+      }
+
       log('yellow', `   ⚠️ 无可用 Channel，回退到 Headless 模式`);
       // 继续执行下面的 Headless/Notify 逻辑
     }
@@ -3377,17 +3126,15 @@ async function processPendingMessages(openid, msgId) {
   log('cyan', `   📤 开始处理 ${messageCount} 条待发送消息（合并压缩模式）...`);
 
   try {
-    const config = loadHookBatchConfig();
-
     // 1. 合并所有消息
     const mergedContent = mergePendingMessages(pendingMessages);
     const mergedBytes = getByteLength(mergedContent);
 
     let finalContent;
 
-    // 2. 判断是否需要压缩（复用 Hook 批处理的压缩阈值）
-    if (mergedBytes > config.compressThresholdBytes) {
-      log('cyan', `   📊 合并后 ${mergedBytes} 字节 > 阈值 ${config.compressThresholdBytes}，调用 Claude 哪怕压缩...`);
+    // 2. 判断是否需要压缩（复用 Hook 消息的压缩阈值）
+    if (mergedBytes > HOOK_MESSAGE_CONFIG.compressThreshold) {
+      log('cyan', `   📊 合并后 ${mergedBytes} 字节 > 阈值 ${HOOK_MESSAGE_CONFIG.compressThreshold}，调用 Claude 压缩...`);
 
       // 构建压缩提示词
       const compressPrompt = `请将以下 ${messageCount} 条待发送消息压缩成简洁摘要。
@@ -3443,7 +3190,7 @@ ${mergedContent}`;
         finalContent = `📋 积压消息合并 (${messageCount} 条)\n\n${mergedContent}`;
       }
     } else {
-      log('cyan', `   📊 合并后 ${mergedBytes} 字节 <= 阈值 ${config.compressThresholdBytes}，无需压缩`);
+      log('cyan', `   📊 合并后 ${mergedBytes} 字节 <= 阈值 ${HOOK_MESSAGE_CONFIG.compressThreshold}，无需压缩`);
       finalContent = `📋 积压消息合并 (${messageCount} 条)\n\n${mergedContent}`;
     }
 
@@ -3714,7 +3461,12 @@ switch (command) {
     const modeIndex = args.indexOf('--mode');
     const modeValue = modeIndex !== -1 ? args[modeIndex + 1] : null;
     const startMode = (args.includes('--auto') || modeValue === 'auto') ? 'auto' : 'notify';
-    startGateway(startMode).catch(err => {
+
+    // 解析 --channel 参数
+    const channelIndex = args.indexOf('--channel');
+    const channelMode = channelIndex !== -1 ? args[channelIndex + 1] : null;
+
+    startGateway(startMode, channelMode).catch(err => {
       log('red', `❌ 启动失败: ${err.message}`);
       process.exit(1);
     });
