@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.14.3] - 2026-03-26
+
+### 问题修复
+
+  - 1983fb3 chore: release v1.14.2
+  - acb7e8f chore: release v1.14.1 - 修复网关启动失败问题
+  - 82ecd19 fix: 添加 API 模块打包以支持 qqbot-gateway.js
+  - 4307cc9 chore: release v1.14.0 - esbuild 打包构建
+  - 6194061 feat: 使用 esbuild 打包构建，用户无需 npm install
+  - f838002 fix: Channel 模式检测逻辑修复 - 支持 Gateway 桥接模式
+  - 04f2b51 feat: Gateway → MCP Server 多会话消息桥接架构
+  - 78dd6db feat: Channel 模式选项支持
+  - 6641823 feat: 通信模式能力展示和检测优化
+  - 53f7f61 chore: release v1.13.2 - Channel 检测优化
+
 ## [1.14.2] - 2026-03-26
 
 ### 问题修复
