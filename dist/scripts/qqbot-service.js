@@ -209,13 +209,14 @@ function checkChannelSupport() {
     // 区分：独立进程模式 vs MCP 环境但版本未知
     if (!isMcpContext) {
       // 独立进程模式（Gateway、CLI）- 这是正常行为
+      // 注意: Gateway 的 Channel 路由能力始终可用，由 MCP Server 注册时启用
       return {
-        supported: false,
-        reason: 'standalone_mode',
+        supported: true,  // Gateway 的 Channel 路由能力可用
+        reason: 'gateway_channel_available',
         version: null,
         required,
         isStandalone: true,
-        message: '独立进程模式 (Channel 仅在 Claude Code 内的 MCP Server 中可用)'
+        message: 'Gateway Channel 桥接模式可用 (MCP Server 注册后自动启用)'
       };
     }
     // 在 MCP 环境中但版本未知 - 可能是配置问题
@@ -588,15 +589,30 @@ async function cmdStart(options) {
   } else if (channelMode === 'auto') {
     // 自动模式：优先双向，降级单向
     if (channelSupport.supported) {
-      channelEnabled = true;
-      result.channel = {
-        requested: true,
-        mode: 'auto',
-        enabled: true,
-        version: channelSupport.version,
-        actualMode: 'bidirectional'
-      };
-      communicationType = 'channel-bidirectional';
+      // 区分：原生双向 Channel vs Gateway 桥接模式
+      if (channelSupport.isStandalone) {
+        // Gateway 桥接模式：MCP Server 注册后启用
+        result.channel = {
+          requested: true,
+          mode: 'auto',
+          enabled: true,
+          reason: channelSupport.reason,
+          message: channelSupport.message,
+          actualMode: 'gateway-bridge'
+        };
+        communicationType = 'gateway-channel-bridge';
+      } else {
+        // 原生双向 Channel（在 Claude Code MCP 环境内）
+        channelEnabled = true;
+        result.channel = {
+          requested: true,
+          mode: 'auto',
+          enabled: true,
+          version: channelSupport.version,
+          actualMode: 'bidirectional'
+        };
+        communicationType = 'channel-bidirectional';
+      }
     } else {
       // 降级到单向模式
       result.channel = {
@@ -692,10 +708,17 @@ async function cmdStart(options) {
         console.log(``);
         console.log(`   📶 通信模式:`);
         if (result.channel?.enabled) {
-          console.log(`   ✅ Channel 双向实时通信`);
-          console.log(`      • 消息实时推送到 Claude Code`);
-          console.log(`      • Claude Code 可直接回复`);
-          console.log(`      • 支持权限中继`);
+          if (result.channel?.actualMode === 'gateway-bridge') {
+            console.log(`   ✅ Gateway Channel 桥接模式`);
+            console.log(`      • Gateway 接收 QQ 消息并路由到 MCP Server`);
+            console.log(`      • MCP Server 通过 Channel 推送到 Claude Code`);
+            console.log(`      • Claude Code 可直接回复`);
+          } else {
+            console.log(`   ✅ Channel 双向实时通信`);
+            console.log(`      • 消息实时推送到 Claude Code`);
+            console.log(`      • Claude Code 可直接回复`);
+            console.log(`      • 支持权限中继`);
+          }
         } else {
           console.log(`   📨 Gateway 单向通信 + MCP Tools`);
           console.log(`      • Gateway 独立接收 QQ 消息`);
@@ -716,14 +739,23 @@ async function cmdStart(options) {
         }
       } else {
         // JSON 输出中添加通信模式信息
-        result.communicationMode = {
-          type: result.channel?.enabled ? 'channel-bidirectional' : 'gateway-unidirectional',
-          description: result.channel?.enabled
+        const commType = result.channel?.actualMode === 'gateway-bridge'
+          ? 'gateway-channel-bridge'
+          : (result.channel?.enabled ? 'channel-bidirectional' : 'gateway-unidirectional');
+        const commDesc = result.channel?.actualMode === 'gateway-bridge'
+          ? 'Gateway Channel 桥接模式'
+          : (result.channel?.enabled
             ? 'Channel 双向实时通信'
-            : 'Gateway 单向通信 + MCP Tools',
-          capabilities: result.channel?.enabled
+            : 'Gateway 单向通信 + MCP Tools');
+        const commCaps = result.channel?.actualMode === 'gateway-bridge'
+          ? ['gateway-routing', 'channel-push', 'direct-reply']
+          : (result.channel?.enabled
             ? ['realtime-push', 'direct-reply', 'permission-relay']
-            : ['mcp-tools-send']
+            : ['mcp-tools-send']);
+        result.communicationMode = {
+          type: commType,
+          description: commDesc,
+          capabilities: commCaps
         };
         console.log(JSON.stringify(result, null, 2));
       }
