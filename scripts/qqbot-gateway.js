@@ -410,13 +410,18 @@ function getAllChannels() {
  * @returns {{targetSessionId: string|null, cleanContent: string}}
  */
 function resolveChannel(content) {
-  // 检查是否有 [project-name] 前缀
+  // 检查是否有 [session-id] 或 [project-name] 前缀
   const prefixMatch = content.match(/^\[([^\]]+)\]\s*(.*)$/s);
 
   if (prefixMatch) {
     const [, prefix, cleanContent] = prefixMatch;
 
-    // 根据前缀查找匹配的 Channel
+    // 1. 首先尝试精确匹配 sessionId
+    if (channelRegistry.has(prefix)) {
+      return { targetSessionId: prefix, cleanContent };
+    }
+
+    // 2. 兼容：尝试匹配 projectName（向后兼容）
     for (const [sessionId, info] of channelRegistry) {
       if (info.projectName === prefix || info.projectPath.includes(prefix)) {
         return { targetSessionId: sessionId, cleanContent };

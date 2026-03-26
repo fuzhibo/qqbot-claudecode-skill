@@ -21685,7 +21685,8 @@ function cleanupAllClients() {
 // src/mcp/channel-pusher.ts
 var GATEWAY_API_URL = process.env.QQBOT_GATEWAY_URL || "http://127.0.0.1:3310";
 var DEFAULT_CONFIG = {
-  interval: 1e3,
+  interval: 200,
+  // 降低到 200ms 以减少延迟
   mergeMessages: true,
   maxMergeCount: 5,
   registerToGateway: true
@@ -21698,19 +21699,23 @@ var sessionId = null;
 var projectPath = null;
 var projectName = null;
 var isRegisteredWithGateway = false;
+function addChatIdPrefix(sourceId, sourceType) {
+  if (sourceId.match(/^[GUC]_/)) {
+    return sourceId;
+  }
+  if (sourceType === "group") {
+    return `G_${sourceId}`;
+  } else if (sourceType === "c2c" || sourceType === "private") {
+    return `U_${sourceId}`;
+  } else if (sourceType === "channel") {
+    return `C_${sourceId}`;
+  }
+  return sourceId;
+}
 function toChannelMessage(task) {
   const isGroup = task.sourceType === "group" || task.sourceType === "channel";
   const type = isGroup ? "group" : "user";
-  let chatId = task.sourceId;
-  if (!chatId.match(/^[GUC]_/)) {
-    if (task.sourceType === "group") {
-      chatId = `G_${chatId}`;
-    } else if (task.sourceType === "c2c") {
-      chatId = `U_${chatId}`;
-    } else if (task.sourceType === "channel") {
-      chatId = `C_${chatId}`;
-    }
-  }
+  const chatId = addChatIdPrefix(task.sourceId, task.sourceType);
   return {
     content: task.content,
     meta: {
@@ -21955,7 +21960,8 @@ async function fetchChannelMessages(limit = 10) {
       return result.messages.map((msg) => ({
         content: msg.content,
         meta: {
-          chat_id: msg.sourceId,
+          chat_id: addChatIdPrefix(msg.sourceId, msg.sourceType),
+          // 使用复用函数添加前缀
           sender: msg.authorNickname || msg.authorId,
           type: msg.sourceType === "group" ? "group" : "user",
           message_id: msg.msgId,

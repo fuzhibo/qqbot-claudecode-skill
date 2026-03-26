@@ -53,7 +53,7 @@ interface ChannelPusherConfig {
 
 /** 默认配置 */
 const DEFAULT_CONFIG: Required<ChannelPusherConfig> = {
-  interval: 1000,
+  interval: 200,  // 降低到 200ms 以减少延迟
   mergeMessages: true,
   maxMergeCount: 5,
   registerToGateway: true,
@@ -72,6 +72,30 @@ let projectName: string | null = null;
 let isRegisteredWithGateway = false;
 
 /**
+ * 添加 chat_id 前缀（内部函数，用户无需关心）
+ * @param sourceId - 原始 ID
+ * @param sourceType - 来源类型 (group/c2c/channel/private)
+ * @returns 带前缀的 chat_id
+ */
+function addChatIdPrefix(sourceId: string, sourceType: string): string {
+  // 已有前缀，直接返回
+  if (sourceId.match(/^[GUC]_/)) {
+    return sourceId;
+  }
+
+  // 根据类型添加前缀
+  if (sourceType === 'group') {
+    return `G_${sourceId}`;
+  } else if (sourceType === 'c2c' || sourceType === 'private') {
+    return `U_${sourceId}`;
+  } else if (sourceType === 'channel') {
+    return `C_${sourceId}`;
+  }
+
+  return sourceId;
+}
+
+/**
  * 将队列消息转换为 Channel 消息格式
  */
 function toChannelMessage(task: PendingTask): ChannelNotificationParams {
@@ -79,18 +103,8 @@ function toChannelMessage(task: PendingTask): ChannelNotificationParams {
   const isGroup = task.sourceType === 'group' || task.sourceType === 'channel';
   const type: 'user' | 'group' = isGroup ? 'group' : 'user';
 
-  // 构建 chat_id (添加前缀)
-  let chatId = task.sourceId;
-  if (!chatId.match(/^[GUC]_/)) {
-    // 根据类型添加前缀
-    if (task.sourceType === 'group') {
-      chatId = `G_${chatId}`;
-    } else if (task.sourceType === 'c2c') {
-      chatId = `U_${chatId}`;
-    } else if (task.sourceType === 'channel') {
-      chatId = `C_${chatId}`;
-    }
-  }
+  // 构建 chat_id (添加前缀) - 使用复用函数
+  const chatId = addChatIdPrefix(task.sourceId, task.sourceType);
 
   return {
     content: task.content,
@@ -493,7 +507,7 @@ export async function fetchChannelMessages(
       return result.messages.map((msg: any) => ({
         content: msg.content,
         meta: {
-          chat_id: msg.sourceId,
+          chat_id: addChatIdPrefix(msg.sourceId, msg.sourceType),  // 使用复用函数添加前缀
           sender: msg.authorNickname || msg.authorId,
           type: msg.sourceType === 'group' ? 'group' : 'user',
           message_id: msg.msgId,
