@@ -247,6 +247,7 @@ const HOOK_MESSAGE_CONFIG = {
   compressThreshold: 300,    // 压缩阈值：300 字节
   compressedMaxSize: 150,    // 压缩后最大：150 字节
   compressTimeoutMs: 60000,  // 压缩超时：60 秒（Claude headless）
+  pendingMaxSize: 2000,      // 待发送消息最大：2000 字节（防止积压过大）
 };
 
 // ============ Channel 注册表系统 ============
@@ -2213,8 +2214,10 @@ async function startGateway(gatewayMode = 'notify', channelConfig = null) {
   // 写入 PID
   fs.writeFileSync(PID_FILE, process.pid.toString());
 
-  // 持久化网关状态（模式等）
+  // 持久化网关状态（模式等）- 保留现有配置如 hookNotify
+  const existingState = loadGatewayState();
   const gatewayState = {
+    ...existingState,
     mode,
     channel: {
       enabled: !!channelConfig,
@@ -2224,7 +2227,7 @@ async function startGateway(gatewayMode = 'notify', channelConfig = null) {
     startedAt: Date.now(),
     startupAttempts
   };
-  fs.writeFileSync(GATEWAY_STATE_FILE, JSON.stringify(gatewayState, null, 2));
+  saveGatewayState(gatewayState);
 
   // 初始化激活状态（仅首次启动时）
   if (startupAttempts === 1) {
@@ -2672,8 +2675,37 @@ async function handleMessage(type, data) {
 
   // ============ 授权管理命令处理 ============
 
+  // 快捷授权关键词 - 一键授权全部权限
+  const quickAuthKeywords = {
+    '授权全部': { type: 'mcpTools', resource: '*', label: '全部 MCP 工具' },
+    '全部授权': { type: 'mcpTools', resource: '*', label: '全部 MCP 工具' },
+    '授权mcp': { type: 'mcpTools', resource: '*', label: '全部 MCP 工具' },
+    '授权工具': { type: 'mcpTools', resource: '*', label: '全部 MCP 工具' },
+    '允许全部': { type: 'mcpTools', resource: '*', label: '全部 MCP 工具' },
+    '允许mcp': { type: 'mcpTools', resource: '*', label: '全部 MCP 工具' },
+    'mcp授权': { type: 'mcpTools', resource: '*', label: '全部 MCP 工具' },
+  };
+
+  if (quickAuthKeywords[trimmedContent]) {
+    const auth = quickAuthKeywords[trimmedContent];
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+
+    authorizeUser({
+      openid: authorId,
+      authType: auth.type,
+      resource: auth.resource,
+      nickname: authorNickname,
+    });
+
+    const replyMsg = `✅ 授权成功\n\n已授权: ${auth.label}\n\n现在可以使用所有功能了！`;
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    log('green', `   ✅ 快捷授权: ${auth.label}`);
+    return;
+  }
+
   // 查看授权状态
-  if (trimmedContent === '查看授权' || trimmedContent === '我的授权') {
+  if (trimmedContent === '查看授权' || trimmedContent === '我的授权' || trimmedContent === '授权状态') {
     const userAuth = getUserAuthorization(authorId);
     const token = await getAccessToken();
     const usageInfo = incrementMsgIdUsage(authorId);
@@ -2682,10 +2714,10 @@ async function handleMessage(type, data) {
     replyMsg += `━━━━━━━━━━━━━━━━━━━━\n`;
 
     if (!userAuth) {
-      replyMsg += `状态: 未授权任何操作\n`;
-      replyMsg += `\n💡 使用以下命令授权:\n`;
-      replyMsg += `• "授权工具: mcp" - 授权所有 MCP 工具\n`;
-      replyMsg += `• "授权路径: /home/user" - 授权文件访问\n`;
+      replyMsg += `状态: ❌ 未授权\n`;
+      replyMsg += `\n⚡ 快捷授权 (推荐):\n`;
+      replyMsg += `• 发送 "授权全部" 或 "授权mcp"\n`;
+      replyMsg += `\n📝 详细说明: 发送 "help auth"`;
     } else {
       replyMsg += `授权时间: ${new Date(userAuth.authorizedAt).toLocaleString('zh-CN')}\n`;
       replyMsg += `最后更新: ${new Date(userAuth.lastAuthorizedAt).toLocaleString('zh-CN')}\n\n`;
@@ -2878,6 +2910,8 @@ async function handleMessage(type, data) {
       // 总览
       replyMsg = `📖 QQ Bot 网关帮助\n`;
       replyMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+      replyMsg += `⚡ 快捷授权:\n`;
+      replyMsg += `  授权全部  授权mcp  允许全部\n\n`;
       replyMsg += `📋 命令列表:\n`;
       replyMsg += `  status - 查看状态和配置\n`;
       replyMsg += `  hook on/off/status - Hook 开关控制\n`;
@@ -2934,16 +2968,37 @@ async function handleMessage(type, data) {
       replyMsg += `  默认压缩超时: 30000ms`;
 
     } else if (topic === 'auth' || topic === 'authorization') {
-      replyMsg = `📖 授权管理\n`;
+      replyMsg = `📖 授权管理 - 完整指南\n`;
       replyMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
-      replyMsg += `控制哪些用户可以使用哪些功能。\n\n`;
-      replyMsg += `🔐 授权类型:\n`;
-      replyMsg += `  • MCP 工具: 允许使用特定工具\n`;
-      replyMsg += `  • 文件路径: 允许访问特定目录\n\n`;
-      replyMsg += `💡 命令:\n`;
-      replyMsg += `  授权工具: mcp - 授权所有 MCP 工具\n`;
-      replyMsg += `  授权路径: /home/user - 授权目录访问\n`;
-      replyMsg += `  查看授权 - 查看当前授权状态`;
+      replyMsg += `授权允许 Claude 在你的项目中执行操作。\n\n`;
+      replyMsg += `⚡ 快捷授权 (推荐):\n`;
+      replyMsg += `┌─────────────────────────────┐\n`;
+      replyMsg += `│  发送以下任一关键词即可授权  │\n`;
+      replyMsg += `├─────────────────────────────┤\n`;
+      replyMsg += `│  授权全部  授权mcp  允许全部 │\n`;
+      replyMsg += `│  全部授权  允许mcp  授权工具 │\n`;
+      replyMsg += `└─────────────────────────────┘\n\n`;
+      replyMsg += `🔐 授权范围说明:\n`;
+      replyMsg += `┌─────────────────────────────────────┐\n`;
+      replyMsg += `│ MCP 工具 (*)                        │\n`;
+      replyMsg += `│  • 读取文件 (Read)                  │\n`;
+      replyMsg += `│  • 搜索代码 (Grep/Glob)             │\n`;
+      replyMsg += `│  • 执行命令 (Bash)                  │\n`;
+      replyMsg += `│  • 编辑文件 (Edit/Write)            │\n`;
+      replyMsg += `│  • 所有 MCP 扩展工具                │\n`;
+      replyMsg += `├─────────────────────────────────────┤\n`;
+      replyMsg += `│ 文件路径 (/path/*)                  │\n`;
+      replyMsg += `│  • 允许访问指定目录下的文件         │\n`;
+      replyMsg += `│  • 使用通配符 * 匹配所有子目录      │\n`;
+      replyMsg += `└─────────────────────────────────────┘\n\n`;
+      replyMsg += `📝 详细命令:\n`;
+      replyMsg += `  授权工具: *           - 全部工具\n`;
+      replyMsg += `  授权工具: mcp:*       - 全部 MCP 工具\n`;
+      replyMsg += `  授权路径: /home/user  - 指定目录\n`;
+      replyMsg += `  授权路径: /*          - 全部目录\n\n`;
+      replyMsg += `🔍 查询命令:\n`;
+      replyMsg += `  查看授权  我的授权  授权状态\n\n`;
+      replyMsg += `💡 首次使用建议直接发送 "授权全部"`;
 
     } else {
       replyMsg = `❌ 未找到 "${topic}" 的帮助\n\n`;
@@ -3188,18 +3243,12 @@ ${originalContent}
           log('yellow', `   ⚠️ 检测到权限问题，发送授权指引...`);
 
           // 发送权限说明和授权指引
-          const permissionGuide = `⚠️ 需要授权工具权限
+          const permissionGuide = `⚠️ 需要授权
 
 ${replyContent}
 
-📝 如何授权：
-1. 发送 "允许工具: mcp" 来授权 MCP 工具
-2. 或发送 "权限模式: 跳过权限" 来跳过权限检查
-3. 授权后重新发送您的请求
+⚡ 快捷授权: 发送 "授权全部" 或 "授权mcp"`;
 
-💡 示例：
-• "允许工具: mcp" - 授权所有 MCP 工具
-• "权限模式: 跳过权限" - 完全跳过权限检查`;
 
           const token = await getAccessToken();
           const permResult = await sendMessageSmart(token, authorId, permissionGuide, usageInfo);
@@ -3487,12 +3536,20 @@ ${mergedContent}`;
         finalContent = `📋 积压消息摘要 (${messageCount} 条)\n\n${compressResult || '（压缩失败）'}`;
         log('green', `   ✅ 消息压缩完成`);
       } catch (compressErr) {
-        log('yellow', `   ⚠️ 消息压缩失败: ${compressErr.message}，使用原始合并内容`);
-        finalContent = `📋 积压消息合并 (${messageCount} 条)\n\n${mergedContent}`;
+        log('yellow', `   ⚠️ 消息压缩失败: ${compressErr.message}，使用截断内容`);
+        // 压缩失败时使用截断而非完整内容
+        finalContent = `📋 积压消息摘要 (${messageCount} 条, 截断)\n\n${mergedContent.slice(0, HOOK_MESSAGE_CONFIG.pendingMaxSize)}...`;
       }
     } else {
       log('cyan', `   📊 合并后 ${mergedBytes} 字节 <= 阈值 ${HOOK_MESSAGE_CONFIG.compressThreshold}，无需压缩`);
       finalContent = `📋 积压消息合并 (${messageCount} 条)\n\n${mergedContent}`;
+    }
+
+    // 4. 强制截断：确保消息不超过最大限制
+    const finalBytes = getByteLength(finalContent);
+    if (finalBytes > HOOK_MESSAGE_CONFIG.pendingMaxSize) {
+      log('yellow', `   ✂️ 消息过大 (${finalBytes} 字节)，截断至 ${HOOK_MESSAGE_CONFIG.pendingMaxSize} 字节`);
+      finalContent = finalContent.slice(0, HOOK_MESSAGE_CONFIG.pendingMaxSize) + '\n\n... (内容已截断)';
     }
 
     // 3. 一次性发送合并后的消息
