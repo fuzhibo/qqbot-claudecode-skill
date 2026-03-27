@@ -59,6 +59,39 @@ const DEFAULT_CONFIG: Required<ChannelPusherConfig> = {
   registerToGateway: true,
 };
 
+/** Gateway API 超时配置 */
+const FETCH_TIMEOUT = 10000; // 10 秒超时
+
+/** 消息投递重试配置 */
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  retryIntervalMs: 5000, // 5 秒间隔
+};
+
+/**
+ * 带超时保护的 fetch
+ */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeout: number = FETCH_TIMEOUT
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * 延迟函数
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 /** 推送器状态 */
 let pusherInterval: ReturnType<typeof setInterval> | null = null;
 let isRunning = false;
@@ -119,11 +152,12 @@ function toChannelMessage(task: PendingTask): ChannelNotificationParams {
 }
 
 /**
- * 发送单个 Channel notification
+ * 发送单个 Channel notification (带重试)
  */
 async function sendChannelNotification(
   server: Server,
-  params: ChannelNotificationParams
+  params: ChannelNotificationParams,
+  retries: number = 0
 ): Promise<void> {
   try {
     await server.notification({
@@ -136,7 +170,12 @@ async function sendChannelNotification(
 
     console.error(`[channel-pusher] Sent to ${params.meta.chat_id} from ${params.meta.sender}`);
   } catch (error) {
-    console.error('[channel-pusher] Failed to send notification:', error);
+    if (retries < RETRY_CONFIG.maxRetries) {
+      console.error(`[channel-pusher] 发送失败，${RETRY_CONFIG.retryIntervalMs / 1000}秒后重试 (${retries + 1}/${RETRY_CONFIG.maxRetries})`);
+      await sleep(RETRY_CONFIG.retryIntervalMs);
+      return sendChannelNotification(server, params, retries + 1);
+    }
+    console.error('[channel-pusher] Failed to send notification after retries:', error);
     throw error;
   }
 }
@@ -402,7 +441,7 @@ export async function registerChannel(
   }
 
   try {
-    const response = await fetch(`${GATEWAY_API_URL}/api/channels/register`, {
+    const response = await fetchWithTimeout(`${GATEWAY_API_URL}/api/channels/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -449,7 +488,7 @@ export async function unregisterChannel(): Promise<boolean> {
   }
 
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${GATEWAY_API_URL}/api/channels/${encodeURIComponent(sessionId)}`,
       { method: 'DELETE' }
     );
@@ -490,7 +529,7 @@ export async function fetchChannelMessages(
 
   try {
     const url = `${GATEWAY_API_URL}/api/messages?channel=${encodeURIComponent(sessionId)}&limit=${limit}`;
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
@@ -531,7 +570,7 @@ async function markMessagesDelivered(messageIds: string[]): Promise<void> {
 
   try {
     const url = `${GATEWAY_API_URL}/api/messages?channel=${encodeURIComponent(sessionId)}&ids=${messageIds.join(',')}`;
-    await fetch(url, { method: 'DELETE' });
+    await fetchWithTimeout(url, { method: 'DELETE' });
   } catch (error) {
     console.error(`[channel-pusher] ⚠️ 标记消息已读失败: ${error}`);
   }

@@ -243,14 +243,20 @@ export function parseMessage(message, projects = {}, defaultProject = null) {
 /**
  * 构建 Claude CLI 参数
  * @param {Object} parsed - 解析结果
+ * @param {string|null} sessionId - 会话 ID (用于 --resume 恢复上下文)
  * @returns {string[]} - CLI 参数数组
  */
-export function buildClaudeArgs(parsed) {
+export function buildClaudeArgs(parsed, sessionId = null) {
   const args = ['-p'];
 
   // 输出格式 (stream-json 需要 --verbose)
   args.push('--output-format', 'stream-json');
   args.push('--verbose');
+
+  // 会话恢复 - 保持上下文连续性
+  if (sessionId) {
+    args.push('--resume', sessionId);
+  }
 
   // 注意：工作目录 (cwd) 通过 spawn 的 options.cwd 设置
   // 不要添加 --cwd 参数，因为 claude CLI 不支持

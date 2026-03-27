@@ -21691,6 +21691,24 @@ var DEFAULT_CONFIG = {
   maxMergeCount: 5,
   registerToGateway: true
 };
+var FETCH_TIMEOUT = 1e4;
+var RETRY_CONFIG = {
+  maxRetries: 3,
+  retryIntervalMs: 5e3
+  // 5 秒间隔
+};
+async function fetchWithTimeout(url2, options = {}, timeout = FETCH_TIMEOUT) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  try {
+    return await fetch(url2, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+function sleep2(ms) {
+  return new Promise((resolve3) => setTimeout(resolve3, ms));
+}
 var pusherInterval = null;
 var isRunning = false;
 var mcpServer = null;
@@ -21727,7 +21745,7 @@ function toChannelMessage(task) {
     }
   };
 }
-async function sendChannelNotification(server2, params) {
+async function sendChannelNotification(server2, params, retries = 0) {
   try {
     await server2.notification({
       method: "notifications/claude/channel",
@@ -21738,7 +21756,12 @@ async function sendChannelNotification(server2, params) {
     });
     console.error(`[channel-pusher] Sent to ${params.meta.chat_id} from ${params.meta.sender}`);
   } catch (error2) {
-    console.error("[channel-pusher] Failed to send notification:", error2);
+    if (retries < RETRY_CONFIG.maxRetries) {
+      console.error(`[channel-pusher] \u53D1\u9001\u5931\u8D25\uFF0C${RETRY_CONFIG.retryIntervalMs / 1e3}\u79D2\u540E\u91CD\u8BD5 (${retries + 1}/${RETRY_CONFIG.maxRetries})`);
+      await sleep2(RETRY_CONFIG.retryIntervalMs);
+      return sendChannelNotification(server2, params, retries + 1);
+    }
+    console.error("[channel-pusher] Failed to send notification after retries:", error2);
     throw error2;
   }
 }
@@ -21885,7 +21908,7 @@ async function registerChannel(sid, pPath, pName) {
     return false;
   }
   try {
-    const response = await fetch(`${GATEWAY_API_URL}/api/channels/register`, {
+    const response = await fetchWithTimeout(`${GATEWAY_API_URL}/api/channels/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -21920,7 +21943,7 @@ async function unregisterChannel() {
     return true;
   }
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${GATEWAY_API_URL}/api/channels/${encodeURIComponent(sessionId)}`,
       { method: "DELETE" }
     );
@@ -21949,7 +21972,7 @@ async function fetchChannelMessages(limit = 10) {
   }
   try {
     const url2 = `${GATEWAY_API_URL}/api/messages?channel=${encodeURIComponent(sessionId)}&limit=${limit}`;
-    const response = await fetch(url2);
+    const response = await fetchWithTimeout(url2);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -21979,7 +22002,7 @@ async function markMessagesDelivered(messageIds) {
   if (!sessionId || messageIds.length === 0) return;
   try {
     const url2 = `${GATEWAY_API_URL}/api/messages?channel=${encodeURIComponent(sessionId)}&ids=${messageIds.join(",")}`;
-    await fetch(url2, { method: "DELETE" });
+    await fetchWithTimeout(url2, { method: "DELETE" });
   } catch (error2) {
     console.error(`[channel-pusher] \u26A0\uFE0F \u6807\u8BB0\u6D88\u606F\u5DF2\u8BFB\u5931\u8D25: ${error2}`);
   }

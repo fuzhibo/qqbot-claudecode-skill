@@ -19,7 +19,7 @@
  *   node scripts/qqbot-gateway.js switch <projectName>
  */
 
-import { spawn } from 'child_process';
+import { spawn, execFile } from 'child_process';
 import WebSocket from 'ws';
 import http from 'http';
 import * as fs from 'fs';
@@ -196,12 +196,195 @@ function getHookNotifyEnabled() {
  * 设置 Hook 推送开关状态
  * @param {boolean} enabled - 是否启用
  */
+/**
+ * 设置 Hook 推送开关状态
+ * @param {boolean} enabled - 是否启用
+ */
 function setHookNotifyEnabled(enabled) {
   const state = loadGatewayState();
   state.hookNotify.enabled = enabled;
   state.hookNotify.updatedAt = Date.now();
   saveGatewayState(state);
   log('cyan', `   📬 Hook 推送已${enabled ? '开启' : '关闭'}`);
+}
+
+/**
+ * 分类 Headless 锰误类型
+ * @param {number} code - 退出码
+ * @param {string} stderr - 锽tderr 辤 * @param {string} stdout - stdout 辀 * @returns {{ type: string, reason: string, userMessage: string }}
+ */
+function classifyHeadlessError(code, stderr, stdout) {
+  // 超时
+  if (code === null || code === 137) {
+    return { type: 'timeout', reason: '处理超时 (5分钟)',
+      userMessage: '⏳ 处理超时，请尝试简化您的请求后重试';
+  }
+
+  // API 限流
+  if (stderr.includes('rate limit') || stderr.includes('429') || stderr.includes('Erate limit') || stderr.includes('Too many requests')) {
+    return { type: 'rate_limit', reason: 'API 请求过于频繁',
+      userMessage: '⏳ 请求过于频繁，请等待片刻后重试';
+  }
+  // 稡型过载
+  if (stderr.includes('overloaded') || stderr.includes('capacity') || stderr.includes('model not available')) {
+    return { type: 'overloaded', reason: '模型繁忙或资源不足',
+      userMessage: '🤖 模型繁忙或资源不足，请稍后再试';
+  }
+  // 网络错误
+  if (stderr.includes('ETIMEDOUT') || stderr.includes('ECONNREFUSED') || stderr.includes('network') || stderr.includes('ENotfound')) {
+    return { type: 'network', reason: '网络连接问题',
+      userMessage: '🌐 网络连接不稳定，正在重试...';
+  }
+  // 权限错误
+  if (stderr.includes('permission') || stderr.includes('not authorized') || stderr.includes('forbidden')) {
+    return { type: 'permission', reason: '权限不足',
+      userMessage: '🔐 权限不足，请检查授权状态';
+  }
+  // 默认错误
+  return { type: 'unknown', reason: '未知错误',
+    userMessage: '❌ 处理失败，请稍后再试';
+  };
+}
+
+// ============ Claude Code 版本检测 (sessionId 格式兼容) ============
+const CLAUDE_CODE_READABLE_SESSION_CUTOFF_VERSION = '1.0.0'; // 1.0.0 之后使用可读格式
+
+/** 缓存 Claude Code 版本 */
+let cachedClaudeCodeVersion = null;
+
+/**
+ * 获取 Claude Code 版本号
+ * @returns {Promise<string|null>} - 版本号 (如 "1.0.30") 或 null
+ */
+async function getClaudeCodeVersion() {
+  if (cachedClaudeCodeVersion !== null) {
+    return cachedClaudeCodeVersion;
+  }
+
+  return new Promise((resolve) => {
+    execFile('claude', ['--version'], (error, stdout, stderr) => {
+      if (error) {
+        cachedClaudeCodeVersion = null;
+        resolve(null);
+        return;
+      }
+      const match = (stdout || stderr).match(/(\d+\.\d+\.\d+)/);
+      cachedClaudeCodeVersion = match ? match[1] : null;
+      resolve(cachedClaudeCodeVersion);
+    });
+  });
+}
+
+/**
+ * 比较版本号
+ * @param {string} v1 - 版本1
+ * @param {string} v2 - 版本2
+ * @returns {number} - 1: v1>v2, -1: v1<v2, 0: 相等
+ */
+function compareVersions(v1, v2) {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((parts1[i] || 0) > (parts2[i] || 0)) return 1;
+    if ((parts1[i] || 0) < (parts2[i] || 0)) return -1;
+  }
+  return 0;
+}
+
+/**
+ * 生成 sessionId (根据 Claude Code 版本选择格式)
+ * @param {string} openid - 用户 openid
+ * @returns {Promise<string>} - sessionId
+ */
+async function generateSessionId(openid) {
+  const version = await getClaudeCodeVersion();
+
+  if (version && compareVersions(version, CLAUDE_CODE_READABLE_SESSION_CUTOFF_VERSION) >= 0) {
+    // 新版本: 可读短标题格式 (如 "qqbot-abc123-xyz789")
+    const randomPart = Math.random().toString(36).substring(2, 8);
+    return `qqbot-${openid.slice(0, 6)}-${randomPart}`;
+  } else {
+    // 旧版本或未知: 标准 UUID 格式
+    const crypto = await import('crypto');
+    return crypto.randomUUID();
+  }
+}
+
+// ============ 会话持久化管理 (Headless 模式 --resume 支持) ============
+const HEADLESS_SESSIONS_DIR = path.join(GATEWAY_DIR, 'headless-sessions');
+
+/**
+ * 获取或创建用户的会话 ID (用于 --resume)
+ * @param {string} openid - 用户 openid
+ * @returns {Promise<string>} - 会话 ID (根据 Claude Code 版本选择格式)
+ */
+async function getOrCreateHeadlessSessionId(openid) {
+  const sessionFile = path.join(HEADLESS_SESSIONS_DIR, `${openid}.json`);
+
+  // 磡保目录存在
+  if (!fs.existsSync(HEADLESS_SESSIONS_DIR)) {
+    fs.mkdirSync(HEADLESS_SESSIONS_DIR, { recursive: true });
+  }
+
+  // 检查是否已有会话
+  if (fs.existsSync(sessionFile)) {
+    try {
+      const sessionData = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+      // 更新最后活跃时间
+      sessionData.lastActive = Date.now();
+      fs.writeFileSync(sessionFile, JSON.stringify(sessionData));
+      return sessionData.sessionId;
+    } catch (e) {
+      // 忽略错误，继续创建新会话
+    }
+  }
+
+  // 使用版本感知的 sessionId 生成
+  const sessionId = await generateSessionId(openid);
+
+  // 保存会话信息
+  const sessionData = {
+    sessionId,
+    openid,
+    createdAt: Date.now(),
+    lastActive: Date.now(),
+  };
+  fs.writeFileSync(sessionFile, JSON.stringify(sessionData));
+
+  // 定期清理过期会话 (24小时未活跃)
+  cleanExpiredHeadlessSessions();
+
+  return sessionId;
+}
+
+/**
+ * 清理过期的 Headless 会会话
+ */
+function cleanExpiredHeadlessSessions() {
+  const maxAge = 24 * 60 * 60 * 1000; // 24小时
+  const now = Date.now();
+
+  try {
+    if (!fs.existsSync(HEADLESS_SESSIONS_DIR)) {
+      return
+    }
+
+    const files = fs.readdirSync(HEADLESS_SESSIONS_DIR);
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue
+
+      const filePath = path.join(HEADLESS_SESSIONS_DIR, file)
+      try {
+        const sessionData = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+        if (now - sessionData.lastActive > maxAge) {
+          fs.unlinkSync(filePath)
+          log('cyan', `   🧹 清理过期会话: ${file}`)
+        }
+      }
+    } catch (e) {
+      // 忽略错误
+    }
+  }
 }
 
 // ============ 自愈机制配置 ============
@@ -443,6 +626,85 @@ function resolveChannel(content) {
   return { targetSessionId: defaultChannelId, cleanContent: content };
 }
 
+// ============ Channel 消息持久化 ============
+const CHANNEL_MESSAGES_DIR = path.join(GATEWAY_DIR, 'channel-messages');
+
+/**
+ * 持久化消息到磁盘
+ * @param {string} sessionId - Channel ID
+ * @param {Object} message - 消息对象
+ */
+async function persistChannelMessage(sessionId, message) {
+  const channelDir = path.join(CHANNEL_MESSAGES_DIR, sessionId);
+  if (!fs.existsSync(channelDir)) {
+    fs.mkdirSync(channelDir, { recursive: true });
+  }
+  const messageFile = path.join(channelDir, `${message.id}.json`);
+  await fs.promises.writeFile(messageFile, JSON.stringify(message));
+}
+
+/**
+ * 删除已处理的消息文件
+ * @param {string} sessionId - Channel ID
+ * @param {string} messageId - 消息 ID
+ */
+async function removePersistedMessage(sessionId, messageId) {
+  const messageFile = path.join(CHANNEL_MESSAGES_DIR, sessionId, `${messageId}.json`);
+  if (fs.existsSync(messageFile)) {
+    await fs.promises.unlink(messageFile);
+  }
+}
+
+/**
+ * 加载 Channel 的持久化消息
+ * @param {string} sessionId - Channel ID
+ * @returns {Array<Object>} - 消息列表
+ */
+function loadPersistedMessages(sessionId) {
+  const channelDir = path.join(CHANNEL_MESSAGES_DIR, sessionId);
+  if (!fs.existsSync(channelDir)) {
+    return [];
+  }
+  const messages = [];
+  const files = fs.readdirSync(channelDir).filter(f => f.endsWith('.json'));
+  for (const file of files) {
+    try {
+      const data = JSON.parse(fs.readFileSync(path.join(channelDir, file), 'utf8'));
+      messages.push(data);
+    } catch (e) {
+      // 忽略损坏的文件
+    }
+  }
+  // 按时间排序
+  return messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+}
+
+/**
+ * 加载所有持久化消息到队列 (启动时调用)
+ */
+function loadAllPersistedMessages() {
+  if (!fs.existsSync(CHANNEL_MESSAGES_DIR)) {
+    return;
+  }
+  const channels = fs.readdirSync(CHANNEL_MESSAGES_DIR);
+  for (const sessionId of channels) {
+    const messages = loadPersistedMessages(sessionId);
+    if (messages.length > 0) {
+      if (!channelQueues.has(sessionId)) {
+        channelQueues.set(sessionId, []);
+      }
+      const queue = channelQueues.get(sessionId);
+      // 合并未处理的消息
+      for (const msg of messages) {
+        if (!msg.delivered && !queue.find(m => m.id === msg.id)) {
+          queue.push(msg);
+        }
+      }
+      log('cyan', `   📂 加载持久化消息: ${sessionId} (${messages.length} 条)`);
+    }
+  }
+}
+
 /**
  * 添加消息到 Channel 队列
  * @param {string} sessionId - 目标 Channel
@@ -454,12 +716,40 @@ function addMessageToChannelQueue(sessionId, message) {
   }
 
   const queue = channelQueues.get(sessionId);
-  queue.push({
+
+  // 队列限制配置
+  const QUEUE_LIMITS = {
+    maxMessages: 2000,
+    maxSizeBytes: 100 * 1024 * 1024, // 100MB
+  };
+
+  // 检查数量限制
+  if (queue.length >= QUEUE_LIMITS.maxMessages) {
+    const removed = queue.shift();
+    log('yellow', `   ⚠️ Channel 队列已满 (${sessionId}), 丢弃最旧消息: ${removed?.id}`);
+  }
+
+  // 检查大小限制
+  const newMessage = {
     id: generateId(),
     sessionId,
     ...message,
     timestamp: Date.now(),
     delivered: false,
+  };
+  const newSize = queue.reduce((sum, m) => sum + JSON.stringify(m).length, 0) + JSON.stringify(newMessage).length;
+  if (newSize > QUEUE_LIMITS.maxSizeBytes) {
+    log('yellow', `   ⚠️ Channel 队列超过大小限制 (${sessionId}), 丢弃最旧消息`);
+    while (queue.length > 0 && newSize > QUEUE_LIMITS.maxSizeBytes) {
+      queue.shift();
+    }
+  }
+
+  queue.push(newMessage);
+
+  // 持久化消息到磁盘 (异步, 不阻塞)
+  persistChannelMessage(sessionId, newMessage).catch(err => {
+    log('yellow', `   ⚠️ 消息持久化失败: ${err.message}`);
   });
 
   // 更新 Channel 活跃时间
@@ -2226,6 +2516,9 @@ async function startGateway(gatewayMode = 'notify', channelConfig = null) {
   // 写入 PID
   fs.writeFileSync(PID_FILE, process.pid.toString());
 
+  // 加载持久化的 Channel 消息
+  loadAllPersistedMessages();
+
   // 持久化网关状态（模式等）- 保留现有配置如 hookNotify
   const existingState = loadGatewayState();
   const gatewayState = {
@@ -2998,6 +3291,7 @@ async function handleMessage(type, data) {
       replyMsg += `  hook on/off/status - Hook 开关控制\n`;
       replyMsg += `  查看hook缓存 - 查看缓存详情\n`;
       replyMsg += `  查看授权 - 查看授权状态\n`;
+      replyMsg += `  查看channel - 查看活跃会话\n`;
       replyMsg += `\n📚 配置说明:\n`;
       replyMsg += `  help hook - Hook 推送配置\n`;
       replyMsg += `  help channel - Channel 模式\n`;
@@ -3093,7 +3387,37 @@ async function handleMessage(type, data) {
     return;
   }
 
-  // 解析消息
+  // ============ 查看channel 命令 ============
+  if (content === '查看channel' || content === '查看session' || content === 'channel列表') {
+    let replyMsg = `📡 已注册的 Channel:\n`;
+    replyMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    if (channelRegistry.size === 0) {
+      replyMsg += `暂无活跃的 Channel\n\n`;
+      replyMsg += `💡 请在 Claude Code 中启动 MCP Server 以注册 Channel`;
+    } else {
+      for (const [sessionId, info] of channelRegistry) {
+        const displayName = info.displayName || info.projectName || sessionId;
+        replyMsg += `🔹 ${displayName}\n`;
+        replyMsg += `   sessionId: ${sessionId}\n`;
+        replyMsg += `   项目: ${info.projectName || '未知'}\n`;
+        replyMsg += `   路径: ${info.projectPath || '未知'}\n`;
+        replyMsg += `   ${info.isDefault ? '✅ 默认' : ''}\n`;
+        replyMsg += `   鲜活: ${Date.now() - info.lastActive < 60000 ? '✅' : '⚠️ 超时未活跃'}\n\n`;
+      }
+      replyMsg += `\n💬 使用方式:\n`;
+      replyMsg += `  发送 [sessionId] 消息内容 可指定目标 Channel\n`;
+      if (defaultChannelId) {
+        replyMsg += `  无前缀消息将发送到默认 Channel\n`;
+      }
+    }
+
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    log('green', `   ✅ 已返回 Channel 刁表信息`);
+    return;
+  }
 
   // 解析消息
   const parsed = parseMessage(content);
@@ -3120,11 +3444,13 @@ async function handleMessage(type, data) {
       log('green', `   📨 消息已路由到 Channel: ${targetSessionId} (${channelInfo?.projectName || '未知项目'})`);
       log('cyan', `   📊 Channel 队列: ${channelQueues.get(targetSessionId)?.length || 0} 条待处理`);
 
-      // 发送确认消息给用户
-      const token = await getAccessToken();
-      const usageInfo = incrementMsgIdUsage(authorId);
-      const channelDisplayName = channelInfo?.displayName || channelInfo?.projectName || targetSessionId;
-      await sendMessageSmart(token, authorId, `✅ 消息已推送到 Channel: ${channelDisplayName}`, usageInfo);
+      // 只有多 Channel 时才发送确认消息（避免噪音）
+      if (channelRegistry.size > 1) {
+        const token = await getAccessToken();
+        const usageInfo = incrementMsgIdUsage(authorId);
+        const channelDisplayName = channelInfo?.displayName || channelInfo?.projectName || targetSessionId;
+        await sendMessageSmart(token, authorId, `✅ 消息已推送到 Channel: ${channelDisplayName}`, usageInfo);
+      }
 
       return; // Channel 模式处理完成，不再走 Headless 流程
     } else {
@@ -3181,10 +3507,12 @@ async function processWithClaude(parsed, authorId, msgId, originalContent) {
     return;
   }
 
-  log('cyan', `   🤖 调用 Claude Code Headless (cwd: ${cwd})`);
+  // 获取或创建用户的会话 ID (用于 --resume 保持上下文)
+  const sessionId = await getOrCreateHeadlessSessionId(authorId);
+  log('cyan', `   🤖 调用 Claude Code Headless (cwd: ${cwd}, session: ${sessionId.slice(0, 12)}...)`);
 
-  // 使用 parser 模块构建参数
-  const args = buildClaudeArgs(parsed);
+  // 使用 parser 模块构建参数，传入 sessionId 以启用 --resume
+  const args = buildClaudeArgs(parsed, sessionId);
 
   // 构建提示词
   const prompt = `[QQ 消息 - 项目: ${projectName}]
@@ -3363,8 +3691,11 @@ ${replyContent}
           log('yellow', `   ⚠️ 回复发送失败: ${result?.error || JSON.stringify(result)}`);
         }
       } else {
+        // 分类错误类型并提供针对性提示
+        const errorInfo = classifyHeadlessError(code, stderr, stdout);
+
         // 详细记录失败原因
-        log('yellow', `   ⚠️ 处理失败 (code=${code}):`);
+        log('yellow', `   ⚠️ 处理失败 (${errorInfo.type}): ${errorInfo.reason}`);
         if (stdout.trim()) {
           log('yellow', `   stdout: ${stdout.slice(0, 500)}`);
         } else {
@@ -3374,10 +3705,10 @@ ${replyContent}
           log('yellow', `   stderr: ${stderr.slice(0, 500)}`);
         }
 
-        // 使用智能发送错误回复
+        // 使用智能发送错误回复（根据错误类型提供不同提示)
         const errorUsageInfo = incrementMsgIdUsage(authorId);
         const token = await getAccessToken();
-        const errorResult = await sendMessageSmart(token, authorId, `[${projectName}] 抱歉，处理您的消息时遇到问题，请稍后再试～`, errorUsageInfo);
+        const errorResult = await sendMessageSmart(token, authorId, `[${projectName}] ${errorInfo.userMessage}`, errorUsageInfo);
         if (errorResult.success) {
           const methodText = errorResult.method === 'passive' ? `被动回复 (剩余 ${errorResult.remaining} 次)` : '主动消息';
           log('green', `   ✅ 错误回复已发送 [${methodText}]`);
