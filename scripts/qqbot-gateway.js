@@ -76,6 +76,13 @@ import {
   getOrSetHeadlessConfig,
   resetHeadlessConfig,
   getAuthorizationStats,
+  getUserTimeoutSettings,
+  setUserTimeoutSettings,
+  getGlobalTimeoutConfig,
+  setGlobalTimeoutConfig,
+  getExpiringAuthorizations,
+  refreshAuthorization,
+  cleanupExpiredAuthorizations,
   AUTH_CONSTANTS,
 } from './authorization-state.js';
 
@@ -2696,16 +2703,33 @@ async function handleMessage(type, data) {
     const token = await getAccessToken();
     const usageInfo = incrementMsgIdUsage(authorId);
 
-    authorizeUser({
+    const result = authorizeUser({
       openid: authorId,
       authType: auth.type,
       resource: auth.resource,
       nickname: authorNickname,
     });
 
-    const replyMsg = `✅ 授权成功\n\n已授权: ${auth.label}\n\n现在可以使用所有功能了！`;
+    // 构建授权成功消息，    let replyMsg = `✅ 授权成功\n\n`;
+    replyMsg += `已授权: ${auth.label}\n\n`;
+
+    // 显示过期时间
+    const timeoutSettings = getUserTimeoutSettings(authorId);
+    if (result.expiresAt === 0) {
+      replyMsg += `⏰ 有效期: 永久有效\n`;
+    } else {
+      const expiresDate = new Date(result.expiresAt);
+      replyMsg += `⏰ 有效期至: ${expiresDate.toLocaleString('zh-CN')}\n`;
+      const hoursLeft = Math.round((result.expiresAt - Date.now()) / (60 * 60 * 1000));
+      if (hoursLeft > 0) {
+        replyMsg += `   (剩余 ${hoursLeft} 小时)\n`;
+      }
+    }
+    replyMsg += `\n💡 设置超时: 发送 "设置授权超时 48" (小时)\n`;
+    replyMsg += `现在可以使用所有功能了！`;
+
     await sendMessageSmart(token, authorId, replyMsg, usageInfo);
-    log('green', `   ✅ 快捷授权: ${auth.label}`);
+    log('green', `   ✅ 快捷授权: ${auth.label}, 超时: ${result.timeoutHours}h`);
     return;
   }
 
@@ -2714,6 +2738,7 @@ async function handleMessage(type, data) {
     const userAuth = getUserAuthorization(authorId);
     const token = await getAccessToken();
     const usageInfo = incrementMsgIdUsage(authorId);
+    const timeoutSettings = getUserTimeoutSettings(authorId);
 
     let replyMsg = `📋 授权状态\n`;
     replyMsg += `━━━━━━━━━━━━━━━━━━━━\n`;
@@ -2725,18 +2750,39 @@ async function handleMessage(type, data) {
       replyMsg += `\n📝 详细说明: 发送 "help auth"`;
     } else {
       replyMsg += `授权时间: ${new Date(userAuth.authorizedAt).toLocaleString('zh-CN')}\n`;
-      replyMsg += `最后更新: ${new Date(userAuth.lastAuthorizedAt).toLocaleString('zh-CN')}\n\n`;
+      replyMsg += `最后更新: ${new Date(userAuth.lastAuthorizedAt).toLocaleString('zh-CN')}\n`;
+      replyMsg += `超时设置: ${timeoutSettings.authTimeoutHours} 小时\n\n`;
 
       const mcpTools = userAuth.authorizations?.mcpTools || [];
       const filePaths = userAuth.authorizations?.filePaths || [];
       const networkDomains = userAuth.authorizations?.networkDomains || [];
+      const now = Date.now();
 
+      // 显示 MCP 工具授权及过期状态
       replyMsg += `MCP 工具 (${mcpTools.length}):\n`;
       if (mcpTools.length === 0) {
         replyMsg += `  无\n`;
       } else {
-        for (const tool of mcpTools.slice(0, 5)) {
-          replyMsg += `  • ${tool}\n`;
+        for (const item of mcpTools.slice(0, 5)) {
+          const tool = typeof item === 'string' ? item : item.resource;
+          const expiresAt = typeof item === 'object' ? item.expiresAt : null;
+          let statusIcon = '✅';
+          let expireInfo = '';
+
+          if (expiresAt !== null && expiresAt !== 0) {
+            if (now >= expiresAt) {
+              statusIcon = '❌';
+              expireInfo = ' (已过期)';
+            } else {
+              const hoursLeft = Math.round((expiresAt - now) / (60 * 60 * 1000));
+              if (hoursLeft <= 1) {
+                statusIcon = '⚠️';
+                expireInfo = ` (剩余 ${Math.round((expiresAt - now) / (60 * 1000))} 分钟)`;
+              }
+            }
+          }
+
+          replyMsg += `  ${statusIcon} ${tool}${expireInfo}\n`;
         }
         if (mcpTools.length > 5) {
           replyMsg += `  ... 还有 ${mcpTools.length - 5} 个\n`;
@@ -2755,13 +2801,43 @@ async function handleMessage(type, data) {
         }
       }
 
-      replyMsg += `\nHeadless 配置:\n`;
-      replyMsg += `  模型: ${userAuth.headlessConfig?.model || '默认'}\n`;
-      replyMsg += `  工具: ${(userAuth.headlessConfig?.allowedTools || []).join(', ')}\n`;
+      replyMsg += `\n💡 设置超时: 发送 "设置授权超时 小时数"\n`;
+      replyMsg += `   当前设置: ${timeoutSettings.authTimeoutHours} 小时\n`;
     }
 
     await sendMessageSmart(token, authorId, replyMsg, usageInfo);
     log('green', `   ✅ 已返回授权状态`);
+    return;
+  }
+
+  // 设置授权超时
+  const setTimeoutMatch = trimmedContent.match(/^设置授权超时\s*(\d+)(?:\s*小时)?$/);
+  if (setTimeoutMatch) {
+    const hours = parseInt(setTimeoutMatch[1]);
+    const token = await getAccessToken();
+    const usageInfo = incrementMsgIdUsage(authorId);
+
+    if (isNaN(hours) || hours < 0) {
+      const replyMsg = `❌ 无效的超时时间\n\n请输入正整数，例如: 设置授权超时 48`;
+      await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+      return;
+    }
+
+    setUserTimeoutSettings(authorId, { authTimeoutHours: hours });
+    const timeoutSettings = getUserTimeoutSettings(authorId);
+
+    let replyMsg = `✅ 授权超时设置已更新\n\n`;
+    replyMsg += `新授权有效期: ${hours} 小时\n`;
+    if (hours === 0) {
+      replyMsg += `(永不过期)\n`;
+    } else {
+      replyMsg += `(约 ${hours / 24} 天)\n`;
+    }
+    replyMsg += `\n💡 此设置将应用于后续的新授权\n`;
+    replyMsg += `如需刷新现有授权，请重新发送授权命令`;
+
+    await sendMessageSmart(token, authorId, replyMsg, usageInfo);
+    log('green', `   ✅ 已设置授权超时: ${hours} 小时`);
     return;
   }
 
@@ -3400,7 +3476,7 @@ function initActivationState() {
 }
 
 /**
- * 启动过期检查定时器（每 5 分钟检查一次）
+ * 启动过期检查定时器（每 30 秒检查一次）
  */
 function startExpirationChecker() {
   const CHECK_INTERVAL_MS = 30 * 1000; // 30 秒检查一次（更精准地捕捉提醒时间点）
@@ -3440,12 +3516,54 @@ function startExpirationChecker() {
 
       // 检查并压缩过期消息
       await checkAndCompressExpiredMessages();
+
+      // ===== 新增：授权过期检查与提醒 =====
+      const globalConfig = getGlobalTimeoutConfig();
+      if (globalConfig.enableExpiryReminder) {
+        // 获取即将在 1 小时内过期的授权
+        const expiringAuths = getExpiringAuthorizations(1);
+
+        for (const auth of expiringAuths) {
+          if (auth.status === 'expired') {
+            // 已过期的授权
+            log('yellow', `   ⚠️ 用户 ${auth.nickname || auth.openid} 的授权已过期: ${auth.authType}/${auth.resource}`);
+          } else {
+            // 即将过期的授权 - 发送提醒
+            const minutesLeft = Math.round((auth.expiresAt - Date.now()) / (60 * 1000));
+            log('yellow', `   ⏰ 用户 ${auth.nickname || auth.openid} 授权即将过期 (${minutesLeft} 分钟): ${auth.authType}/${auth.resource}`);
+
+            try {
+              const token = await getAccessToken();
+              const usageInfo = incrementMsgIdUsage(auth.openid);
+              const reminderMsg = `⚠️ 授权即将过期\n\n` +
+                `您授权的「${auth.resource}」将在 ${minutesLeft} 分钟后过期。\n\n` +
+                `过期后需要重新授权才能使用相关功能。\n\n` +
+                `如需延长有效期，请发送:\n` +
+                `• "授权全部" - 重新授权所有功能`;
+
+              const result = await sendMessageSmart(token, auth.openid, reminderMsg, usageInfo);
+              if (result.success) {
+                log('green', `   ✅ 授权过期提醒已发送给 ${auth.nickname || auth.openid}`);
+              }
+            } catch (err) {
+              log('yellow', `   ⚠️ 发送授权过期提醒异常: ${err.message}`);
+            }
+          }
+        }
+
+        // 清理已过期的授权
+        const cleanedCount = cleanupExpiredAuthorizations();
+        if (cleanedCount > 0) {
+          log('cyan', `   🧹 已清理 ${cleanedCount} 个过期授权`);
+        }
+      }
     } catch (err) {
       log('red', `   ❌ 过期检查出错: ${err.message}`);
     }
   }, CHECK_INTERVAL_MS);
 
   log('cyan', `   ⏰ 过期检查定时器已启动 (间隔: ${CHECK_INTERVAL_MS / 1000} 秒, 提醒时间点: 5/3/1 分钟)`);
+  log('cyan', `   🔐 授权过期提醒: ${getGlobalTimeoutConfig().enableExpiryReminder ? '已启用' : '已禁用'}`);
 }
 
 /**
