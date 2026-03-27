@@ -313,47 +313,75 @@ async function generateSessionId(openid) {
 const HEADLESS_SESSIONS_DIR = path.join(GATEWAY_DIR, 'headless-sessions');
 
 /**
- * 获取或创建用户的会话 ID (用于 --resume)
+ * 获取或创建用户的会话信息 (用于 --resume)
  * @param {string} openid - 用户 openid
- * @returns {Promise<string>} - 会话 ID (根据 Claude Code 版本选择格式)
+ * @returns {Promise<{sessionId: string|null, isNew: boolean}>} - 会话信息
+ *   - sessionId: 已建立的会话 ID (新会话返回 null)
+ *   - isNew: 是否是新会话 (需要首次对话建立)
  */
 async function getOrCreateHeadlessSessionId(openid) {
   const sessionFile = path.join(HEADLESS_SESSIONS_DIR, `${openid}.json`);
 
-  // 磡保目录存在
+  // 确保目录存在
   if (!fs.existsSync(HEADLESS_SESSIONS_DIR)) {
     fs.mkdirSync(HEADLESS_SESSIONS_DIR, { recursive: true });
   }
 
-  // 检查是否已有会话
+  // 检查是否已有已建立的会话 (有 sessionId 且不是本地生成的临时 ID)
   if (fs.existsSync(sessionFile)) {
     try {
       const sessionData = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
-      // 更新最后活跃时间
-      sessionData.lastActive = Date.now();
-      fs.writeFileSync(sessionFile, JSON.stringify(sessionData));
-      return sessionData.sessionId;
+      // 只有当 sessionId 存在且已被 Claude 确认过 (有 confirmedAt 字段) 才使用 --resume
+      if (sessionData.sessionId && sessionData.confirmedAt) {
+        // 更新最后活跃时间
+        sessionData.lastActive = Date.now();
+        fs.writeFileSync(sessionFile, JSON.stringify(sessionData));
+        return { sessionId: sessionData.sessionId, isNew: false };
+      }
     } catch (e) {
       // 忽略错误，继续创建新会话
     }
   }
 
-  // 使用版本感知的 sessionId 生成
-  const sessionId = await generateSessionId(openid);
-
-  // 保存会话信息
+  // 新会话：不预先生成 sessionId，让 Claude 创建
+  // 保存会话信息标记为待建立
   const sessionData = {
-    sessionId,
+    sessionId: null, // 首次对话后由 Claude 返回
     openid,
     createdAt: Date.now(),
     lastActive: Date.now(),
+    confirmedAt: null, // Claude 确认后设置
   };
   fs.writeFileSync(sessionFile, JSON.stringify(sessionData));
 
   // 定期清理过期会话 (24小时未活跃)
   cleanExpiredHeadlessSessions();
 
-  return sessionId;
+  return { sessionId: null, isNew: true };
+}
+
+/**
+ * 更新用户的会话 ID (首次对话成功后调用)
+ * @param {string} openid - 用户 openid
+ * @param {string} sessionId - Claude 返回的真实会话 ID
+ */
+function updateHeadlessSessionId(openid, sessionId) {
+  const sessionFile = path.join(HEADLESS_SESSIONS_DIR, `${openid}.json`);
+
+  if (!fs.existsSync(sessionFile)) {
+    return;
+  }
+
+  try {
+    const sessionData = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+    sessionData.sessionId = sessionId;
+    sessionData.confirmedAt = Date.now();
+    sessionData.lastActive = Date.now();
+    fs.writeFileSync(sessionFile, JSON.stringify(sessionData));
+    log('cyan', `   📝 会话 ID 已保存: ${sessionId.slice(0, 12)}...`);
+  } catch (e) {
+    log('yellow', `   ⚠️ 保存会话 ID 失败: ${e.message}`);
+  }
 }
 
 /**
@@ -3508,12 +3536,15 @@ async function processWithClaude(parsed, authorId, msgId, originalContent) {
     return;
   }
 
-  // 获取或创建用户的会话 ID (用于 --resume 保持上下文)
-  const sessionId = await getOrCreateHeadlessSessionId(authorId);
-  log('cyan', `   🤖 调用 Claude Code Headless (cwd: ${cwd}, session: ${sessionId.slice(0, 12)}...)`);
+  // 获取或创建用户的会话信息
+  // isNew=true 表示首次对话，不使用 --resume
+  const { sessionId, isNew } = await getOrCreateHeadlessSessionId(authorId);
+  const sessionInfo = isNew ? '新会话' : `resume: ${sessionId.slice(0, 12)}...`;
+  log('cyan', `   🤖 调用 Claude Code Headless (cwd: ${cwd}, ${sessionInfo})`);
 
-  // 使用 parser 模块构建参数，传入 sessionId 以启用 --resume
-  const args = buildClaudeArgs(parsed, sessionId);
+  // 使用 parser 模块构建参数
+  // 新会话不传 sessionId，让 Claude 创建；已建立会话使用 --resume
+  const args = buildClaudeArgs(parsed, isNew ? null : sessionId);
 
   // 构建提示词
   const prompt = `[QQ 消息 - 项目: ${projectName}]
@@ -3596,12 +3627,18 @@ ${originalContent}
         // 提取回复内容
         let replyContent = stdout.trim();
 
-        // 尝试从 stream-json 中提取内容
+        // 尝试从 stream-json 中提取内容和 session_id
+        let extractedSessionId = null;
         try {
           const lines = stdout.split('\n').filter(l => l.trim());
           const contents = [];
           for (const line of lines) {
             const json = JSON.parse(line);
+
+            // 提取 session_id (首次对话需要保存)
+            if (json.session_id && !extractedSessionId) {
+              extractedSessionId = json.session_id;
+            }
 
             // 处理不同类型的 stream-json 消息
             if (json.type === 'content') {
@@ -3618,6 +3655,10 @@ ${originalContent}
           }
           if (contents.length > 0) {
             replyContent = contents.join('');
+          }
+          // 保存 session_id (如果是新会话且成功获取到)
+          if (isNew && extractedSessionId) {
+            updateHeadlessSessionId(authorId, extractedSessionId);
           }
         } catch (e) {
           // 解析失败，检查是否是纯文本
