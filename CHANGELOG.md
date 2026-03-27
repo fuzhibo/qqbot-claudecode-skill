@@ -2,6 +2,17 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.18.2] - 2026-03-27
+
+### 修复
+
+- **Headless 会话恢复修复**: 修复 `--resume` 参数导致的 `No conversation found with session ID` 错误
+  - 新会话首次对话不再使用 `--resume`，让 Claude 创建会话
+  - 对话成功后保存 Claude 返回的真实 session_id
+  - 后续对话才使用 `--resume` 恢复上下文
+  - 新增 `isNew` 标志区分新会话和已建立会话
+  - 新增 `updateHeadlessSessionId()` 函数保存会话 ID
+
 ## [1.18.1] - 2026-03-27
 
 ### 修复
