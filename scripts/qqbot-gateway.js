@@ -217,33 +217,32 @@ function classifyHeadlessError(code, stderr, stdout) {
   // 超时
   if (code === null || code === 137) {
     return { type: 'timeout', reason: '处理超时 (5分钟)',
-      userMessage: '⏳ 处理超时，请尝试简化您的请求后重试';
+      userMessage: '⏳ 处理超时，请尝试简化您的请求后重试' };
   }
 
   // API 限流
   if (stderr.includes('rate limit') || stderr.includes('429') || stderr.includes('Erate limit') || stderr.includes('Too many requests')) {
     return { type: 'rate_limit', reason: 'API 请求过于频繁',
-      userMessage: '⏳ 请求过于频繁，请等待片刻后重试';
+      userMessage: '⏳ 请求过于频繁，请等待片刻后重试' };
   }
   // 稡型过载
   if (stderr.includes('overloaded') || stderr.includes('capacity') || stderr.includes('model not available')) {
     return { type: 'overloaded', reason: '模型繁忙或资源不足',
-      userMessage: '🤖 模型繁忙或资源不足，请稍后再试';
+      userMessage: '🤖 模型繁忙或资源不足，请稍后再试' };
   }
   // 网络错误
   if (stderr.includes('ETIMEDOUT') || stderr.includes('ECONNREFUSED') || stderr.includes('network') || stderr.includes('ENotfound')) {
     return { type: 'network', reason: '网络连接问题',
-      userMessage: '🌐 网络连接不稳定，正在重试...';
+      userMessage: '🌐 网络连接不稳定，正在重试...' };
   }
   // 权限错误
   if (stderr.includes('permission') || stderr.includes('not authorized') || stderr.includes('forbidden')) {
     return { type: 'permission', reason: '权限不足',
-      userMessage: '🔐 权限不足，请检查授权状态';
+      userMessage: '🔐 权限不足，请检查授权状态' };
   }
   // 默认错误
   return { type: 'unknown', reason: '未知错误',
-    userMessage: '❌ 处理失败，请稍后再试';
-  };
+    userMessage: '❌ 处理失败，请稍后再试' };
 }
 
 // ============ Claude Code 版本检测 (sessionId 格式兼容) ============
@@ -366,24 +365,26 @@ function cleanExpiredHeadlessSessions() {
 
   try {
     if (!fs.existsSync(HEADLESS_SESSIONS_DIR)) {
-      return
+      return;
     }
 
     const files = fs.readdirSync(HEADLESS_SESSIONS_DIR);
     for (const file of files) {
-      if (!file.endsWith('.json')) continue
+      if (!file.endsWith('.json')) continue;
 
-      const filePath = path.join(HEADLESS_SESSIONS_DIR, file)
+      const filePath = path.join(HEADLESS_SESSIONS_DIR, file);
       try {
-        const sessionData = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+        const sessionData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
         if (now - sessionData.lastActive > maxAge) {
-          fs.unlinkSync(filePath)
-          log('cyan', `   🧹 清理过期会话: ${file}`)
+          fs.unlinkSync(filePath);
+          log('cyan', `   🧹 清理过期会话: ${file}`);
         }
+      } catch (e) {
+        // 忽略解析错误
       }
-    } catch (e) {
-      // 忽略错误
     }
+  } catch (e) {
+    // 忽略错误
   }
 }
 

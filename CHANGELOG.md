@@ -2,6 +2,15 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.18.1] - 2026-03-27
+
+### 修复
+
+- **语法错误修复**: `qqbot-gateway.js` 中多处对象字面量语法错误
+  - `classifyHeadlessError()` 函数返回对象缺少闭合大括号
+  - `cleanExpiredHeadlessSessions()` 函数 try/catch 结构错误
+  - 修复导致网关无法启动的 SyntaxError
+
 ## [1.18.0] - 2026-03-27
 
 ### 稳定性增强
