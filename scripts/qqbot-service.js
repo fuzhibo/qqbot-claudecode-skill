@@ -34,6 +34,7 @@ const ACTIVATION_STATE_FILE = path.join(GATEWAY_DIR, 'activation-state.json');
 const PID_FILE = path.join(GATEWAY_DIR, 'gateway.pid');
 const LOG_FILE = path.join(GATEWAY_DIR, 'gateway.log');
 const SESSIONS_DIR = path.join(GATEWAY_DIR, 'sessions');
+const HEADLESS_SESSIONS_DIR = path.join(GATEWAY_DIR, 'headless-sessions');
 const GATEWAY_STATE_FILE = path.join(GATEWAY_DIR, 'gateway-state.json');
 const GATEWAY_SCRIPT = path.join(__dirname, 'qqbot-gateway.js');
 
@@ -41,7 +42,7 @@ const GATEWAY_SCRIPT = path.join(__dirname, 'qqbot-gateway.js');
 const MIN_CHANNEL_VERSION = '2.1.80';
 
 // 确保目录存在
-[GATEWAY_DIR, SESSIONS_DIR].forEach(dir => {
+[GATEWAY_DIR, SESSIONS_DIR, HEADLESS_SESSIONS_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -161,6 +162,45 @@ function getRecentLogs(lines = 20) {
     // 忽略
   }
   return [];
+}
+
+/**
+ * 获取 Headless 会话统计
+ * @returns {{ count: number, sessions: Array, activeCount: number }}
+ */
+function getHeadlessSessions() {
+  if (!fs.existsSync(HEADLESS_SESSIONS_DIR)) {
+    return { count: 0, sessions: [], activeCount: 0 };
+  }
+
+  const now = Date.now();
+  const maxAge = 24 * 60 * 60 * 1000; // 24 小时
+
+  const files = fs.readdirSync(HEADLESS_SESSIONS_DIR).filter(f => f.endsWith('.json'));
+  const sessions = files.map(file => {
+    const filePath = path.join(HEADLESS_SESSIONS_DIR, file);
+    const data = readJsonFile(filePath);
+    const openid = file.replace('.json', '');
+    const lastActive = data?.lastActive || data?.createdAt || 0;
+    const isActive = (now - lastActive) < maxAge;
+
+    return {
+      openid,
+      sessionId: data?.sessionId || null,
+      lastActive: lastActive ? new Date(lastActive).toISOString() : null,
+      createdAt: data?.createdAt ? new Date(data.createdAt).toISOString() : null,
+      confirmed: !!data?.confirmedAt,
+      isActive
+    };
+  }).filter(s => s.sessionId); // 只返回有 sessionId 的会话
+
+  const activeCount = sessions.filter(s => s.isActive).length;
+
+  return {
+    count: sessions.length,
+    sessions,
+    activeCount
+  };
 }
 
 // ============ Channel 支持检测 ============
@@ -373,6 +413,8 @@ async function getStatusData() {
       details: projects.projects
     },
     sessions,
+    // Headless 会话统计（实际可复用的 Claude Code 会话）
+    headlessSessions: getHeadlessSessions(),
     activation: {
       status: activationState.gatewayStatus,
       activeUserCount: activeUsers.length,
@@ -443,6 +485,23 @@ function formatStatusHuman(data) {
   lines.push(`激活状态: ${data.activation.status}`);
   lines.push(`活跃用户: ${data.activation.activeUserCount} 人`);
   lines.push(`待发送消息: ${data.activation.pendingMessageCount} 条`);
+
+  // Headless 会话统计
+  if (data.headlessSessions) {
+    const hs = data.headlessSessions;
+    lines.push('');
+    lines.push('━━━ Headless 会话 ━━━');
+    lines.push(`会话数量: ${hs.count} 个 (${hs.activeCount} 个活跃)`);
+    if (hs.sessions && hs.sessions.length > 0) {
+      hs.sessions.slice(0, 3).forEach(s => {
+        const statusIcon = s.isActive ? '🟢' : '🔴';
+        lines.push(`  ${statusIcon} ${s.openid.slice(0, 12)}... ${s.confirmed ? '✓' : '⏳'}`);
+      });
+      if (hs.sessions.length > 3) {
+        lines.push(`  ... 还有 ${hs.sessions.length - 3} 个会话`);
+      }
+    }
+  }
 
   // Channel 支持状态
   lines.push('');

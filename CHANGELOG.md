@@ -2,6 +2,36 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.19.0] - 2026-03-28
+
+### 新功能
+
+- **原生 Channel 模式支持**: 支持 Claude Code 原生 Channel 插件模式
+  - 支持 `--channels server:qqbot-mcp` 启动方式
+  - 实时消息推送（WebSocket）
+  - Gateway 桥接模式（HTTP 轮询）
+
+- **权限中继功能**: 支持从 QQ 批准/拒绝 Claude Code 权限请求
+  - Claude Code 发送权限请求到 QQ
+  - 用户在 QQ 中回复 `yes/no <request_id>` 批准或拒绝
+  - 自动发送裁决回 Claude Code
+
+### 修复
+
+- **ESM 模块格式**: MCP Server 使用 ESM 格式，兼容 `package.json` 的 `"type": "module"`
+  - 添加 `createRequire` shim 支持 CommonJS 依赖
+  - 修复 `require is not defined` 错误
+
+- **Permission Verdict 格式**: 修复权限裁决通知格式
+  - 使用 `behavior: 'allow'|'deny'` 替代 `approved` 字段
+  - 符合 Claude Code 官方 Channel 文档规范
+
+### 技术改进
+
+- **Gateway 可用性检测**: MCP Server 启动时检测 Gateway 是否可用
+  - 不可用时提示用户启动 Gateway
+  - 不阻塞 MCP Server 启动，允许稍后连接
+
 ## [1.18.2] - 2026-03-27
 
 ### 修复

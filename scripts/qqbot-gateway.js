@@ -20,7 +20,7 @@
  */
 
 import { spawn, execFile } from 'child_process';
-import WebSocket from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
 import http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -494,6 +494,16 @@ let defaultChannelId = null;
  */
 let activeMode = 'notify'; // 默认通知模式
 
+// ============ Channel WebSocket 实时推送 ============
+const CHANNEL_WEBSOCKET_PORT = 3311;
+let channelWss = null;
+
+/**
+ * Channel WebSocket 连接管理
+ * @type {Map<string, { ws: WebSocket, registeredAt: number, lastActive: number }>}
+ */
+const channelWsClients = new Map();
+
 // ============ Channel 管理函数 ============
 
 /**
@@ -784,6 +794,14 @@ function addMessageToChannelQueue(sessionId, message) {
   // 更新 Channel 活跃时间
   if (channelRegistry.has(sessionId)) {
     channelRegistry.get(sessionId).lastActive = Date.now();
+  }
+
+  // 尝试通过 WebSocket 实时推送（替代 HTTP 轮询）
+  const pushed = pushToChannelWebSocket(sessionId, newMessage);
+  if (pushed) {
+    // WebSocket 推送成功，标记为已投递
+    newMessage.delivered = true;
+    log('cyan', `   ⚡ WebSocket 实时推送成功: ${sessionId.slice(0, 12)}...`);
   }
 }
 
@@ -2528,6 +2546,110 @@ function startInternalApi() {
   });
 }
 
+/**
+ * 启动 Channel WebSocket Server
+ * 用于实时推送消息到 MCP Server（替代 HTTP 轮询）
+ */
+function startChannelWebSocketServer() {
+  if (channelWss) {
+    log('yellow', '⚠️ Channel WebSocket Server 已在运行');
+    return;
+  }
+
+  channelWss = new WebSocketServer({ port: CHANNEL_WEBSOCKET_PORT });
+
+  channelWss.on('connection', (ws, req) => {
+    let clientSessionId = null;
+
+    log('cyan', `   🔌 新的 WebSocket 连接: ${req.socket.remoteAddress}`);
+
+    ws.on('message', (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+
+        // 处理注册消息
+        if (msg.type === 'register' && msg.sessionId) {
+          clientSessionId = msg.sessionId;
+          channelWsClients.set(clientSessionId, {
+            ws,
+            registeredAt: Date.now(),
+            lastActive: Date.now()
+          });
+          log('green', `   ✅ Channel WS 已注册: ${clientSessionId.slice(0, 12)}...`);
+
+          // 发送确认
+          ws.send(JSON.stringify({
+            type: 'registered',
+            sessionId: clientSessionId,
+            timestamp: Date.now()
+          }));
+        }
+
+        // 处理心跳消息
+        if (msg.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+          if (clientSessionId && channelWsClients.has(clientSessionId)) {
+            channelWsClients.get(clientSessionId).lastActive = Date.now();
+          }
+        }
+      } catch (e) {
+        log('yellow', `   ⚠️ 无效的 WebSocket 消息: ${e.message}`);
+      }
+    });
+
+    ws.on('close', () => {
+      if (clientSessionId) {
+        channelWsClients.delete(clientSessionId);
+        log('yellow', `   ⚠️ Channel WS 已断开: ${clientSessionId.slice(0, 12)}...`);
+      }
+    });
+
+    ws.on('error', (err) => {
+      log('red', `   ❌ WebSocket 错误: ${err.message}`);
+    });
+  });
+
+  channelWss.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      log('yellow', `⚠️ Channel WebSocket 端口 ${CHANNEL_WEBSOCKET_PORT} 已被占用`);
+    } else {
+      log('red', `❌ Channel WebSocket 错误: ${err.message}`);
+    }
+  });
+
+  log('green', `✅ Channel WebSocket 已启动: ws://127.0.0.1:${CHANNEL_WEBSOCKET_PORT}`);
+}
+
+/**
+ * 向 Channel WebSocket 客户端实时推送消息
+ * @param {string} sessionId - 目标 Channel sessionId
+ * @param {Object} message - 消息对象
+ */
+function pushToChannelWebSocket(sessionId, message) {
+  const client = channelWsClients.get(sessionId);
+  if (!client || !client.ws) {
+    return false;
+  }
+
+  if (client.ws.readyState !== WebSocket.OPEN) {
+    channelWsClients.delete(sessionId);
+    return false;
+  }
+
+  try {
+    client.ws.send(JSON.stringify({
+      type: 'channel_message',
+      data: message,
+      timestamp: Date.now()
+    }));
+    client.lastActive = Date.now();
+    return true;
+  } catch (e) {
+    log('yellow', `   ⚠️ WebSocket 推送失败: ${e.message}`);
+    return false;
+  }
+}
+
 async function startGateway(gatewayMode = 'notify', channelConfig = null) {
   mode = gatewayMode;
   running = true;
@@ -2570,6 +2692,8 @@ async function startGateway(gatewayMode = 'notify', channelConfig = null) {
     startExpirationChecker();
     // 启动内部 HTTP API (供 hook 调用)
     startInternalApi();
+    // 启动 Channel WebSocket Server (实时推送)
+    startChannelWebSocketServer();
     // 启动健康检查
     startHealthCheck();
     // 启动 Hook 批处理定时器

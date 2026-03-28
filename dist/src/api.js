@@ -1,3 +1,5 @@
+import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+
 // src/utils/upload-cache.ts
 import * as crypto from "node:crypto";
 var cache = /* @__PURE__ */ new Map();

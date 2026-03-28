@@ -197,11 +197,10 @@ async function handlePermissionReply(content, senderOpenid) {
         method: "notifications/claude/channel/permission",
         params: {
           request_id: requestId,
-          approved,
-          responder: senderOpenid
+          behavior: approved ? "allow" : "deny"
         }
       });
-      console.error(`[permission-relay] Sent verdict: ${approved ? "approved" : "denied"} for ${requestId}`);
+      console.error(`[permission-relay] Sent verdict: ${approved ? "allow" : "deny"} for ${requestId}`);
     } catch (error) {
       console.error("[permission-relay] Failed to send verdict:", error);
     }

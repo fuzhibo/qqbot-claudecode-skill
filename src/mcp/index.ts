@@ -37,6 +37,21 @@ import {
   unregisterChannel,
   isGatewayRegistered,
 } from './channel-pusher.js';
+import { initPermissionRelay, handlePermissionRequest } from './permission-relay.js';
+import { z } from 'zod';
+
+// ============ Permission Request Schema ============
+
+/** Claude Code 权限请求通知 Schema */
+const PermissionRequestSchema = z.object({
+  method: z.literal('notifications/claude/channel/permission_request'),
+  params: z.object({
+    request_id: z.string(),
+    tool_name: z.string(),
+    description: z.string(),
+    input_preview: z.string().optional(),
+  }),
+});
 
 // ============ 版本检测与模式切换 ============
 
@@ -351,6 +366,23 @@ async function run(): Promise<void> {
   // 初始化机器人
   initializeBots();
 
+  // Channel 模式：检测 Gateway 可用性
+  if (operationMode === 'channel') {
+    const gatewayAvailable = await checkGatewayAvailable();
+
+    if (!gatewayAvailable) {
+      console.error('[qqbot-mcp] ⚠️ Gateway 不可用');
+      console.error('[qqbot-mcp] 请先启动 QQ Bot Gateway:');
+      console.error('[qqbot-mcp]   node scripts/qqbot-service.js start --mode auto --channel');
+      console.error('[qqbot-mcp] 或使用 skill:');
+      console.error('[qqbot-mcp]   /qqbot-service start --mode auto --channel');
+      console.error('[qqbot-mcp] MCP Server 将继续运行，但消息推送功能不可用');
+      console.error('[qqbot-mcp] Gateway 启动后会自动重连');
+    } else {
+      console.error('[qqbot-mcp] ✅ Gateway 可用');
+    }
+  }
+
   // 创建 Stdio 传输层
   const transport = new StdioServerTransport();
 
@@ -361,6 +393,23 @@ async function run(): Promise<void> {
 
   // Channel 模式：启动推送器并注册到 Gateway
   if (operationMode === 'channel') {
+    // 初始化权限中继模块
+    initPermissionRelay(server);
+
+    // 注册权限请求通知处理器
+    // Claude Code 发送 notifications/claude/channel/permission_request 时触发
+    server.setNotificationHandler(PermissionRequestSchema, async (notification) => {
+      console.error(`[qqbot-mcp] 🔐 Received permission request: ${notification.params.request_id}`);
+      console.error(`[qqbot-mcp]    Tool: ${notification.params.tool_name}`);
+      await handlePermissionRequest({
+        request_id: notification.params.request_id,
+        tool_name: notification.params.tool_name,
+        description: notification.params.description,
+        input_preview: notification.params.input_preview,
+      });
+    });
+    console.error('[qqbot-mcp] ✅ Permission request handler registered');
+
     // 启动 Channel 推送器
     startChannelPusher(server, {
       registerToGateway: true,

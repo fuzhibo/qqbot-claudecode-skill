@@ -11,11 +11,16 @@
  */
 
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import WebSocket from 'ws';
 import { fetchAllUnreadTasks, clearReadMessages } from './message-queue.js';
+import { handlePermissionReply, isPermissionReply } from './permission-relay.js';
 import type { PendingTask } from './types.js';
 
 /** Gateway API 地址 */
 const GATEWAY_API_URL = process.env.QQBOT_GATEWAY_URL || 'http://127.0.0.1:3310';
+
+/** Gateway WebSocket 地址 */
+const GATEWAY_WS_URL = process.env.QQBOT_GATEWAY_WS_URL || 'ws://127.0.0.1:3311';
 
 /** Channel 消息元数据 */
 interface ChannelMeta {
@@ -103,6 +108,148 @@ let sessionId: string | null = null;
 let projectPath: string | null = null;
 let projectName: string | null = null;
 let isRegisteredWithGateway = false;
+
+/** WebSocket 客户端状态 */
+let wsClient: WebSocket | null = null;
+let wsConnected = false;
+let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * 连接到 Gateway WebSocket
+ */
+async function connectToGatewayWebSocket(): Promise<void> {
+  if (wsClient && wsConnected) {
+    return; // 已连接
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      console.error(`[channel-pusher] Connecting to Gateway WebSocket: ${GATEWAY_WS_URL}`);
+      wsClient = new WebSocket(GATEWAY_WS_URL);
+
+      wsClient.on('open', () => {
+        console.error('[channel-pusher] ✅ WebSocket connected');
+        wsConnected = true;
+
+        // 发送注册消息
+        if (sessionId) {
+          wsClient!.send(JSON.stringify({
+            type: 'register',
+            sessionId
+          }));
+        }
+
+        // 启动心跳
+        startHeartbeat();
+
+        resolve();
+      });
+
+      wsClient.on('message', (data) => {
+        try {
+          const msg = JSON.parse(data.toString());
+
+          if (msg.type === 'registered') {
+            console.error(`[channel-pusher] ✅ Registered to Gateway WS: ${msg.sessionId?.slice(0, 12)}...`);
+          } else if (msg.type === 'channel_message') {
+            // 收到实时消息，直接推送
+            handleRealtimeMessage(msg.data);
+          } else if (msg.type === 'pong') {
+            // 心跳响应
+          }
+        } catch (e) {
+          console.error('[channel-pusher] Invalid WS message:', e);
+        }
+      });
+
+      wsClient.on('close', () => {
+        console.error('[channel-pusher] ⚠️ WebSocket disconnected');
+        wsConnected = false;
+        wsClient = null;
+        stopHeartbeat();
+        scheduleReconnect();
+      });
+
+      wsClient.on('error', (err) => {
+        console.error('[channel-pusher] ❌ WebSocket error:', err.message);
+        wsConnected = false;
+        reject(err);
+      });
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+/** 心跳定时器 */
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+function startHeartbeat(): void {
+  if (heartbeatTimer) return;
+  heartbeatTimer = setInterval(() => {
+    if (wsClient && wsConnected) {
+      wsClient.send(JSON.stringify({ type: 'ping' }));
+    }
+  }, 30000); // 30 秒心跳
+}
+
+function stopHeartbeat(): void {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
+function scheduleReconnect(): void {
+  if (wsReconnectTimer) return;
+  wsReconnectTimer = setTimeout(() => {
+    wsReconnectTimer = null;
+    if (isRunning && sessionId) {
+      console.error('[channel-pusher] 🔄 Attempting WebSocket reconnect...');
+      connectToGatewayWebSocket().catch(e => {
+        console.error('[channel-pusher] Reconnect failed:', e.message);
+      });
+    }
+  }, 3000); // 3 秒后重连
+}
+
+/**
+ * 处理实时消息（WebSocket 推送）
+ */
+async function handleRealtimeMessage(msg: any): Promise<void> {
+  if (!mcpServer || !isRunning) return;
+
+  try {
+    const content = msg.content || msg.message || '';
+    const sender = msg.sender || msg.authorId || 'Unknown';
+
+    // 检测是否是权限回复
+    if (isPermissionReply(content)) {
+      const result = await handlePermissionReply(content, sender);
+      if (result.handled) {
+        console.error(`[channel-pusher] 🔐 Permission reply handled: ${result.request_id} -> ${result.approved ? 'approved' : 'denied'}`);
+        return; // 权限回复已处理，不再作为普通消息推送
+      }
+    }
+
+    // 转换为 Channel notification 格式
+    const notification: ChannelNotificationParams = {
+      content,
+      meta: {
+        chat_id: msg.chatId || msg.sourceId || '',
+        sender,
+        type: msg.type || 'user',
+        message_id: msg.message_id || msg.id,
+        timestamp: msg.timestamp || Date.now()
+      }
+    };
+
+    await sendChannelNotification(mcpServer, notification);
+    console.error(`[channel-pusher] ⚡ Real-time push: ${content.slice(0, 30)}...`);
+  } catch (e) {
+    console.error('[channel-pusher] Real-time push error:', e);
+  }
+}
 
 /**
  * 添加 chat_id 前缀（内部函数，用户无需关心）
@@ -344,11 +491,21 @@ export function startChannelPusher(
 
   console.error(`[channel-pusher] Started (interval: ${config.interval}ms)`);
 
+  // 设置进程退出时的优雅关闭
+  setupGracefulShutdown();
+
   // 如果配置了注册到 Gateway 且有 sessionId，则注册
   if (config.registerToGateway && sessionId) {
     registerChannel(sessionId, projectPath ?? process.cwd(), projectName ?? undefined).then(success => {
       if (success) {
         console.error('[channel-pusher] ✅ Registered to Gateway successfully');
+
+        // 尝试建立 WebSocket 实时连接
+        connectToGatewayWebSocket().then(() => {
+          console.error('[channel-pusher] ✅ WebSocket real-time connection established');
+        }).catch(err => {
+          console.error(`[channel-pusher] ⚠️ WebSocket connection failed, falling back to polling: ${err.message}`);
+        });
       } else {
         console.error('[channel-pusher] ⚠️ Failed to register to Gateway');
       }
@@ -356,6 +513,35 @@ export function startChannelPusher(
       console.error(`[channel-pusher] ❌ Gateway registration error: ${err}`);
     });
   }
+}
+
+/** 优雅关闭标志，避免重复处理 */
+let shutdownHandled = false;
+
+/**
+ * 设置进程退出时的优雅关闭
+ */
+function setupGracefulShutdown(): void {
+  const handleShutdown = async (signal: string) => {
+    if (shutdownHandled) return;
+    shutdownHandled = true;
+
+    console.error(`[channel-pusher] Received ${signal}, shutting down gracefully...`);
+
+    try {
+      await stopChannelPusher();
+      console.error('[channel-pusher] ✅ Graceful shutdown complete');
+    } catch (err) {
+      console.error('[channel-pusher] ❌ Error during shutdown:', err);
+    }
+
+    // 给一点时间让日志输出完成
+    setTimeout(() => process.exit(0), 100);
+  };
+
+  process.on('SIGINT', () => handleShutdown('SIGINT'));
+  process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+  process.on('SIGHUP', () => handleShutdown('SIGHUP'));
 }
 
 /**

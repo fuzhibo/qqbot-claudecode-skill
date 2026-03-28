@@ -215,18 +215,18 @@ export async function handlePermissionReply(
   // }
 
   // 发送权限裁决到 Claude Code
+  // 官方格式: { request_id, behavior: 'allow' | 'deny' }
   if (mcpServer) {
     try {
       await mcpServer.notification({
         method: 'notifications/claude/channel/permission',
         params: {
           request_id: requestId,
-          approved,
-          responder: senderOpenid,
+          behavior: approved ? 'allow' : 'deny',
         },
       });
 
-      console.error(`[permission-relay] Sent verdict: ${approved ? 'approved' : 'denied'} for ${requestId}`);
+      console.error(`[permission-relay] Sent verdict: ${approved ? 'allow' : 'deny'} for ${requestId}`);
     } catch (error) {
       console.error('[permission-relay] Failed to send verdict:', error);
     }

@@ -48,11 +48,12 @@ const externalNodeModules = [
 
 // 打包配置
 const buildConfigs = [
-  // MCP Server 主入口
+  // MCP Server 主入口 - 使用 ESM 格式以兼容 package.json 的 "type": "module"
   {
     entry: 'src/mcp/index.ts',
     outfile: 'dist/mcp/index.js',
-    external: ['dotenv'], // dotenv 通过环境变量或可选加载
+    external: ['dotenv'],
+    format: 'esm',
   },
   // Channel Pusher 模块
   {
@@ -100,8 +101,10 @@ async function buildBundle(config) {
       mainFields: ['module', 'main'],
       conditions: config.format === 'esm' ? ['import', 'node', 'default'] : ['require', 'node', 'default'],
       logLevel: 'warning',
-      // ESM 模块不需要 shebang
-      banner: config.format === 'esm' ? {} : { js: '#!/usr/bin/env node' },
+      // ESM 模块需要 createRequire shim 以支持 CommonJS 依赖
+      banner: config.format === 'esm' ? {
+        js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`
+      } : { js: '#!/usr/bin/env node' },
     });
 
     const stats = fs.statSync(outPath);
