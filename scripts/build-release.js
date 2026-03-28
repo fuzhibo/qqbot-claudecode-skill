@@ -47,6 +47,76 @@ function getCurrentVersion() {
   return pkg.version;
 }
 
+/**
+ * 获取所有版本文件中的版本号
+ * @returns {{package: string, plugin: string|null, marketplace: string|null, allMatch: boolean, mismatched: string[]}}
+ */
+function getAllVersions() {
+  const versions = {
+    package: getCurrentVersion(),
+    plugin: null,
+    marketplace: null,
+    allMatch: true,
+    mismatched: [],
+  };
+
+  // 检查 plugin.json
+  if (fs.existsSync(PLUGIN_JSON)) {
+    const plugin = JSON.parse(fs.readFileSync(PLUGIN_JSON, 'utf-8'));
+    versions.plugin = plugin.version;
+    if (versions.plugin !== versions.package) {
+      versions.allMatch = false;
+      versions.mismatched.push(`plugin.json: ${versions.plugin}`);
+    }
+  }
+
+  // 检查 marketplace.json (metadata.version)
+  if (fs.existsSync(MARKETPLACE_JSON)) {
+    const marketplace = JSON.parse(fs.readFileSync(MARKETPLACE_JSON, 'utf-8'));
+    versions.marketplace = marketplace.metadata?.version;
+    if (versions.marketplace && versions.marketplace !== versions.package) {
+      versions.allMatch = false;
+      versions.mismatched.push(`marketplace.json: ${versions.marketplace}`);
+    }
+  }
+
+  return versions;
+}
+
+/**
+ * 验证并修复版本一致性
+ * @param {string} targetVersion - 目标版本号
+ * @returns {boolean} - 是否需要修复
+ */
+function verifyAndFixVersions(targetVersion) {
+  const versions = getAllVersions();
+  const issues = [];
+
+  if (versions.package !== targetVersion) {
+    issues.push(`package.json: ${versions.package} → ${targetVersion}`);
+  }
+  if (versions.plugin && versions.plugin !== targetVersion) {
+    issues.push(`plugin.json: ${versions.plugin} → ${targetVersion}`);
+  }
+  if (versions.marketplace && versions.marketplace !== targetVersion) {
+    issues.push(`marketplace.json: ${versions.marketplace} → ${targetVersion}`);
+  }
+
+  if (issues.length > 0) {
+    log('yellow', '  ⚠️  发现版本不一致:');
+    issues.forEach(issue => log('dim', `    - ${issue}`));
+    log('cyan', '\n  🔧 自动修复版本不一致...\n');
+
+    // 强制更新所有文件到目标版本
+    updatePackageJson(targetVersion);
+    updatePluginJson(targetVersion);
+    updateMarketplaceJson(targetVersion);
+    return true;
+  }
+
+  return false;
+}
+
 function parseVersion(version) {
   const [major, minor, patch] = version.split('.').map(Number);
   return { major, minor, patch };
@@ -230,6 +300,7 @@ function commitRelease(version) {
 function showStatus() {
   const currentVersion = getCurrentVersion();
   const { major, minor, patch } = parseVersion(currentVersion);
+  const versions = getAllVersions();
 
   log('cyan', '\n📦 版本状态\n');
   log('white', `  当前版本: ${currentVersion}`);
@@ -237,7 +308,25 @@ function showStatus() {
   log('dim', `  重要版本 (minor): ${minor}`);
   log('dim', `  小版本 (patch): ${patch}`);
 
-  log('cyan', '\n📋 下次版本更新预览\n');
+  // 显示版本一致性检查
+  log('cyan', '\n🔍 版本一致性检查\n');
+  log('dim', `  package.json: ${versions.package}`);
+  if (versions.plugin) {
+    const status = versions.plugin === versions.package ? '✅' : '❌';
+    log('dim', `  plugin.json: ${versions.plugin} ${status}`);
+  }
+  if (versions.marketplace) {
+    const status = versions.marketplace === versions.package ? '✅' : '❌';
+    log('dim', `  marketplace.json: ${versions.marketplace} ${status}`);
+  }
+
+  if (versions.allMatch) {
+    log('green', '\n  ✅ 所有版本文件一致\n');
+  } else {
+    log('red', '\n  ❌ 版本不一致！请运行: node scripts/build-release.js --fix\n');
+  }
+
+  log('cyan', '📋 下次版本更新预览\n');
   log('dim', `  major: ${bumpVersion(currentVersion, 'major')} (重大变更)`);
   log('dim', `  minor: ${bumpVersion(currentVersion, 'minor')} (新功能)`);
   log('dim', `  patch: ${bumpVersion(currentVersion, 'patch')} (小修复)`);
@@ -324,6 +413,33 @@ async function main() {
     return;
   }
 
+  if (command === '--verify' || command === '-v') {
+    const versions = getAllVersions();
+    if (versions.allMatch) {
+      log('green', '\n✅ 所有版本文件一致\n');
+      log('dim', `  package.json: ${versions.package}`);
+      if (versions.plugin) log('dim', `  plugin.json: ${versions.plugin}`);
+      if (versions.marketplace) log('dim', `  marketplace.json: ${versions.marketplace}`);
+    } else {
+      log('red', '\n❌ 版本不一致！\n');
+      log('dim', `  package.json: ${versions.package}`);
+      if (versions.plugin) log('dim', `  plugin.json: ${versions.plugin}`);
+      if (versions.marketplace) log('dim', `  marketplace.json: ${versions.marketplace}`);
+      log('cyan', '\n运行以下命令修复: node scripts/build-release.js --fix\n');
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (command === '--fix' || command === '-f') {
+    const versions = getAllVersions();
+    const targetVersion = versions.package; // 以 package.json 为准
+    log('cyan', `\n🔧 修复版本一致性 (目标: ${targetVersion})\n`);
+    verifyAndFixVersions(targetVersion);
+    log('green', '\n✅ 版本已修复\n');
+    return;
+  }
+
   if (command === '--changelog') {
     const type = args[1] || 'patch';
     updateChangelog(getCurrentVersion(), type);
@@ -336,8 +452,10 @@ async function main() {
     log('dim', '  minor - 重要版本更新 (新功能)');
     log('dim', '  patch - 小版本更新 (Bug 修复)\n');
     log('dim', '选项:');
-    log('dim', '  --check     检查当前版本状态');
-    log('dim', '  --changelog 仅更新 CHANGELOG\n');
+    log('dim', '  --check, -c   检查当前版本状态');
+    log('dim', '  --verify, -v  验证版本一致性');
+    log('dim', '  --fix, -f     修复版本不一致');
+    log('dim', '  --changelog   仅更新 CHANGELOG\n');
     log('cyan', '📌 本项目是 Claude Code 插件，无需发布到 npm\n');
     showStatus();
     process.exit(1);
