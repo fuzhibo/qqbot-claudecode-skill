@@ -167,7 +167,9 @@ export interface GlobalConfig {
   autoStartGateway: boolean;
   /** SessionEnd 时是否发送离线通知 */
   autoNotifyOffline: boolean;
-  /** 接收离线通知的 QQ 目标 ID */
+  /** .env 文件路径（用于读取 QQBOT_DEFAULT_TARGET_ID 等配置） */
+  envFile?: string;
+  /** 接收离线通知的 QQ 目标 ID（如未设置则从 .env 读取 QQBOT_DEFAULT_TARGET_ID） */
   notifyTargetId?: string;
   /** 最后更新时间 */
   lastUpdated?: number;
@@ -192,27 +194,79 @@ function ensureGlobalConfigDir(): void {
 }
 
 /**
+ * 解析 .env 文件内容
+ */
+function parseEnvFile(filePath: string): Record<string, string> {
+  const result: Record<string, string> = {};
+
+  if (!fs.existsSync(filePath)) {
+    return result;
+  }
+
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const lines = content.split('\n');
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // 跳过空行和注释
+      if (!trimmed || trimmed.startsWith('#')) continue;
+
+      const eqIndex = trimmed.indexOf('=');
+      if (eqIndex > 0) {
+        const key = trimmed.slice(0, eqIndex).trim();
+        let value = trimmed.slice(eqIndex + 1).trim();
+        // 移除引号
+        if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1);
+        }
+        result[key] = value;
+      }
+    }
+  } catch (error) {
+    console.error(`[qqbot-mcp] Failed to parse env file ${filePath}:`, error);
+  }
+
+  return result;
+}
+
+/**
  * 加载全局配置
  */
 export function loadGlobalConfig(): GlobalConfig {
   ensureGlobalConfigDir();
 
-  if (!fs.existsSync(GLOBAL_CONFIG_FILE)) {
-    return { ...DEFAULT_GLOBAL_CONFIG };
+  let config = { ...DEFAULT_GLOBAL_CONFIG };
+
+  // 1. 加载配置文件
+  if (fs.existsSync(GLOBAL_CONFIG_FILE)) {
+    try {
+      const content = fs.readFileSync(GLOBAL_CONFIG_FILE, 'utf-8');
+      const parsed = JSON.parse(content) as Partial<GlobalConfig>;
+      config = { ...config, ...parsed };
+    } catch (error) {
+      console.error('[qqbot-mcp] Failed to read global config:', error);
+    }
   }
 
-  try {
-    const content = fs.readFileSync(GLOBAL_CONFIG_FILE, 'utf-8');
-    const parsed = JSON.parse(content) as Partial<GlobalConfig>;
-    // 合并默认值
-    return {
-      ...DEFAULT_GLOBAL_CONFIG,
-      ...parsed,
-    };
-  } catch (error) {
-    console.error('[qqbot-mcp] Failed to read global config:', error);
-    return { ...DEFAULT_GLOBAL_CONFIG };
+  // 2. 如果指定了 envFile，从中加载补充配置
+  if (config.envFile) {
+    const envPath = config.envFile.replace('~', os.homedir());
+    const envVars = parseEnvFile(envPath);
+
+    // 3. 如果 notifyTargetId 未设置，尝试从 .env 读取
+    if (!config.notifyTargetId && envVars.QQBOT_DEFAULT_TARGET_ID) {
+      config.notifyTargetId = envVars.QQBOT_DEFAULT_TARGET_ID;
+    }
   }
+
+  // 4. 最后尝试从环境变量读取（兜底）
+  if (!config.notifyTargetId && process.env.QQBOT_DEFAULT_TARGET_ID) {
+    config.notifyTargetId = process.env.QQBOT_DEFAULT_TARGET_ID;
+  }
+
+  return config;
 }
 
 /**

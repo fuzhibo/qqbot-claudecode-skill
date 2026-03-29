@@ -31477,22 +31477,55 @@ function ensureGlobalConfigDir() {
     fs.mkdirSync(GLOBAL_CONFIG_DIR, { recursive: true });
   }
 }
-function loadGlobalConfig() {
-  ensureGlobalConfigDir();
-  if (!fs.existsSync(GLOBAL_CONFIG_FILE)) {
-    return { ...DEFAULT_GLOBAL_CONFIG };
+function parseEnvFile(filePath) {
+  const result = {};
+  if (!fs.existsSync(filePath)) {
+    return result;
   }
   try {
-    const content = fs.readFileSync(GLOBAL_CONFIG_FILE, "utf-8");
-    const parsed = JSON.parse(content);
-    return {
-      ...DEFAULT_GLOBAL_CONFIG,
-      ...parsed
-    };
+    const content = fs.readFileSync(filePath, "utf-8");
+    const lines = content.split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIndex = trimmed.indexOf("=");
+      if (eqIndex > 0) {
+        const key = trimmed.slice(0, eqIndex).trim();
+        let value = trimmed.slice(eqIndex + 1).trim();
+        if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
+          value = value.slice(1, -1);
+        }
+        result[key] = value;
+      }
+    }
   } catch (error48) {
-    console.error("[qqbot-mcp] Failed to read global config:", error48);
-    return { ...DEFAULT_GLOBAL_CONFIG };
+    console.error(`[qqbot-mcp] Failed to parse env file ${filePath}:`, error48);
   }
+  return result;
+}
+function loadGlobalConfig() {
+  ensureGlobalConfigDir();
+  let config3 = { ...DEFAULT_GLOBAL_CONFIG };
+  if (fs.existsSync(GLOBAL_CONFIG_FILE)) {
+    try {
+      const content = fs.readFileSync(GLOBAL_CONFIG_FILE, "utf-8");
+      const parsed = JSON.parse(content);
+      config3 = { ...config3, ...parsed };
+    } catch (error48) {
+      console.error("[qqbot-mcp] Failed to read global config:", error48);
+    }
+  }
+  if (config3.envFile) {
+    const envPath = config3.envFile.replace("~", os.homedir());
+    const envVars = parseEnvFile(envPath);
+    if (!config3.notifyTargetId && envVars.QQBOT_DEFAULT_TARGET_ID) {
+      config3.notifyTargetId = envVars.QQBOT_DEFAULT_TARGET_ID;
+    }
+  }
+  if (!config3.notifyTargetId && process.env.QQBOT_DEFAULT_TARGET_ID) {
+    config3.notifyTargetId = process.env.QQBOT_DEFAULT_TARGET_ID;
+  }
+  return config3;
 }
 
 // src/mcp/qq-client.ts

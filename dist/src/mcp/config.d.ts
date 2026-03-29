@@ -60,7 +60,9 @@ export interface GlobalConfig {
     autoStartGateway: boolean;
     /** SessionEnd 时是否发送离线通知 */
     autoNotifyOffline: boolean;
-    /** 接收离线通知的 QQ 目标 ID */
+    /** .env 文件路径（用于读取 QQBOT_DEFAULT_TARGET_ID 等配置） */
+    envFile?: string;
+    /** 接收离线通知的 QQ 目标 ID（如未设置则从 .env 读取 QQBOT_DEFAULT_TARGET_ID） */
     notifyTargetId?: string;
     /** 最后更新时间 */
     lastUpdated?: number;

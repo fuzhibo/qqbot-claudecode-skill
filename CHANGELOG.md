@@ -15,7 +15,8 @@
   - `allowDegradation`: channel 失败时自动降级到 headless
   - `autoStartGateway`: SessionStart 时自动启动 Gateway
   - `autoNotifyOffline`: SessionEnd 时发送离线通知
-  - `notifyTargetId`: 接收离线通知的 QQ 目标 ID
+  - `envFile`: .env 文件路径（复用现有配置）
+  - `notifyTargetId`: 接收离线通知的 QQ 目标 ID（可从 .env 的 `QQBOT_DEFAULT_TARGET_ID` 读取）
 
 - **SessionEnd Hook**: 新增会话结束处理
   - 自动从 Gateway 注销会话
