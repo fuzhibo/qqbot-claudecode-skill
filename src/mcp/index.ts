@@ -28,7 +28,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { toolDefinitions, handleToolCall } from './tools.js';
-import { loadFromEnv, setBot, getAllBots } from './config.js';
+import { loadFromEnv, setBot, getAllBots, loadGlobalConfig } from './config.js';
 import { getClient, cleanupAllClients } from './qq-client.js';
 import {
   startChannelPusher,
@@ -160,10 +160,12 @@ function isGatewayConfigured(): boolean {
  * - native: 使用 Claude Code 原生 Channel capability (需要 v2.1.80+)
  */
 function getOperationModeSync(): ModeDetectionResult {
+  // 1. 优先读取全局配置文件
+  const globalConfig = loadGlobalConfig();
   const envMode = process.env.QQBOT_CHANNEL_MODE?.toLowerCase();
   const nativeSupported = supportsNativeChannel(process.env.CLAUDE_CODE_VERSION);
 
-  // 强制 Tools 模式
+  // 2. 环境变量强制模式（最高优先级）
   if (envMode === 'tools') {
     return {
       mode: 'tools',
@@ -171,7 +173,6 @@ function getOperationModeSync(): ModeDetectionResult {
     };
   }
 
-  // 强制 Channel 模式
   if (envMode === 'channel') {
     // 优先使用 Gateway 桥接
     if (isGatewayConfigured()) {
@@ -183,7 +184,6 @@ function getOperationModeSync(): ModeDetectionResult {
         reason: 'forced by QQBOT_CHANNEL_MODE=channel, using gateway-bridge',
       };
     }
-    // 如果 Gateway 不可配置，尝试原生
     if (nativeSupported) {
       return {
         mode: 'channel',
@@ -193,7 +193,6 @@ function getOperationModeSync(): ModeDetectionResult {
         reason: 'forced by QQBOT_CHANNEL_MODE=channel, using native',
       };
     }
-    // 都不可用，降级
     console.warn('[qqbot-mcp] Channel mode forced but no backend available, falling back to Tools');
     return {
       mode: 'tools',
@@ -201,10 +200,17 @@ function getOperationModeSync(): ModeDetectionResult {
     };
   }
 
-  // auto 或未设置：自动检测
-  // 优先级: Gateway 桥接 > 原生 Channel > Tools
+  // 3. 配置文件指定 headless 模式
+  if (globalConfig.workmode === 'headless') {
+    return {
+      mode: 'tools',
+      reason: 'configured as headless mode in qqbot-config.json',
+    };
+  }
 
-  // 1. Gateway 桥接模式 (推荐)
+  // 4. 配置文件指定 channel 模式（默认）
+  // 优先级: Gateway 桥接 > 原生 Channel > 降级
+
   if (isGatewayConfigured()) {
     return {
       mode: 'channel',
@@ -215,7 +221,6 @@ function getOperationModeSync(): ModeDetectionResult {
     };
   }
 
-  // 2. 原生 Channel 模式
   if (nativeSupported) {
     return {
       mode: 'channel',
@@ -226,10 +231,22 @@ function getOperationModeSync(): ModeDetectionResult {
     };
   }
 
-  // 3. 降级到 Tools 模式
+  // 5. 检查是否允许降级
+  if (globalConfig.allowDegradation) {
+    console.warn('[qqbot-mcp] Channel backend unavailable, degrading to tools mode (allowDegradation=true)');
+    return {
+      mode: 'tools',
+      reason: 'degraded from channel to tools (allowDegradation=true)',
+    };
+  }
+
+  // 6. 不允许降级，保持 channel 模式等待 Gateway
   return {
-    mode: 'tools',
-    reason: 'no channel backend available, using tools mode',
+    mode: 'channel',
+    channelSubMode: 'gateway-bridge',
+    gatewayAvailable: false,
+    nativeSupported: false,
+    reason: 'waiting for gateway (allowDegradation=false)',
   };
 }
 

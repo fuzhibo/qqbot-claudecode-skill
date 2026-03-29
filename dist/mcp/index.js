@@ -31463,6 +31463,37 @@ function loadFromEnv() {
     updatedAt: Date.now()
   };
 }
+var GLOBAL_CONFIG_DIR = path.join(os.homedir(), ".claude", "qqbot-gateway");
+var GLOBAL_CONFIG_FILE = path.join(GLOBAL_CONFIG_DIR, "qqbot-config.json");
+var DEFAULT_GLOBAL_CONFIG = {
+  version: "1.0.0",
+  workmode: "channel",
+  allowDegradation: true,
+  autoStartGateway: true,
+  autoNotifyOffline: true
+};
+function ensureGlobalConfigDir() {
+  if (!fs.existsSync(GLOBAL_CONFIG_DIR)) {
+    fs.mkdirSync(GLOBAL_CONFIG_DIR, { recursive: true });
+  }
+}
+function loadGlobalConfig() {
+  ensureGlobalConfigDir();
+  if (!fs.existsSync(GLOBAL_CONFIG_FILE)) {
+    return { ...DEFAULT_GLOBAL_CONFIG };
+  }
+  try {
+    const content = fs.readFileSync(GLOBAL_CONFIG_FILE, "utf-8");
+    const parsed = JSON.parse(content);
+    return {
+      ...DEFAULT_GLOBAL_CONFIG,
+      ...parsed
+    };
+  } catch (error48) {
+    console.error("[qqbot-mcp] Failed to read global config:", error48);
+    return { ...DEFAULT_GLOBAL_CONFIG };
+  }
+}
 
 // src/mcp/qq-client.ts
 import * as path2 from "path";
@@ -33290,6 +33321,7 @@ function isGatewayConfigured() {
   return true;
 }
 function getOperationModeSync() {
+  const globalConfig2 = loadGlobalConfig();
   const envMode = process.env.QQBOT_CHANNEL_MODE?.toLowerCase();
   const nativeSupported = supportsNativeChannel(process.env.CLAUDE_CODE_VERSION);
   if (envMode === "tools") {
@@ -33323,6 +33355,12 @@ function getOperationModeSync() {
       reason: "forced channel but no backend available"
     };
   }
+  if (globalConfig2.workmode === "headless") {
+    return {
+      mode: "tools",
+      reason: "configured as headless mode in qqbot-config.json"
+    };
+  }
   if (isGatewayConfigured()) {
     return {
       mode: "channel",
@@ -33341,9 +33379,19 @@ function getOperationModeSync() {
       reason: "auto-detected native channel mode"
     };
   }
+  if (globalConfig2.allowDegradation) {
+    console.warn("[qqbot-mcp] Channel backend unavailable, degrading to tools mode (allowDegradation=true)");
+    return {
+      mode: "tools",
+      reason: "degraded from channel to tools (allowDegradation=true)"
+    };
+  }
   return {
-    mode: "tools",
-    reason: "no channel backend available, using tools mode"
+    mode: "channel",
+    channelSubMode: "gateway-bridge",
+    gatewayAvailable: false,
+    nativeSupported: false,
+    reason: "waiting for gateway (allowDegradation=false)"
   };
 }
 function getOperationMode() {

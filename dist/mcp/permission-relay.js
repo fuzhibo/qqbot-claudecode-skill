@@ -83,6 +83,8 @@ function readConfig() {
 function getAllBots() {
   return readConfig().bots;
 }
+var GLOBAL_CONFIG_DIR = path.join(os.homedir(), ".claude", "qqbot-gateway");
+var GLOBAL_CONFIG_FILE = path.join(GLOBAL_CONFIG_DIR, "qqbot-config.json");
 
 // src/mcp/permission-relay.ts
 var PERMISSION_ID_PATTERN = /^[a-km-z]{5}$/;

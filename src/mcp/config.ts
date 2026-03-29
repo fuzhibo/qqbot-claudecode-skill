@@ -144,3 +144,92 @@ export function loadFromEnv(): BotConfig | null {
     updatedAt: Date.now(),
   };
 }
+
+// ============ 全局配置（工作模式、降级等） ============
+
+/** 全局配置文件目录 */
+const GLOBAL_CONFIG_DIR = path.join(os.homedir(), '.claude', 'qqbot-gateway');
+
+/** 全局配置文件路径 */
+const GLOBAL_CONFIG_FILE = path.join(GLOBAL_CONFIG_DIR, 'qqbot-config.json');
+
+/**
+ * 全局配置类型
+ */
+export interface GlobalConfig {
+  /** 配置版本 */
+  version: string;
+  /** 工作模式: channel (默认) 或 headless */
+  workmode: 'channel' | 'headless';
+  /** 是否允许降级 (channel 失败时降级到 tools) */
+  allowDegradation: boolean;
+  /** SessionStart 时是否自动启动 Gateway */
+  autoStartGateway: boolean;
+  /** SessionEnd 时是否发送离线通知 */
+  autoNotifyOffline: boolean;
+  /** 接收离线通知的 QQ 目标 ID */
+  notifyTargetId?: string;
+  /** 最后更新时间 */
+  lastUpdated?: number;
+}
+
+/** 默认全局配置 */
+const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {
+  version: '1.0.0',
+  workmode: 'channel',
+  allowDegradation: true,
+  autoStartGateway: true,
+  autoNotifyOffline: true,
+};
+
+/**
+ * 确保全局配置目录存在
+ */
+function ensureGlobalConfigDir(): void {
+  if (!fs.existsSync(GLOBAL_CONFIG_DIR)) {
+    fs.mkdirSync(GLOBAL_CONFIG_DIR, { recursive: true });
+  }
+}
+
+/**
+ * 加载全局配置
+ */
+export function loadGlobalConfig(): GlobalConfig {
+  ensureGlobalConfigDir();
+
+  if (!fs.existsSync(GLOBAL_CONFIG_FILE)) {
+    return { ...DEFAULT_GLOBAL_CONFIG };
+  }
+
+  try {
+    const content = fs.readFileSync(GLOBAL_CONFIG_FILE, 'utf-8');
+    const parsed = JSON.parse(content) as Partial<GlobalConfig>;
+    // 合并默认值
+    return {
+      ...DEFAULT_GLOBAL_CONFIG,
+      ...parsed,
+    };
+  } catch (error) {
+    console.error('[qqbot-mcp] Failed to read global config:', error);
+    return { ...DEFAULT_GLOBAL_CONFIG };
+  }
+}
+
+/**
+ * 保存全局配置
+ */
+export function saveGlobalConfig(config: GlobalConfig): void {
+  ensureGlobalConfigDir();
+  config.lastUpdated = Date.now();
+  fs.writeFileSync(GLOBAL_CONFIG_FILE, JSON.stringify(config, null, 2), {
+    encoding: 'utf-8',
+    mode: 0o600,
+  });
+}
+
+/**
+ * 获取全局配置文件路径
+ */
+export function getGlobalConfigPath(): string {
+  return GLOBAL_CONFIG_FILE;
+}

@@ -1,6 +1,6 @@
 {
   "name": "qqbot-mcp",
-  "version": "1.19.0",
+  "version": "1.19.1",
   "description": "QQ Bot MCP integration for Claude Code - send messages, files, and receive tasks from QQ. Supports Channel mode (v2.1.80+) with real-time push and permission relay.",
   "author": {
     "name": "fuzhibo",
@@ -51,6 +51,21 @@
           {
             "type": "command",
             "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/qqbot-upgrade.js 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/session-start-handler.js 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/session-end-handler.js 2>/dev/null || true"
           }
         ]
       }

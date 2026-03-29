@@ -3710,6 +3710,8 @@ var path = __toESM(require("path"), 1);
 var os = __toESM(require("os"), 1);
 var CONFIG_DIR = path.join(os.homedir(), ".claude", "qqbot-mcp");
 var CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
+var GLOBAL_CONFIG_DIR = path.join(os.homedir(), ".claude", "qqbot-gateway");
+var GLOBAL_CONFIG_FILE = path.join(GLOBAL_CONFIG_DIR, "qqbot-config.json");
 
 // src/mcp/permission-relay.ts
 var PERMISSION_REPLY_RE = /^\s*(y|yes|n|no)\s+([a-km-z]{5})\s*$/i;

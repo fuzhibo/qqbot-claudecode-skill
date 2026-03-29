@@ -2,6 +2,25 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.19.1] - 2026-03-28
+
+### 新功能
+
+- **工作流程优化**: 一键启动体验
+  - SessionStart 时自动启动 Gateway（无需手动运行 `/qqbot-service start`）
+  - SessionEnd 时自动注销并发送离线通知到 QQ
+
+- **全局配置系统**: 新增 `~/.claude/qqbot-gateway/qqbot-config.json`
+  - `workmode`: 工作模式 (`channel` 默认, `headless`)
+  - `allowDegradation`: channel 失败时自动降级到 headless
+  - `autoStartGateway`: SessionStart 时自动启动 Gateway
+  - `autoNotifyOffline`: SessionEnd 时发送离线通知
+  - `notifyTargetId`: 接收离线通知的 QQ 目标 ID
+
+- **SessionEnd Hook**: 新增会话结束处理
+  - 自动从 Gateway 注销会话
+  - 发送会话下线通知到 QQ
+
 ## [1.19.0] - 2026-03-28
 
 ### 新功能
