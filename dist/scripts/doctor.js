@@ -16,6 +16,73 @@ import { execSync } from 'child_process';
 const CONFIG_DIR = path.join(os.homedir(), '.claude', 'qqbot-mcp');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
+// 全局配置路径（工作模式、降级等）
+const GATEWAY_DIR = path.join(os.homedir(), '.claude', 'qqbot-gateway');
+const GLOBAL_CONFIG_FILE = path.join(GATEWAY_DIR, 'qqbot-config.json');
+
+// 默认全局配置（与 src/mcp/config.ts 保持一致）
+const DEFAULT_GLOBAL_CONFIG = {
+  version: '1.0.0',
+  workmode: 'channel',           // channel | headless
+  allowDegradation: true,        // channel 失败时降级到 tools
+  autoStartGateway: true,        // SessionStart 自动启动 Gateway
+  autoNotifyOffline: true,       // SessionEnd 发送离线通知
+  envFile: null,                 // .env 文件路径（可选）
+  notifyTargetId: null,          // 接收离线通知的 QQ 目标 ID（可选）
+};
+
+/**
+ * 升级全局配置文件
+ * 检查并添加缺失的配置字段
+ */
+function upgradeGlobalConfig() {
+  // 确保 Gateway 目录存在
+  if (!fs.existsSync(GATEWAY_DIR)) {
+    fs.mkdirSync(GATEWAY_DIR, { recursive: true });
+    log('green', '  ✅ 创建 Gateway 配置目录');
+  }
+
+  let config = { ...DEFAULT_GLOBAL_CONFIG };
+  let needsUpgrade = false;
+
+  // 读取现有配置
+  if (fs.existsSync(GLOBAL_CONFIG_FILE)) {
+    try {
+      const content = fs.readFileSync(GLOBAL_CONFIG_FILE, 'utf-8');
+      const existing = JSON.parse(content);
+      config = { ...config, ...existing };
+
+      // 检查是否有缺失的字段
+      for (const [key, defaultValue] of Object.entries(DEFAULT_GLOBAL_CONFIG)) {
+        if (!(key in existing)) {
+          needsUpgrade = true;
+          log('yellow', `  ⚠️  配置缺少字段: ${key} (将使用默认值: ${JSON.stringify(defaultValue)})`);
+        }
+      }
+    } catch (e) {
+      log('yellow', `  ⚠️  配置文件解析失败，将重新创建: ${e.message}`);
+      needsUpgrade = true;
+    }
+  } else {
+    log('yellow', '  ⚠️  全局配置文件不存在，将创建默认配置');
+    needsUpgrade = true;
+  }
+
+  // 如果需要升级，保存配置
+  if (needsUpgrade) {
+    config.lastUpdated = Date.now();
+    fs.writeFileSync(GLOBAL_CONFIG_FILE, JSON.stringify(config, null, 2), {
+      encoding: 'utf-8',
+      mode: 0o600,
+    });
+    log('green', '  ✅ 全局配置已更新');
+    return true;
+  }
+
+  log('green', '  ✅ 全局配置已是最新');
+  return false;
+}
+
 // 颜色输出
 const colors = {
   reset: '\x1b[0m',
@@ -539,6 +606,13 @@ async function autoFix() {
     };
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(defaultConfig, null, 2));
     log('green', '  ✅ 创建默认配置文件');
+    fixed++;
+  }
+
+  // 2.5 升级全局配置文件（添加新字段）
+  log('');
+  log('bold', '🔧 全局配置升级');
+  if (upgradeGlobalConfig()) {
     fixed++;
   }
 

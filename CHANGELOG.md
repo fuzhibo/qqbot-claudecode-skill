@@ -22,6 +22,11 @@
   - 自动从 Gateway 注销会话
   - 发送会话下线通知到 QQ
 
+- **Doctor 配置升级**: `qqbot-mcp-cli doctor --fix` 自动升级配置
+  - 自动检测并添加缺失的全局配置字段
+  - 支持从老版本无缝升级
+  - 添加默认值：workmode、allowDegradation、autoStartGateway、autoNotifyOffline、envFile、notifyTargetId
+
 ## [1.19.0] - 2026-03-28
 
 ### 新功能
