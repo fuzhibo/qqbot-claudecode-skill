@@ -31527,6 +31527,22 @@ function loadGlobalConfig() {
   }
   return config3;
 }
+function loadEnvFromFile() {
+  const config3 = loadGlobalConfig();
+  if (config3.envFile) {
+    const envPath = config3.envFile.replace("~", os.homedir());
+    const envVars = parseEnvFile(envPath);
+    for (const [key, value] of Object.entries(envVars)) {
+      if (process.env[key] === void 0) {
+        process.env[key] = value;
+      }
+    }
+    const loadedCount = Object.keys(envVars).length;
+    if (loadedCount > 0) {
+      console.error(`[qqbot-mcp] Loaded ${loadedCount} env vars from: ${envPath}`);
+    }
+  }
+}
 
 // src/mcp/qq-client.ts
 import * as path2 from "path";
@@ -33312,6 +33328,7 @@ var PermissionRequestSchema = external_exports3.object({
     input_preview: external_exports3.string().optional()
   })
 });
+loadEnvFromFile();
 var MIN_CHANNEL_VERSION = "2.1.80";
 var GATEWAY_API_URL2 = process.env.QQBOT_GATEWAY_URL || "http://127.0.0.1:3310";
 function parseVersion(versionStr) {

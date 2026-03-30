@@ -79,4 +79,9 @@ export declare function saveGlobalConfig(config: GlobalConfig): void;
  * 获取全局配置文件路径
  */
 export declare function getGlobalConfigPath(): string;
+/**
+ * 从 envFile 加载环境变量到 process.env
+ * 用于 MCP Server 启动时自动加载配置
+ */
+export declare function loadEnvFromFile(): void;
 export {};

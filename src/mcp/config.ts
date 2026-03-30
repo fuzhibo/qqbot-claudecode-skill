@@ -287,3 +287,28 @@ export function saveGlobalConfig(config: GlobalConfig): void {
 export function getGlobalConfigPath(): string {
   return GLOBAL_CONFIG_FILE;
 }
+
+/**
+ * 从 envFile 加载环境变量到 process.env
+ * 用于 MCP Server 启动时自动加载配置
+ */
+export function loadEnvFromFile(): void {
+  const config = loadGlobalConfig();
+
+  if (config.envFile) {
+    const envPath = config.envFile.replace('~', os.homedir());
+    const envVars = parseEnvFile(envPath);
+
+    // 只设置尚未定义的环境变量（不覆盖已有值）
+    for (const [key, value] of Object.entries(envVars)) {
+      if (process.env[key] === undefined) {
+        process.env[key] = value;
+      }
+    }
+
+    const loadedCount = Object.keys(envVars).length;
+    if (loadedCount > 0) {
+      console.error(`[qqbot-mcp] Loaded ${loadedCount} env vars from: ${envPath}`);
+    }
+  }
+}

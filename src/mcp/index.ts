@@ -28,7 +28,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { toolDefinitions, handleToolCall } from './tools.js';
-import { loadFromEnv, setBot, getAllBots, loadGlobalConfig } from './config.js';
+import { loadFromEnv, setBot, getAllBots, loadGlobalConfig, loadEnvFromFile } from './config.js';
 import { getClient, cleanupAllClients } from './qq-client.js';
 import {
   startChannelPusher,
@@ -54,6 +54,10 @@ const PermissionRequestSchema = z.object({
 });
 
 // ============ 版本检测与模式切换 ============
+
+// 🔴 关键: 在模块加载时立即从 envFile 加载环境变量
+// 这必须在 getOperationMode() 之前执行，以确保模式检测能访问到配置
+loadEnvFromFile();
 
 /** Channel 模式所需的最低 Claude Code 版本 (用于原生 Channel + 权限中继) */
 const MIN_CHANNEL_VERSION = '2.1.80';
