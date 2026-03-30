@@ -89,7 +89,9 @@ export class QQClient {
   startTokenRefresh(): void {
     startBackgroundTokenRefresh(this.config.appId, this.config.clientSecret, {
       log: {
-        info: (msg) => console.log(`[qqbot:${this.name}] ${msg}`),
+        // 🔴 重要: MCP Server 中所有日志必须输出到 stderr，不能输出到 stdout
+        // stdout 只能用于 JSON-RPC 消息，否则会破坏 MCP 协议
+        info: (msg) => console.error(`[qqbot:${this.name}] ${msg}`),
         error: (msg) => console.error(`[qqbot:${this.name}] ${msg}`),
       },
     });

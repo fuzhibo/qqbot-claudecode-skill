@@ -31627,7 +31627,7 @@ async function getAccessToken(appId, clientSecret) {
   }
   let fetchPromise = tokenFetchPromises.get(appId);
   if (fetchPromise) {
-    console.log(`[qqbot-api:${appId}] Token fetch in progress, waiting for existing request...`);
+    console.error(`[qqbot-api:${appId}] Token fetch in progress, waiting for existing request...`);
     return fetchPromise;
   }
   fetchPromise = (async () => {
@@ -31643,7 +31643,7 @@ async function getAccessToken(appId, clientSecret) {
 async function doFetchToken(appId, clientSecret) {
   const requestBody = { appId, clientSecret };
   const requestHeaders = { "Content-Type": "application/json" };
-  console.log(`[qqbot-api:${appId}] >>> POST ${TOKEN_URL}`);
+  console.error(`[qqbot-api:${appId}] >>> POST ${TOKEN_URL}`);
   let response;
   try {
     response = await fetch(TOKEN_URL, {
@@ -31661,13 +31661,13 @@ async function doFetchToken(appId, clientSecret) {
   response.headers.forEach((value, key) => {
     responseHeaders[key] = value;
   });
-  console.log(`[qqbot-api:${appId}] <<< Status: ${response.status} ${response.statusText}`);
+  console.error(`[qqbot-api:${appId}] <<< Status: ${response.status} ${response.statusText}`);
   let data;
   let rawBody;
   try {
     rawBody = await response.text();
     const logBody = rawBody.replace(/"access_token"\s*:\s*"[^"]+"/g, '"access_token": "***"');
-    console.log(`[qqbot-api:${appId}] <<< Body:`, logBody);
+    console.error(`[qqbot-api:${appId}] <<< Body:`, logBody);
     data = JSON.parse(rawBody);
   } catch (err) {
     console.error(`[qqbot-api:${appId}] <<< Parse error:`, err);
@@ -31682,7 +31682,7 @@ async function doFetchToken(appId, clientSecret) {
     expiresAt,
     appId
   });
-  console.log(`[qqbot-api:${appId}] Token cached, expires at: ${new Date(expiresAt).toISOString()}`);
+  console.error(`[qqbot-api:${appId}] Token cached, expires at: ${new Date(expiresAt).toISOString()}`);
   return data.access_token;
 }
 function getNextMsgSeq(_msgId) {
@@ -31712,7 +31712,7 @@ async function apiRequest(accessToken, method, path4, body, timeoutMs) {
   if (body) {
     options.body = JSON.stringify(body);
   }
-  console.log(`[qqbot-api] >>> ${method} ${url2} (timeout: ${timeout}ms)`);
+  console.error(`[qqbot-api] >>> ${method} ${url2} (timeout: ${timeout}ms)`);
   if (body) {
     const logBody = { ...body };
     if (typeof logBody.file_data === "string") {
@@ -31737,7 +31737,7 @@ async function apiRequest(accessToken, method, path4, body, timeoutMs) {
   res.headers.forEach((value, key) => {
     responseHeaders[key] = value;
   });
-  console.log(`[qqbot-api] <<< Status: ${res.status} ${res.statusText}`);
+  console.error(`[qqbot-api] <<< Status: ${res.status} ${res.statusText}`);
   let data;
   let rawBody;
   try {
@@ -31767,7 +31767,7 @@ async function apiRequestWithRetry(accessToken, method, path4, body, maxRetries 
       }
       if (attempt < maxRetries) {
         const delay = UPLOAD_BASE_DELAY_MS * Math.pow(2, attempt);
-        console.log(`[qqbot-api] Upload attempt ${attempt + 1} failed, retrying in ${delay}ms: ${errMsg.slice(0, 100)}`);
+        console.error(`[qqbot-api] Upload attempt ${attempt + 1} failed, retrying in ${delay}ms: ${errMsg.slice(0, 100)}`);
         await new Promise((resolve3) => setTimeout(resolve3, delay));
       }
     }
@@ -31934,7 +31934,7 @@ async function sendGroupVideoMessage(accessToken, groupOpenid, videoUrl, videoBa
 var backgroundRefreshControllers = /* @__PURE__ */ new Map();
 function startBackgroundTokenRefresh(appId, clientSecret, options) {
   if (backgroundRefreshControllers.has(appId)) {
-    console.log(`[qqbot-api:${appId}] Background token refresh already running`);
+    console.error(`[qqbot-api:${appId}] Background token refresh already running`);
     return;
   }
   const {
@@ -32173,7 +32173,9 @@ var QQClient = class {
   startTokenRefresh() {
     startBackgroundTokenRefresh(this.config.appId, this.config.clientSecret, {
       log: {
-        info: (msg) => console.log(`[qqbot:${this.name}] ${msg}`),
+        // 🔴 重要: MCP Server 中所有日志必须输出到 stderr，不能输出到 stdout
+        // stdout 只能用于 JSON-RPC 消息，否则会破坏 MCP 协议
+        info: (msg) => console.error(`[qqbot:${this.name}] ${msg}`),
         error: (msg) => console.error(`[qqbot:${this.name}] ${msg}`)
       }
     });

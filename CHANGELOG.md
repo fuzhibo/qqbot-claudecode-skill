@@ -2,6 +2,15 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.20.2] - 2026-03-30
+
+### 修复
+
+- **MCP 协议兼容性修复**: 修复 `console.log` 输出到 stdout 导致 MCP 协议解析失败的问题
+  - 将 `src/api.ts` 中所有 `console.log` 改为 `console.error`
+  - MCP 协议要求 stdout 只能用于 JSON-RPC 消息，日志必须输出到 stderr
+  - 这是导致 `Channels are not currently available` 错误的真正原因
+
 ## [1.20.1] - 2026-03-30
 
 ### 修复
