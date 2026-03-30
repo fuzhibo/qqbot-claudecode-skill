@@ -3795,6 +3795,7 @@ var isRegisteredWithGateway = false;
 var wsClient = null;
 var wsConnected = false;
 var wsReconnectTimer = null;
+var heartbeatCounter = 0;
 async function connectToGatewayWebSocket() {
   if (wsClient && wsConnected) {
     return;
@@ -4013,9 +4014,36 @@ ${mergedContent}`,
     }
   };
 }
+async function sendHeartbeat() {
+  if (!isRegisteredWithGateway || !sessionId) {
+    return false;
+  }
+  try {
+    const response = await fetchWithTimeout(
+      `${GATEWAY_API_URL}/api/channels/${encodeURIComponent(sessionId)}/heartbeat`,
+      { method: "POST" }
+    );
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.error("[channel-pusher] Channel not found at Gateway, marking for re-registration...");
+        isRegisteredWithGateway = false;
+        return false;
+      }
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("[channel-pusher] HTTP heartbeat failed:", error);
+    return false;
+  }
+}
 async function checkAndPush() {
   if (!mcpServer2 || !isRunning) return;
   try {
+    if (heartbeatCounter % 10 === 0) {
+      await sendHeartbeat();
+    }
+    heartbeatCounter++;
     let totalSent = 0;
     const localTasks = fetchAllUnreadTasks();
     if (localTasks.length > 0) {

@@ -2,6 +2,25 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.21.0] - 2026-03-30
+
+### 新功能
+
+- **Channel 注册状态一致性修复**: 解决消息被路由到已失效 Channel 的问题
+  - **Gateway 端**: 添加 Channel 过期检测器（60秒检查，90秒过期）
+  - **Gateway 端**: 添加心跳 API `POST /api/channels/:sessionId/heartbeat`
+  - **Gateway 端**: 添加按路径注销 API `DELETE /api/channels/by-path?path=xxx`
+  - **MCP Server 端**: 添加 `gracefulShutdown()` 公共清理函数
+  - **MCP Server 端**: 启动时清理同路径旧注册（避免僵尸 Channel）
+  - **MCP Server 端**: 异常处理器现在使用优雅关闭
+  - **Channel Pusher 端**: 添加 HTTP 心跳作为 WebSocket 心跳的备份
+
+### 修复
+
+- 进程异常退出时现在会正确注销 Channel
+- Gateway 现在会自动清理 90 秒无活跃的僵尸 Channel
+- MCP Server 启动时先清理旧注册再注册新 Channel
+
 ## [1.20.2] - 2026-03-30
 
 ### 修复

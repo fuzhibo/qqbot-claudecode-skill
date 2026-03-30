@@ -494,6 +494,72 @@ let defaultChannelId = null;
  */
 let activeMode = 'notify'; // 默认通知模式
 
+// ============ Channel 过期检测 ============
+/**
+ * Channel 过期检测配置
+ */
+const CHANNEL_EXPIRY_CONFIG = {
+  checkInterval: 60000,     // 每 60 秒检查一次
+  inactiveThreshold: 90000, // 90 秒无活跃视为过期
+  wsGracePeriod: 30000,     // WebSocket 断开后 30 秒宽限期
+};
+
+/**
+ * Channel 过期检测定时器
+ * @type {NodeJS.Timeout|null}
+ */
+let channelExpiryTimer = null;
+
+/**
+ * 启动 Channel 过期检测器
+ */
+function startChannelExpiryChecker() {
+  if (channelExpiryTimer) return;
+
+  channelExpiryTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [sessionId, info] of channelRegistry.entries()) {
+      const inactiveTime = now - info.lastActive;
+      const hasWs = channelWsClients.has(sessionId);
+
+      // 无 WebSocket 连接且超时，或 WebSocket 断开超过宽限期
+      if ((!hasWs && inactiveTime > CHANNEL_EXPIRY_CONFIG.inactiveThreshold) ||
+          (hasWs === false && inactiveTime > CHANNEL_EXPIRY_CONFIG.wsGracePeriod)) {
+        log('yellow', `🧹 清理过期 Channel: ${sessionId.slice(0, 12)}... (inactive: ${Math.round(inactiveTime/1000)}s)`);
+        unregisterChannel(sessionId);
+      }
+    }
+  }, CHANNEL_EXPIRY_CONFIG.checkInterval);
+
+  log('green', `✅ Channel 过期检测器已启动 (检查间隔: ${CHANNEL_EXPIRY_CONFIG.checkInterval/1000}s, 过期阈值: ${CHANNEL_EXPIRY_CONFIG.inactiveThreshold/1000}s)`);
+}
+
+/**
+ * 停止 Channel 过期检测器
+ */
+function stopChannelExpiryChecker() {
+  if (channelExpiryTimer) {
+    clearInterval(channelExpiryTimer);
+    channelExpiryTimer = null;
+  }
+}
+
+/**
+ * 按项目路径注销 Channel
+ * @param {string} projectPath - 项目路径
+ * @returns {{status: string, cleaned: number}}
+ */
+function unregisterChannelsByPath(projectPath) {
+  let cleaned = 0;
+  for (const [sessionId, info] of channelRegistry.entries()) {
+    if (info.projectPath === projectPath) {
+      unregisterChannel(sessionId);
+      cleaned++;
+    }
+  }
+  return { status: 'ok', cleaned };
+}
+
 // ============ Channel WebSocket 实时推送 ============
 const CHANNEL_WEBSOCKET_PORT = 3311;
 let channelWss = null;
@@ -2484,6 +2550,44 @@ function startInternalApi() {
       return;
     }
 
+    // API: POST /api/channels/:sessionId/heartbeat - 更新 Channel 心跳
+    if (req.method === 'POST' && req.url.match(/^\/api\/channels\/[^/]+\/heartbeat$/)) {
+      const sessionId = decodeURIComponent(req.url.replace('/api/channels/', '').replace('/heartbeat', ''));
+      const info = channelRegistry.get(sessionId);
+
+      if (!info) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Channel not found' }));
+        return;
+      }
+
+      info.lastActive = Date.now();
+      res.writeHead(200);
+      res.end(JSON.stringify({ status: 'ok', lastActive: info.lastActive }));
+      return;
+    }
+
+    // API: DELETE /api/channels/by-path - 按项目路径注销 Channel
+    if (req.method === 'DELETE' && req.url.startsWith('/api/channels/by-path?')) {
+      const urlObj = new URL(req.url, `http://127.0.0.1:${INTERNAL_API_PORT}`);
+      const projectPath = urlObj.searchParams.get('path');
+
+      if (!projectPath) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Missing path parameter' }));
+        return;
+      }
+
+      const result = unregisterChannelsByPath(projectPath);
+      res.writeHead(200);
+      res.end(JSON.stringify({
+        status: 'ok',
+        cleaned: result.cleaned,
+        projectPath,
+      }));
+      return;
+    }
+
     // API: GET /api/messages - 获取指定 Channel 的消息
     if (req.method === 'GET' && req.url.startsWith('/api/messages?')) {
       const urlObj = new URL(req.url, `http://127.0.0.1:${INTERNAL_API_PORT}`);
@@ -2698,6 +2802,8 @@ async function startGateway(gatewayMode = 'notify', channelConfig = null) {
     startHealthCheck();
     // 启动 Hook 批处理定时器
     startHookBatchTimer();
+    // 启动 Channel 过期检测器
+    startChannelExpiryChecker();
   }
 
   try {

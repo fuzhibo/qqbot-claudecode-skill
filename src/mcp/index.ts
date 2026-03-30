@@ -443,6 +443,24 @@ async function run(): Promise<void> {
     const projectPath = process.env.CLAUDE_PROJECT_PATH || process.cwd();
     const projectName = process.env.CLAUDE_PROJECT_NAME || projectPath.split('/').pop() || 'unknown';
 
+    // 在注册前，先清理同路径的旧注册（避免僵尸 Channel）
+    try {
+      const cleanupUrl = `${GATEWAY_API_URL}/api/channels/by-path?path=${encodeURIComponent(projectPath)}`;
+      const cleanupResponse = await fetch(cleanupUrl, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(5000)
+      });
+      if (cleanupResponse.ok) {
+        const result = await cleanupResponse.json() as { cleaned?: number };
+        if (result.cleaned && result.cleaned > 0) {
+          console.error(`[qqbot-mcp] 🧹 Cleaned up ${result.cleaned} old registration(s) for project path`);
+        }
+      }
+    } catch (error) {
+      console.error('[qqbot-mcp] Failed to cleanup old registrations:', error);
+      // 继续执行，不阻塞启动
+    }
+
     try {
       const registered = await registerChannel(sessionId, projectPath, projectName);
       if (registered) {
@@ -468,46 +486,60 @@ function generateSessionId(): string {
   return `session-${timestamp}-${random}`;
 }
 
-// 错误处理
-process.on('uncaughtException', (error) => {
-  console.error('[qqbot-mcp] Uncaught exception:', error);
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('[qqbot-mcp] Unhandled rejection at:', promise, 'reason:', reason);
-  process.exit(1);
-});
-
-// 优雅关闭
-process.on('SIGINT', async () => {
-  console.error('[qqbot-mcp] Received SIGINT, shutting down...');
+/**
+ * 优雅关闭函数（提取公共逻辑）
+ * @param signal - 触发关闭的信号
+ * @param exitCode - 退出码
+ */
+async function gracefulShutdown(signal: string, exitCode: number = 0): Promise<void> {
+  console.error(`[qqbot-mcp] Received ${signal}, shutting down...`);
 
   // Channel 模式：停止推送器并注销
   if (operationMode === 'channel') {
     stopChannelPusher();
     if (isGatewayRegistered()) {
-      await unregisterChannel();
+      try {
+        await unregisterChannel();
+      } catch (error) {
+        console.error('[qqbot-mcp] Failed to unregister channel:', error);
+      }
     }
   }
 
   cleanupAllClients();
-  process.exit(0);
+  process.exit(exitCode);
+}
+
+// 错误处理 - 使用优雅关闭
+process.on('uncaughtException', async (error) => {
+  console.error('[qqbot-mcp] Uncaught exception:', error);
+  await gracefulShutdown('uncaughtException', 1);
+});
+
+process.on('unhandledRejection', async (reason, promise) => {
+  console.error('[qqbot-mcp] Unhandled rejection at:', promise, 'reason:', reason);
+  await gracefulShutdown('unhandledRejection', 1);
+});
+
+// 优雅关闭信号处理
+process.on('SIGINT', async () => {
+  await gracefulShutdown('SIGINT', 0);
 });
 
 process.on('SIGTERM', async () => {
-  console.error('[qqbot-mcp] Received SIGTERM, shutting down...');
+  await gracefulShutdown('SIGTERM', 0);
+});
 
-  // Channel 模式：停止推送器并注销
-  if (operationMode === 'channel') {
-    stopChannelPusher();
-    if (isGatewayRegistered()) {
+// 事件循环清空时的处理（备用清理）
+process.on('beforeExit', async () => {
+  if (operationMode === 'channel' && isGatewayRegistered()) {
+    console.error('[qqbot-mcp] Event loop empty, performing cleanup...');
+    try {
       await unregisterChannel();
+    } catch (error) {
+      console.error('[qqbot-mcp] Cleanup error:', error);
     }
   }
-
-  cleanupAllClients();
-  process.exit(0);
 });
 
 // 启动服务

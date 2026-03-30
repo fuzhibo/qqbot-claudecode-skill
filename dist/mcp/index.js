@@ -32532,6 +32532,7 @@ var isRegisteredWithGateway = false;
 var wsClient = null;
 var wsConnected = false;
 var wsReconnectTimer = null;
+var heartbeatCounter = 0;
 async function connectToGatewayWebSocket() {
   if (wsClient && wsConnected) {
     return;
@@ -32750,9 +32751,36 @@ ${mergedContent}`,
     }
   };
 }
+async function sendHeartbeat() {
+  if (!isRegisteredWithGateway || !sessionId) {
+    return false;
+  }
+  try {
+    const response = await fetchWithTimeout(
+      `${GATEWAY_API_URL}/api/channels/${encodeURIComponent(sessionId)}/heartbeat`,
+      { method: "POST" }
+    );
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.error("[channel-pusher] Channel not found at Gateway, marking for re-registration...");
+        isRegisteredWithGateway = false;
+        return false;
+      }
+      return false;
+    }
+    return true;
+  } catch (error48) {
+    console.error("[channel-pusher] HTTP heartbeat failed:", error48);
+    return false;
+  }
+}
 async function checkAndPush() {
   if (!mcpServer2 || !isRunning) return;
   try {
+    if (heartbeatCounter % 10 === 0) {
+      await sendHeartbeat();
+    }
+    heartbeatCounter++;
     let totalSent = 0;
     const localTasks = fetchAllUnreadTasks();
     if (localTasks.length > 0) {
@@ -33584,6 +33612,21 @@ async function run() {
     const projectPath2 = process.env.CLAUDE_PROJECT_PATH || process.cwd();
     const projectName2 = process.env.CLAUDE_PROJECT_NAME || projectPath2.split("/").pop() || "unknown";
     try {
+      const cleanupUrl = `${GATEWAY_API_URL2}/api/channels/by-path?path=${encodeURIComponent(projectPath2)}`;
+      const cleanupResponse = await fetch(cleanupUrl, {
+        method: "DELETE",
+        signal: AbortSignal.timeout(5e3)
+      });
+      if (cleanupResponse.ok) {
+        const result = await cleanupResponse.json();
+        if (result.cleaned && result.cleaned > 0) {
+          console.error(`[qqbot-mcp] \u{1F9F9} Cleaned up ${result.cleaned} old registration(s) for project path`);
+        }
+      }
+    } catch (error48) {
+      console.error("[qqbot-mcp] Failed to cleanup old registrations:", error48);
+    }
+    try {
       const registered = await registerChannel(sessionId2, projectPath2, projectName2);
       if (registered) {
         console.error(`[qqbot-mcp] \u2705 Registered to Gateway: ${sessionId2}`);
@@ -33602,35 +33645,44 @@ function generateSessionId() {
   const random = Math.random().toString(36).substring(2, 9);
   return `session-${timestamp}-${random}`;
 }
-process.on("uncaughtException", (error48) => {
+async function gracefulShutdown(signal, exitCode = 0) {
+  console.error(`[qqbot-mcp] Received ${signal}, shutting down...`);
+  if (operationMode === "channel") {
+    stopChannelPusher();
+    if (isGatewayRegistered()) {
+      try {
+        await unregisterChannel();
+      } catch (error48) {
+        console.error("[qqbot-mcp] Failed to unregister channel:", error48);
+      }
+    }
+  }
+  cleanupAllClients();
+  process.exit(exitCode);
+}
+process.on("uncaughtException", async (error48) => {
   console.error("[qqbot-mcp] Uncaught exception:", error48);
-  process.exit(1);
+  await gracefulShutdown("uncaughtException", 1);
 });
-process.on("unhandledRejection", (reason, promise2) => {
+process.on("unhandledRejection", async (reason, promise2) => {
   console.error("[qqbot-mcp] Unhandled rejection at:", promise2, "reason:", reason);
-  process.exit(1);
+  await gracefulShutdown("unhandledRejection", 1);
 });
 process.on("SIGINT", async () => {
-  console.error("[qqbot-mcp] Received SIGINT, shutting down...");
-  if (operationMode === "channel") {
-    stopChannelPusher();
-    if (isGatewayRegistered()) {
-      await unregisterChannel();
-    }
-  }
-  cleanupAllClients();
-  process.exit(0);
+  await gracefulShutdown("SIGINT", 0);
 });
 process.on("SIGTERM", async () => {
-  console.error("[qqbot-mcp] Received SIGTERM, shutting down...");
-  if (operationMode === "channel") {
-    stopChannelPusher();
-    if (isGatewayRegistered()) {
+  await gracefulShutdown("SIGTERM", 0);
+});
+process.on("beforeExit", async () => {
+  if (operationMode === "channel" && isGatewayRegistered()) {
+    console.error("[qqbot-mcp] Event loop empty, performing cleanup...");
+    try {
       await unregisterChannel();
+    } catch (error48) {
+      console.error("[qqbot-mcp] Cleanup error:", error48);
     }
   }
-  cleanupAllClients();
-  process.exit(0);
 });
 run().catch((error48) => {
   console.error("[qqbot-mcp] Failed to start server:", error48);

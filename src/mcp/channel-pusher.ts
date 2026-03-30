@@ -114,6 +114,9 @@ let wsClient: WebSocket | null = null;
 let wsConnected = false;
 let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
+/** HTTP 心跳计数器 */
+let heartbeatCounter = 0;
+
 /**
  * 连接到 Gateway WebSocket
  */
@@ -426,12 +429,49 @@ function mergeMessages(tasks: PendingTask[]): ChannelNotificationParams {
 }
 
 /**
+ * 发送 HTTP 心跳到 Gateway（作为 WebSocket 心跳的备份）
+ */
+async function sendHeartbeat(): Promise<boolean> {
+  if (!isRegisteredWithGateway || !sessionId) {
+    return false;
+  }
+
+  try {
+    const response = await fetchWithTimeout(
+      `${GATEWAY_API_URL}/api/channels/${encodeURIComponent(sessionId)}/heartbeat`,
+      { method: 'POST' }
+    );
+
+    if (!response.ok) {
+      // Channel 可能已被清理，尝试重新注册
+      if (response.status === 404) {
+        console.error('[channel-pusher] Channel not found at Gateway, marking for re-registration...');
+        isRegisteredWithGateway = false;
+        return false;
+      }
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[channel-pusher] HTTP heartbeat failed:', error);
+    return false;
+  }
+}
+
+/**
  * 检查并推送新消息
  */
 async function checkAndPush(): Promise<void> {
   if (!mcpServer || !isRunning) return;
 
   try {
+    // 0. 发送 HTTP 心跳 (每 10 次轮询发送一次)
+    if (heartbeatCounter % 10 === 0) {
+      await sendHeartbeat();
+    }
+    heartbeatCounter++;
+
     let totalSent = 0;
 
     // 1. 从本地消息队列获取未读任务
