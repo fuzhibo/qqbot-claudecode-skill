@@ -23,6 +23,12 @@ import * as path from 'path';
 import * as os from 'os';
 import { fileURLToPath } from 'url';
 import { promisify } from 'util';
+import {
+  parseVersion,
+  compareVersions,
+  getVersionFromCli as getCliVersion,
+  MIN_VERSION as SHARED_MIN_VERSION
+} from './lib/channel-support.js';
 
 const execAsync = promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -36,6 +42,7 @@ const LOG_FILE = path.join(GATEWAY_DIR, 'gateway.log');
 const SESSIONS_DIR = path.join(GATEWAY_DIR, 'sessions');
 const HEADLESS_SESSIONS_DIR = path.join(GATEWAY_DIR, 'headless-sessions');
 const GATEWAY_STATE_FILE = path.join(GATEWAY_DIR, 'gateway-state.json');
+const CONNECTION_STATE_FILE = path.join(GATEWAY_DIR, 'connection-state.json');
 const GATEWAY_SCRIPT = path.join(__dirname, 'qqbot-gateway.js');
 
 // Channel 模式所需最低版本
@@ -203,37 +210,16 @@ function getHeadlessSessions() {
   };
 }
 
-// ============ Channel 支持检测 ============
-
-/**
- * 解析版本字符串为数字数组
- */
-function parseVersion(versionStr) {
-  if (!versionStr) return null;
-  const match = versionStr.match(/(\d+)\.(\d+)\.(\d+)/);
-  if (!match) return null;
-  return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
-}
-
-/**
- * 比较两个版本号
- * @returns {number} 1 (v1 > v2), -1 (v1 < v2), 0 (相等)
- */
-function compareVersions(v1, v2) {
-  for (let i = 0; i < 3; i++) {
-    if (v1[i] > v2[i]) return 1;
-    if (v1[i] < v2[i]) return -1;
-  }
-  return 0;
-}
+// ============ Channel 支持检测 (使用共享模块) ============
 
 /**
  * 检测 Claude Code 是否支持 Channel 模式
  * @returns {{ supported: boolean, reason: string, version?: string, required: string, isStandalone?: boolean }}
  */
 function checkChannelSupport() {
-  const version = process.env.CLAUDE_CODE_VERSION;
-  const required = MIN_CHANNEL_VERSION;
+  let version = process.env.CLAUDE_CODE_VERSION;
+  let versionSource = 'env';
+  const required = SHARED_MIN_VERSION;
   const requiredParsed = parseVersion(required);
 
   // 检测是否在 Claude Code MCP 环境中运行
@@ -244,7 +230,13 @@ function checkChannelSupport() {
     process.env.CLAUDE_SESSION_ID
   );
 
-  // 情况1: 环境变量未设置
+  // 如果环境变量未设置，尝试通过 CLI 命令获取
+  if (!version) {
+    version = getCliVersion();
+    versionSource = version ? 'cli' : 'unknown';
+  }
+
+  // 情况1: 环境变量和 CLI 都无法获取版本
   if (!version) {
     // 区分：独立进程模式 vs MCP 环境但版本未知
     if (!isMcpContext) {
@@ -265,7 +257,7 @@ function checkChannelSupport() {
       reason: 'version_unknown',
       version: null,
       required,
-      message: '无法检测 Claude Code 版本 (CLAUDE_CODE_VERSION 未设置)'
+      message: '无法检测 Claude Code 版本 (CLAUDE_CODE_VERSION 未设置，且 claude --version 不可用)'
     };
   }
 
@@ -327,6 +319,12 @@ async function getStatusData() {
     gatewayStatus: 'pending_activation',
     users: {},
     pendingMessages: []
+  });
+
+  // 读取连接状态
+  const connectionState = readJsonFile(CONNECTION_STATE_FILE, {
+    state: 'unknown',
+    timestamp: 0
   });
 
   // 获取各项目会话信息
@@ -395,6 +393,15 @@ async function getStatusData() {
     // 僵尸状态检测
     stalePidFile,
     stalePid,
+    // 连接状态（WebSocket 连接状态）
+    connection: {
+      state: connectionState.state || 'unknown',
+      timestamp: connectionState.timestamp || 0,
+      error: connectionState.error || null,
+      // 计算连接是否有效（5分钟内有更新）
+      effective: connectionState.state === 'connected' &&
+                 (Date.now() - (connectionState.timestamp || 0)) < 5 * 60 * 1000
+    },
     // Channel 配置信息
     channel: {
       // 检测能力

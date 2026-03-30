@@ -12,6 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
+import { parseVersion, compareVersions, MIN_VERSION, getAllHookStates } from './lib/channel-support.js';
 
 const CONFIG_DIR = path.join(os.homedir(), '.claude', 'qqbot-mcp');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
@@ -103,31 +104,7 @@ function log(color, message) {
   console.log(`${colors[color] || ''}${message}${colors.reset}`);
 }
 
-// ============ 版本比较函数 ============
-
-/**
- * 解析版本字符串为数字数组
- */
-function parseVersion(versionStr) {
-  if (!versionStr) return null;
-  const match = versionStr.match(/(\d+)\.(\d+)\.(\d+)/);
-  if (!match) return null;
-  return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
-}
-
-/**
- * 比较两个版本号
- * @returns {number} 1 (v1 > v2), -1 (v1 < v2), 0 (相等)
- */
-function compareVersions(v1, v2) {
-  for (let i = 0; i < 3; i++) {
-    if (v1[i] > v2[i]) return 1;
-    if (v1[i] < v2[i]) return -1;
-  }
-  return 0;
-}
-
-// 诊断结果
+// ============ 诊断结果 ============
 const results = {
   passed: [],
   warnings: [],
@@ -377,7 +354,103 @@ async function runDiagnostics() {
     results.errors.push({ name: 'plugin.json 解析', message: e.message });
   }
 
-  // 8. Claude Code Channel 支持检查
+  // 8. Hook 配置检查
+  log('');
+  log('bold', '🪝 Hook 配置检查');
+
+  try {
+    const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+    const pluginRoot = (() => { let r = path.dirname(path.dirname(new URL(import.meta.url).pathname)); if (r.endsWith("/dist") || r.endsWith("\\dist")) r = path.dirname(r); return r; })();
+
+    // 检查 settings.json 是否存在
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      const hooks = settings.hooks || {};
+
+      // 检查 SessionStart hook
+      const hasSessionStart = hooks.SessionStart && hooks.SessionStart.length > 0;
+      if (hasSessionStart) {
+        log('green', '  ✅ SessionStart hook: 已配置');
+        results.passed.push({ name: 'SessionStart hook', message: '已配置' });
+
+        // 检查是否包含 qqbot-mcp 的 SessionStart hook
+        const sessionStartHooks = hooks.SessionStart.flatMap(h => h.hooks || []);
+        const hasQqbotSessionStart = sessionStartHooks.some(h =>
+          h.command && (h.command.includes('qqbot') || h.command.includes('session-start-handler'))
+        );
+
+        if (hasQqbotSessionStart) {
+          log('green', '  ✅ QQ Bot SessionStart hook: 已配置');
+          results.passed.push({ name: 'QQ Bot SessionStart hook', message: '已配置' });
+          results.sessionStartHookConfigured = true;
+        } else {
+          log('yellow', '  ⚠️  QQ Bot SessionStart hook: 未配置');
+          log('dim', '      plugin.json 中定义的 SessionStart hook 未被应用到 settings.json');
+          log('dim', '      这意味着 Gateway 不会在会话启动时自动启动');
+          results.warnings.push({ name: 'QQ Bot SessionStart hook', message: '未配置' });
+          results.sessionStartHookConfigured = false;
+        }
+      } else {
+        log('yellow', '  ⚠️  SessionStart hook: 未配置');
+        log('dim', '      Claude Code 可能未正确加载插件的 SessionStart hook');
+        results.warnings.push({ name: 'SessionStart hook', message: '未配置' });
+        results.sessionStartHookConfigured = false;
+      }
+
+      // 检查其他必要的 hooks
+      const hasPostToolUse = hooks.PostToolUse && hooks.PostToolUse.length > 0;
+      const hasUserPromptSubmit = hooks.UserPromptSubmit && hooks.UserPromptSubmit.length > 0;
+      const hasSessionEnd = hooks.SessionEnd && hooks.SessionEnd.length > 0;
+
+      if (hasPostToolUse) {
+        log('green', '  ✅ PostToolUse hook: 已配置');
+      } else {
+        log('dim', '  ℹ️  PostToolUse hook: 未配置 (可选)');
+      }
+
+      if (hasUserPromptSubmit) {
+        log('green', '  ✅ UserPromptSubmit hook: 已配置');
+      } else {
+        log('dim', '  ℹ️  UserPromptSubmit hook: 未配置 (可选)');
+      }
+
+      if (hasSessionEnd) {
+        log('green', '  ✅ SessionEnd hook: 已配置');
+      } else {
+        log('dim', '  ℹ️  SessionEnd hook: 未配置 (可选)');
+      }
+
+    } else {
+      log('yellow', '  ⚠️  settings.json 不存在');
+      results.warnings.push({ name: 'settings.json', message: '不存在' });
+      results.sessionStartHookConfigured = false;
+    }
+
+    // 检查 Hook 执行状态文件
+    log('dim', '  ℹ️  检查 Hook 执行状态...');
+    try {
+      const hookStates = getAllHookStates();
+      if (hookStates.hooks && Object.keys(hookStates.hooks).length > 0) {
+        log('green', '  ✅ Hook 执行状态: 有记录');
+        for (const [hookName, state] of Object.entries(hookStates.hooks)) {
+          const timeAgo = Math.round((Date.now() - state.timestamp) / 1000 / 60);
+          const timeStr = timeAgo < 1 ? '刚刚' : timeAgo < 60 ? `${timeAgo}分钟前` : `${Math.round(timeAgo / 60)}小时前`;
+          const statusIcon = state.status === 'success' ? '✅' : state.status === 'failed' ? '❌' : '⚠️';
+          log('dim', `      ${statusIcon} ${hookName}: ${state.status} (${timeStr})`);
+        }
+        results.hookStates = hookStates;
+      } else {
+        log('dim', '  ℹ️  Hook 执行状态: 暂无记录 (首次运行正常)');
+      }
+    } catch (e) {
+      log('dim', `  ℹ️  Hook 执行状态: 无法读取 (${e.message})`);
+    }
+
+  } catch (e) {
+    results.errors.push({ name: 'Hook 配置检查', message: e.message });
+  }
+
+  // 9. Claude Code Channel 支持检查
   log('');
   log('bold', '📡 Claude Code Channel 检查');
 
@@ -412,10 +485,27 @@ async function runDiagnostics() {
     );
 
     // 检测 Claude Code 版本
-    // 注意：CLAUDE_CODE_VERSION 仅在 MCP Server 由 Claude Code 启动时设置
-    // 独立进程（如 Gateway、CLI）不会有此变量，这是正常行为
-    const claudeVersion = process.env.CLAUDE_CODE_VERSION;
+    // 优先使用环境变量，其次使用 CLI 命令
+    let claudeVersion = process.env.CLAUDE_CODE_VERSION;
+    let versionSource = 'env';
     const minChannelVersion = '2.1.80';
+
+    // 如果环境变量未设置，尝试通过 claude --version 获取
+    if (!claudeVersion) {
+      try {
+        const output = execSync('claude --version 2>/dev/null', {
+          encoding: 'utf-8',
+          timeout: 5000,
+        }).trim();
+        const match = output.match(/(\d+\.\d+\.\d+)/);
+        if (match) {
+          claudeVersion = match[1];
+          versionSource = 'cli';
+        }
+      } catch {
+        // CLI 命令不可用
+      }
+    }
 
     // 检测是否在 Claude Code MCP 环境中运行
     const isMcpContext = !!(
@@ -577,6 +667,48 @@ async function runDiagnostics() {
     results.fixes.forEach((f, i) => {
       log('dim', `  ${i + 1}. ${f.name}: ${f.fix}`);
     });
+  }
+
+  // 用户指导
+  log('');
+  log('bold', '💡 使用指导');
+
+  // SessionStart hook 未配置的指导
+  if (results.sessionStartHookConfigured === false) {
+    log('yellow', '  ⚠️  SessionStart Hook 未配置');
+    log('dim', '      这意味着 Gateway 不会在 Claude Code 会话启动时自动启动。');
+    log('dim', '      ');
+    log('dim', '      解决方法:');
+    log('dim', '      1. 手动启动 Gateway: /qqbot-service start');
+    log('dim', '      2. 或在 settings.json 中添加 SessionStart hook:');
+    log('dim', '         "hooks": {');
+    log('dim', '           "SessionStart": [{');
+    log('dim', '             "hooks": [{');
+    log('dim', '               "type": "command",');
+    log('dim', `               "command": "node ${path.join(os.homedir(), '.claude', 'plugins', 'marketplaces', 'qqbot-mcp', 'scripts', 'session-start-handler.js')}"`);
+    log('dim', '             }]');
+    log('dim', '           }]');
+    log('dim', '         }');
+    log('');
+  }
+
+  // Gateway 未运行的指导
+  if (!results.gatewayAvailable && results.communicationMode !== 'native-channel') {
+    log('cyan', '  📌 启动 Gateway 以启用 Channel 模式:');
+    log('dim', '      /qqbot-service start    # 启动 Gateway 服务');
+    log('dim', '      /qqbot-service status   # 检查 Gateway 状态');
+    log('');
+  }
+
+  // 通信模式说明
+  if (results.communicationMode === 'gateway-bridge') {
+    log('green', '  ✅ 当前配置: Gateway 桥接模式 (推荐)');
+    log('dim', '      • QQ 消息会实时推送到 Claude Code');
+    log('dim', '      • Claude Code 可直接回复消息');
+  } else if (results.communicationMode === 'tools-polling') {
+    log('yellow', '  ℹ️  当前配置: MCP Tools 模式');
+    log('dim', '      • 需要手动调用工具发送/接收消息');
+    log('dim', '      • 建议启动 Gateway 以启用自动推送');
   }
 
   return results.errors.length === 0;

@@ -14,6 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
+import { recordHookExecution } from './lib/channel-support.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -179,6 +180,12 @@ function updateProjectLastActive() {
  * 主函数
  */
 async function main() {
+  const startTime = Date.now();
+  const projectName = getProjectName();
+
+  // 记录开始执行
+  recordHookExecution('session-end-handler', 'started', 'Hook execution started', 0, 0, { projectName });
+
   const config = loadConfig();
   const sessionId = getSessionId();
 
@@ -194,9 +201,13 @@ async function main() {
   updateProjectLastActive();
 
   console.error('[session-end] ✅ Cleanup complete');
+
+  // 记录执行成功
+  recordHookExecution('session-end-handler', 'success', 'Cleanup complete', Date.now() - startTime, 0, { projectName, sessionId: sessionId?.slice(0, 12) });
 }
 
 main().catch((error) => {
   console.error(`[session-end] Error: ${error.message}`);
+  recordHookExecution('session-end-handler', 'failed', error.message, 0, 1, { error: error.message });
   process.exit(0); // 不阻塞 Claude Code 退出
 });

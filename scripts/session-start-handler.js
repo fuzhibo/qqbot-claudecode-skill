@@ -16,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
+import { recordHookExecution } from './lib/channel-support.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -175,11 +176,18 @@ async function startGateway() {
  * 主函数
  */
 async function main() {
+  const startTime = Date.now();
+  const projectName = getCurrentProjectName();
+
+  // 记录开始执行
+  recordHookExecution('session-start-handler', 'started', 'Hook execution started', 0, 0, { projectName });
+
   const config = loadConfig();
 
   // 1. 检查工作模式
   if (config.workmode === 'headless') {
     console.error('[session-start] 📴 Headless mode - skipping Gateway startup');
+    recordHookExecution('session-start-handler', 'skipped', 'Headless mode', Date.now() - startTime, 0, { projectName, mode: 'headless' });
     return;
   }
 
@@ -187,19 +195,25 @@ async function main() {
   if (isGatewayRunning()) {
     console.error('[session-start] ✅ Gateway already running');
     registerProject();
+    recordHookExecution('session-start-handler', 'success', 'Gateway already running', Date.now() - startTime, 0, { projectName, gatewayAlreadyRunning: true });
     return;
   }
 
   // 3. 如果配置允许，自动启动 Gateway
   if (config.autoStartGateway) {
-    await startGateway();
+    const started = await startGateway();
     registerProject();
+    recordHookExecution('session-start-handler', started ? 'success' : 'failed',
+      started ? 'Gateway started successfully' : 'Gateway start failed',
+      Date.now() - startTime, started ? 0 : 1, { projectName, autoStarted: true });
   } else {
     console.error('[session-start] ℹ️ autoStartGateway=false - skipping auto-start');
+    recordHookExecution('session-start-handler', 'skipped', 'autoStartGateway=false', Date.now() - startTime, 0, { projectName, autoStartDisabled: true });
   }
 }
 
 main().catch((error) => {
   console.error(`[session-start] Error: ${error.message}`);
+  recordHookExecution('session-start-handler', 'failed', error.message, 0, 1, { error: error.message });
   process.exit(0); // 不阻塞 Claude Code 启动
 });
