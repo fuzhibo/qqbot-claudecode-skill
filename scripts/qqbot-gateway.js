@@ -2400,6 +2400,9 @@ function startInternalApi() {
         status: 'running',
         mode,
         pid: process.pid,
+        running,  // 暴露内部 running 状态，用于检测僵尸状态
+        lastWsActivity,  // WebSocket 最后活动时间戳
+        wsReadyState: ws ? ws.readyState : null,  // WebSocket 状态 (0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED)
         ...stats
       }));
       return;

@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.22.0] - 2026-03-31
+
+### 新功能
+
+- **Gateway 按需健康检测**: 新会话启动时自动检测网关僵尸状态并自动重启
+  - 检测 `running = false`（网关已放弃重试）
+  - 检测 `wsReadyState = 3`（WebSocket 已关闭）
+  - 检测 WebSocket 超过 5 分钟无活动
+  - 发现僵尸状态时自动重启网关
+- **Gateway 状态 API 增强**: `/api/status` 新增字段
+  - `running`: 内部运行状态
+  - `lastWsActivity`: WebSocket 最后活动时间戳
+  - `wsReadyState`: WebSocket 连接状态 (0-3)
+- **解决网关僵尸状态问题**: 网关进程运行但 WebSocket 断开时无法自动恢复的问题
+
 ## [1.21.1] - 2026-03-31
 
 ### 新功能

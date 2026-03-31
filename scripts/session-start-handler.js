@@ -73,6 +73,104 @@ function isGatewayRunning() {
 }
 
 /**
+ * 检查网关健康状态（不仅仅是进程存在）
+ * 通过调用内部 API 获取真实状态，检测僵尸状态
+ */
+async function checkGatewayHealth() {
+  const INTERNAL_API_URL = 'http://127.0.0.1:3310';
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    const response = await fetch(`${INTERNAL_API_URL}/api/status`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return { healthy: false, reason: 'api_error', error: `HTTP ${response.status}` };
+    }
+
+    const status = await response.json();
+
+    // 场景 1: running = false（已放弃重试，僵尸状态）
+    if (status.running === false) {
+      return { healthy: false, reason: 'running_false', status };
+    }
+
+    // 场景 2: WebSocket 已关闭 (readyState = 3)
+    if (status.wsReadyState === 3) {
+      return { healthy: false, reason: 'ws_closed', status };
+    }
+
+    // 场景 3: WebSocket 超过 5 分钟无活动（可能卡死）
+    if (status.lastWsActivity && Date.now() - status.lastWsActivity > 5 * 60 * 1000) {
+      return { healthy: false, reason: 'ws_idle_timeout', status };
+    }
+
+    return { healthy: true, status };
+  } catch (error) {
+    // API 不可达，可能进程卡死或端口被占用
+    return {
+      healthy: false,
+      reason: error.name === 'AbortError' ? 'api_timeout' : 'api_error',
+      error: error.message
+    };
+  }
+}
+
+/**
+ * 重启网关（先停止再启动）
+ */
+async function restartGateway() {
+  const scriptPath = path.join(__dirname, 'qqbot-service.js');
+
+  if (!fs.existsSync(scriptPath)) {
+    console.error('[session-start] ⚠️ qqbot-service.js not found');
+    return false;
+  }
+
+  console.error('[session-start] 🔄 Restarting zombie Gateway...');
+
+  return new Promise((resolve) => {
+    // 先停止
+    const stopChild = spawn('node', [scriptPath, 'stop'], {
+      stdio: 'inherit',
+      cwd: __dirname,
+    });
+
+    stopChild.on('close', () => {
+      // 等待 2 秒后启动
+      setTimeout(() => {
+        const startChild = spawn('node', [scriptPath, 'start', '--mode', 'auto', '--channel'], {
+          detached: true,
+          stdio: 'ignore',
+          cwd: __dirname,
+        });
+        startChild.unref();
+
+        // 等待 3 秒后检查是否启动成功
+        setTimeout(() => {
+          if (isGatewayRunning()) {
+            console.error('[session-start] ✅ Gateway restarted successfully');
+            resolve(true);
+          } else {
+            console.error('[session-start] ❌ Gateway restart failed');
+            resolve(false);
+          }
+        }, 3000);
+      }, 2000);
+    });
+
+    stopChild.on('error', (error) => {
+      console.error(`[session-start] ❌ Failed to stop Gateway: ${error.message}`);
+      resolve(false);
+    });
+  });
+}
+
+/**
  * 获取当前项目路径
  */
 function getCurrentProjectPath() {
@@ -193,9 +291,29 @@ async function main() {
 
   // 2. 检查 Gateway 是否已运行
   if (isGatewayRunning()) {
-    console.error('[session-start] ✅ Gateway already running');
+    console.error('[session-start] 🔍 Gateway 进程存在，检查健康状态...');
+
+    // 检查健康状态，检测僵尸状态
+    const health = await checkGatewayHealth();
+
+    if (!health.healthy) {
+      console.error(`[session-start] ⚠️ 网关僵尸状态: ${health.reason}，自动重启...`);
+      recordHookExecution('session-start-handler', 'zombie_detected', `Zombie detected: ${health.reason}`, Date.now() - startTime, 0, { projectName, health });
+
+      const restarted = await restartGateway();
+
+      if (restarted) {
+        registerProject();
+        recordHookExecution('session-start-handler', 'success', 'Gateway restarted from zombie state', Date.now() - startTime, 0, { projectName, autoRestarted: true, health });
+      } else {
+        recordHookExecution('session-start-handler', 'failed', 'Gateway restart failed', Date.now() - startTime, 1, { projectName, health });
+      }
+      return;
+    }
+
+    console.error('[session-start] ✅ Gateway 健康');
     registerProject();
-    recordHookExecution('session-start-handler', 'success', 'Gateway already running', Date.now() - startTime, 0, { projectName, gatewayAlreadyRunning: true });
+    recordHookExecution('session-start-handler', 'success', 'Gateway healthy', Date.now() - startTime, 0, { projectName, gatewayAlreadyRunning: true });
     return;
   }
 
