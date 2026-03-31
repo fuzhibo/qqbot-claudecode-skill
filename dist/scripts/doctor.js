@@ -856,6 +856,62 @@ async function autoFix() {
     }
   }
 
+  // 7. 检查并修复 SessionStart hook
+  log('');
+  log('bold', '🪝 SessionStart Hook 配置');
+
+  const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+  if (fs.existsSync(settingsPath)) {
+    try {
+      const settingsContent = fs.readFileSync(settingsPath, 'utf-8');
+      const settings = JSON.parse(settingsContent);
+
+      if (!settings.hooks) settings.hooks = {};
+
+      // 检查是否已配置 SessionStart hook 且包含 session-start-handler.js
+      const hasSessionStartHandler = settings.hooks.SessionStart &&
+        settings.hooks.SessionStart.some(h =>
+          h.hooks?.some(sub => sub.command?.includes('session-start-handler.js'))
+        );
+
+      if (!hasSessionStartHandler) {
+        log('yellow', '  ⚠️  SessionStart hook 未配置，正在添加...');
+
+        const sessionStartHandler = path.join(pluginRoot, 'scripts', 'session-start-handler.js');
+        if (fs.existsSync(sessionStartHandler)) {
+          settings.hooks.SessionStart = [
+            {
+              matcher: ".*",
+              hooks: [
+                {
+                  type: "command",
+                  command: `node ${sessionStartHandler} 2>/dev/null || true`
+                }
+              ]
+            }
+          ];
+
+          fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 4));
+          log('green', '  ✅ 已添加 SessionStart hook 配置');
+          log('dim', `     路径: ${sessionStartHandler}`);
+          fixed++;
+        } else {
+          log('red', '  ❌ session-start-handler.js 不存在');
+          log('dim', `     期望路径: ${sessionStartHandler}`);
+          failed++;
+        }
+      } else {
+        log('green', '  ✅ SessionStart hook 已配置');
+      }
+    } catch (e) {
+      log('red', `  ❌ 解析 settings.json 失败: ${e.message}`);
+      failed++;
+    }
+  } else {
+    log('yellow', '  ⚠️  settings.json 不存在，跳过 SessionStart hook 配置');
+    log('dim', '     这通常意味着 Claude Code 尚未初始化');
+  }
+
   // 输出摘要
   log('\n' + '═'.repeat(50));
   log('bold', '\n📊 修复摘要\n');

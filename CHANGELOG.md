@@ -2,6 +2,20 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.21.1] - 2026-03-31
+
+### 新功能
+
+- **Doctor 自动修复 SessionStart Hook**: `qqbot-doctor --fix` 现在会自动检测并修复 SessionStart hook 配置缺失问题
+  - 自动添加 `session-start-handler.js` 到全局 `settings.json`
+  - 使用动态路径探测，支持开发环境和已安装插件环境
+  - 所有用户可通过 `/qqbot-doctor --fix` 一键修复 Gateway 自动启动配置
+
+### 修复
+
+- 解决 Gateway 服务在会话启动时不会自动拉起的问题
+- 插件 `plugin.json` 中定义的 SessionStart hook 未被合并到全局配置的问题
+
 ## [1.21.0] - 2026-03-30
 
 ### 新功能
