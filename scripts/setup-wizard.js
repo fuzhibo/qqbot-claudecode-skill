@@ -94,8 +94,11 @@ function checkBuild() {
   }
 
   // 检查关键文件
+  // 新路径：打包后的 dist/mcp/index.js
+  // 旧路径：tsc 编译的 dist/src/mcp/（向后兼容）
   const criticalFiles = [
-    'dist/src/mcp/index.js',
+    'dist/mcp/index.js',
+    'dist/src/mcp/index.js',  // 向后兼容
     'dist/src/proactive.js',
     'dist/src/gateway.js',
   ];

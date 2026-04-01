@@ -160,6 +160,25 @@ async function copyNonTsFiles() {
       log('dim', `  📄 复制 bin/${file}`);
     }
   }
+
+  // 复制 scripts/lib 目录
+  const libDir = path.join(scriptsDir, 'lib');
+  const distLibDir = path.join(distScriptsDir, 'lib');
+  if (fs.existsSync(libDir)) {
+    if (!fs.existsSync(distLibDir)) {
+      fs.mkdirSync(distLibDir, { recursive: true });
+    }
+    const libFiles = fs.readdirSync(libDir);
+    for (const file of libFiles) {
+      if (file.endsWith('.js')) {
+        fs.copyFileSync(
+          path.join(libDir, file),
+          path.join(distLibDir, file)
+        );
+        log('dim', `  📄 复制 scripts/lib/${file}`);
+      }
+    }
+  }
 }
 
 async function buildTypeScript() {
