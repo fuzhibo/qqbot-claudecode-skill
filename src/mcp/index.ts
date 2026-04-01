@@ -38,6 +38,19 @@ import {
   isGatewayRegistered,
 } from './channel-pusher.js';
 import { initPermissionRelay, handlePermissionRequest } from './permission-relay.js';
+import {
+  getModeRegistry,
+  getOperationMode,
+  getModeConfig,
+  setMode,
+  detectAndSetMode,
+  setGatewayAvailable,
+  setSessionInfo,
+  getSessionPrefix,
+  loadEnvUnified,
+  type OperationMode,
+  type ModeConfig,
+} from './mode-registry.js';
 import { z } from 'zod';
 
 // ============ Permission Request Schema ============
@@ -59,61 +72,8 @@ const PermissionRequestSchema = z.object({
 // 这必须在 getOperationMode() 之前执行，以确保模式检测能访问到配置
 loadEnvFromFile();
 
-/** Channel 模式所需的最低 Claude Code 版本 (用于原生 Channel + 权限中继) */
-const MIN_CHANNEL_VERSION = '2.1.80';
-
 /** Gateway API 地址 */
 const GATEWAY_API_URL = process.env.QQBOT_GATEWAY_URL || 'http://127.0.0.1:3310';
-
-/** 运行模式类型 */
-type OperationMode = 'channel' | 'tools';
-
-/** Channel 子模式类型 */
-type ChannelSubMode = 'gateway-bridge' | 'native';
-
-/** 模式检测结果 */
-interface ModeDetectionResult {
-  mode: OperationMode;
-  channelSubMode?: ChannelSubMode;
-  gatewayAvailable?: boolean;
-  nativeSupported?: boolean;
-  reason: string;
-}
-
-/**
- * 解析版本字符串为数字数组
- */
-function parseVersion(versionStr: string | undefined): [number, number, number] | null {
-  if (!versionStr) return null;
-  const match = versionStr.match(/(\d+)\.(\d+)\.(\d+)/);
-  if (!match) return null;
-  return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
-}
-
-/**
- * 比较两个版本号
- */
-function compareVersions(
-  v1: [number, number, number],
-  v2: [number, number, number]
-): number {
-  for (let i = 0; i < 3; i++) {
-    if (v1[i] > v2[i]) return 1;
-    if (v1[i] < v2[i]) return -1;
-  }
-  return 0;
-}
-
-/**
- * 检测 Claude Code 版本是否支持原生 Channel 模式
- * 原生 Channel 用于权限中继等高级功能
- */
-function supportsNativeChannel(version: string | undefined): boolean {
-  const current = parseVersion(version);
-  const required = parseVersion(MIN_CHANNEL_VERSION);
-  if (!current || !required) return false;
-  return compareVersions(current, required) >= 0;
-}
 
 /**
  * 检测 Gateway API 是否可用
@@ -137,128 +97,13 @@ async function checkGatewayAvailable(): Promise<boolean> {
 }
 
 /**
- * 同步检测 Gateway 是否可用 (基于环境变量判断)
- * 用于初始化时的同步检测
+ * 获取运行模式 (使用统一模式注册中心)
  */
-function isGatewayConfigured(): boolean {
-  // 如果显式配置了 Gateway URL，认为 Gateway 模式可用
-  if (process.env.QQBOT_GATEWAY_URL) {
-    return true;
-  }
-  // 默认情况下假设 Gateway 在本地运行
-  return true;
+function getOperationModeSync(): ModeConfig {
+  return getModeConfig();
 }
 
-/**
- * 获取运行模式
- *
- * 模式优先级:
- * 1. 环境变量 QQBOT_CHANNEL_MODE=tools -> 强制 Tools 模式
- * 2. 环境变量 QQBOT_CHANNEL_MODE=channel -> 强制 Channel 模式 (检测 Gateway)
- * 3. 自动检测: Gateway 可用 -> Channel (Gateway 桥接)
- * 4. 自动检测: Claude Code 原生 Channel -> Channel (原生)
- * 5. 降级到 Tools 模式
- *
- * Channel 模式分为两种:
- * - gateway-bridge: 通过 Gateway 轮询获取消息 (不依赖 Claude Code 版本)
- * - native: 使用 Claude Code 原生 Channel capability (需要 v2.1.80+)
- */
-function getOperationModeSync(): ModeDetectionResult {
-  // 1. 优先读取全局配置文件
-  const globalConfig = loadGlobalConfig();
-  const envMode = process.env.QQBOT_CHANNEL_MODE?.toLowerCase();
-  const nativeSupported = supportsNativeChannel(process.env.CLAUDE_CODE_VERSION);
-
-  // 2. 环境变量强制模式（最高优先级）
-  if (envMode === 'tools') {
-    return {
-      mode: 'tools',
-      reason: 'forced by QQBOT_CHANNEL_MODE=tools',
-    };
-  }
-
-  if (envMode === 'channel') {
-    // 优先使用 Gateway 桥接
-    if (isGatewayConfigured()) {
-      return {
-        mode: 'channel',
-        channelSubMode: 'gateway-bridge',
-        gatewayAvailable: true,
-        nativeSupported,
-        reason: 'forced by QQBOT_CHANNEL_MODE=channel, using gateway-bridge',
-      };
-    }
-    if (nativeSupported) {
-      return {
-        mode: 'channel',
-        channelSubMode: 'native',
-        gatewayAvailable: false,
-        nativeSupported: true,
-        reason: 'forced by QQBOT_CHANNEL_MODE=channel, using native',
-      };
-    }
-    console.warn('[qqbot-mcp] Channel mode forced but no backend available, falling back to Tools');
-    return {
-      mode: 'tools',
-      reason: 'forced channel but no backend available',
-    };
-  }
-
-  // 3. 配置文件指定 headless 模式
-  if (globalConfig.workmode === 'headless') {
-    return {
-      mode: 'tools',
-      reason: 'configured as headless mode in qqbot-config.json',
-    };
-  }
-
-  // 4. 配置文件指定 channel 模式（默认）
-  // 优先级: Gateway 桥接 > 原生 Channel > 降级
-
-  if (isGatewayConfigured()) {
-    return {
-      mode: 'channel',
-      channelSubMode: 'gateway-bridge',
-      gatewayAvailable: true,
-      nativeSupported,
-      reason: 'auto-detected gateway-bridge mode',
-    };
-  }
-
-  if (nativeSupported) {
-    return {
-      mode: 'channel',
-      channelSubMode: 'native',
-      gatewayAvailable: false,
-      nativeSupported: true,
-      reason: 'auto-detected native channel mode',
-    };
-  }
-
-  // 5. 检查是否允许降级
-  if (globalConfig.allowDegradation) {
-    console.warn('[qqbot-mcp] Channel backend unavailable, degrading to tools mode (allowDegradation=true)');
-    return {
-      mode: 'tools',
-      reason: 'degraded from channel to tools (allowDegradation=true)',
-    };
-  }
-
-  // 6. 不允许降级，保持 channel 模式等待 Gateway
-  return {
-    mode: 'channel',
-    channelSubMode: 'gateway-bridge',
-    gatewayAvailable: false,
-    nativeSupported: false,
-    reason: 'waiting for gateway (allowDegradation=false)',
-  };
-}
-
-// 保持向后兼容的函数
-function getOperationMode(): OperationMode {
-  const result = getOperationModeSync();
-  return result.mode;
-}
+// getOperationMode 已从 mode-registry.js 导入，无需重复定义
 
 /** 当前运行模式 */
 const operationMode = getOperationMode();
@@ -382,15 +227,22 @@ function initializeBots(): void {
  */
 async function run(): Promise<void> {
   console.error('[qqbot-mcp] Starting QQ Bot MCP Server...');
-  console.error(`[qqbot-mcp] Operation mode: ${operationMode}`);
 
   // 初始化机器人
   initializeBots();
 
+  // 检测 Gateway 可用性
+  const gatewayAvailable = await checkGatewayAvailable();
+
+  // 使用统一模式注册中心检测并设置模式
+  const modeConfig = detectAndSetMode(gatewayAvailable, true);
+  console.error(`[qqbot-mcp] Operation mode: ${modeConfig.mode} (source: ${modeConfig.source})`);
+  if (modeConfig.reason) {
+    console.error(`[qqbot-mcp] Reason: ${modeConfig.reason}`);
+  }
+
   // Channel 模式：检测 Gateway 可用性
   if (operationMode === 'channel') {
-    const gatewayAvailable = await checkGatewayAvailable();
-
     if (!gatewayAvailable) {
       console.error('[qqbot-mcp] ⚠️ Gateway 不可用');
       console.error('[qqbot-mcp] 请先启动 QQ Bot Gateway:');
@@ -442,6 +294,10 @@ async function run(): Promise<void> {
     const sessionId = process.env.CLAUDE_SESSION_ID || generateSessionId();
     const projectPath = process.env.CLAUDE_PROJECT_PATH || process.cwd();
     const projectName = process.env.CLAUDE_PROJECT_NAME || projectPath.split('/').pop() || 'unknown';
+
+    // 🔴 关键: 将会话信息写入 ModeRegistry (用于消息前缀)
+    setSessionInfo(sessionId, projectPath, projectName);
+    console.error(`[qqbot-mcp] Session ID: ${sessionId.slice(0, 8)}...`);
 
     // 在注册前，先清理同路径的旧注册（避免僵尸 Channel）
     try {

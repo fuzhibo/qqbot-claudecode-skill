@@ -12,7 +12,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
-import { parseVersion, compareVersions, MIN_VERSION, getAllHookStates } from './lib/channel-support.js';
+import {
+  parseVersion,
+  compareVersions,
+  MIN_VERSION,
+  getAllHookStates,
+  getModeRegistry,
+  loadEnvUnified,
+} from './lib/channel-support.js';
 
 const CONFIG_DIR = path.join(os.homedir(), '.claude', 'qqbot-mcp');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
@@ -20,6 +27,7 @@ const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 // 全局配置路径（工作模式、降级等）
 const GATEWAY_DIR = path.join(os.homedir(), '.claude', 'qqbot-gateway');
 const GLOBAL_CONFIG_FILE = path.join(GATEWAY_DIR, 'qqbot-config.json');
+const MODE_REGISTRY_FILE = path.join(GATEWAY_DIR, 'mode-registry.json');
 
 // 默认全局配置（与 src/mcp/config.ts 保持一致）
 const DEFAULT_GLOBAL_CONFIG = {
@@ -597,6 +605,43 @@ async function runDiagnostics() {
       } else {
         log('dim', `  ℹ️  plugin.json Channel 配置: 未配置 (将使用默认值)`);
       }
+    }
+
+    // 显示 ModeRegistry 状态
+    log('');
+    log('bold', '  📋 ModeRegistry 状态');
+
+    try {
+      // 先加载环境变量
+      loadEnvUnified();
+
+      // 读取 ModeRegistry
+      const modeRegistry = getModeRegistry();
+      const modeIcon = modeRegistry.mode === 'channel' ? '✅' : '📨';
+      const sourceIcon = { cli: '⌨️', env: '🔧', config: '⚙️', auto: '🤖', default: '📌' }[modeRegistry.source] || '❓';
+
+      log('green', `    ${modeIcon} 运行模式: ${modeRegistry.mode}`);
+      log('dim', `      来源: ${sourceIcon} ${modeRegistry.source}`);
+      if (modeRegistry.channelSubMode) {
+        log('dim', `      子模式: ${modeRegistry.channelSubMode}`);
+      }
+      if (modeRegistry.reason) {
+        log('dim', `      原因: ${modeRegistry.reason}`);
+      }
+      log('dim', `      Gateway 可用: ${modeRegistry.gatewayAvailable ? '是' : '否'}`);
+      log('dim', `      原生支持: ${modeRegistry.nativeSupported ? '是' : '否'}`);
+      if (modeRegistry.sessionId) {
+        log('dim', `      会话 ID: ${modeRegistry.sessionId.slice(0, 8)}...`);
+      }
+      if (modeRegistry.lastUpdated) {
+        const timeAgo = Math.round((Date.now() - modeRegistry.lastUpdated) / 1000 / 60);
+        const timeStr = timeAgo < 1 ? '刚刚' : timeAgo < 60 ? `${timeAgo}分钟前` : `${Math.round(timeAgo / 60)}小时前`;
+        log('dim', `      更新时间: ${timeStr}`);
+      }
+
+      results.modeRegistry = modeRegistry;
+    } catch (e) {
+      log('yellow', `    ⚠️  无法读取 ModeRegistry: ${e.message}`);
     }
 
     // 通信能力总结

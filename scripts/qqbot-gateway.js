@@ -86,6 +86,17 @@ import {
   AUTH_CONSTANTS,
 } from './authorization-state.js';
 
+// 导入统一模式注册中心
+import {
+  loadEnvUnified,
+  getModeRegistry,
+  setModeRegistry,
+  getOperationMode,
+  getSessionPrefix,
+  checkGatewayAvailable as checkGatewayAvailableFromRegistry,
+  detectAndSetMode,
+} from './lib/channel-support.js';
+
 // 复用 src/api.ts 的完善实现
 // 注意：源码目录是 dist/src/api.js，但插件安装目录是 dist/api.js
 // 开发环境使用 dist/src/api.js，插件安装后使用 dist/api.js
@@ -2198,7 +2209,7 @@ async function loadFileAsBase64(filePath, projectPath = null) {
  * @param {string} openid - 用户 OpenID
  * @param {string} text - 包含富媒体标签的文本
  * @param {string} [msgId] - 回复的消息 ID
- * @param {string} [projectName] - 项目名称（用于前缀）
+ * @param {string} [projectName] - 项目名称（用于前缀，优先使用 sessionId）
  */
 async function sendRichMessage(token, openid, text, msgId = null, projectName = null) {
   // 预处理：纠正常见标签格式问题
@@ -2206,9 +2217,17 @@ async function sendRichMessage(token, openid, text, msgId = null, projectName = 
              .replace(/<\/img>/gi, '</qqimg>')
              .replace(/<(qqimg)([^>]*?)\/>/gi, '<qqimg>$2</qqimg>');
 
-  // 检查是否为 Channel 模式，用于决定是否添加项目名前缀
-  const state = loadGatewayState();
-  const isChannelMode = state?.channel?.enabled === true;
+  // 🔴 使用统一模式注册中心获取前缀
+  // 优先使用 sessionId 前缀（前8位），让用户确认是否运行在 Channel 模式
+  // 降级使用 projectName
+  const sessionPrefix = getSessionPrefix();
+  const modeRegistry = getModeRegistry();
+  const isChannelMode = modeRegistry?.mode === 'channel';
+
+  // 决定使用哪个前缀：Channel 模式下优先使用 sessionId
+  const displayPrefix = isChannelMode && sessionPrefix
+    ? sessionPrefix
+    : (isChannelMode && projectName ? projectName : null);
 
   // 匹配富媒体标签
   const mediaTagRegex = /<(qqimg|qqvoice|qqvideo|qqfile)>([^<>]+)<\/(?:qqimg|qqvoice|qqvideo|qqfile|img)>/gi;
@@ -2216,7 +2235,7 @@ async function sendRichMessage(token, openid, text, msgId = null, projectName = 
 
   if (!matches || matches.length === 0) {
     // 没有富媒体标签，发送纯文本
-    const finalText = isChannelMode && projectName ? `[${projectName}] ${text}` : text;
+    const finalText = displayPrefix ? `[${displayPrefix}] ${text}` : text;
     return sendC2CMessage(token, openid, finalText, msgId);
   }
 
@@ -2272,8 +2291,8 @@ async function sendRichMessage(token, openid, text, msgId = null, projectName = 
   for (const item of sendQueue) {
     try {
       if (item.type === 'text') {
-        // Channel 模式下每条消息都添加前缀
-        const content = isChannelMode && projectName ? `[${projectName}] ${item.content}` : item.content;
+        // Channel 模式下每条消息都添加前缀（使用 displayPrefix）
+        const content = displayPrefix ? `[${displayPrefix}] ${item.content}` : item.content;
         lastResult = await sendC2CMessage(token, openid, content, isFirstMessage ? msgId : null);
         log('green', `   ✅ 文本消息已发送`);
       } else if (item.type === 'image') {
@@ -3779,11 +3798,27 @@ async function processWithClaude(parsed, authorId, msgId, originalContent) {
   // 新会话不传 sessionId，让 Claude 创建；已建立会话使用 --resume
   const args = buildClaudeArgs(parsed, isNew ? null : sessionId);
 
-  // 构建提示词
-  const prompt = `[QQ 消息 - 项目: ${projectName}]
-${originalContent}
+  // 获取当前通信模式上下文（用于让 Headless 了解系统状态）
+  const gatewayState = loadGatewayState();
+  const channelEnabled = gatewayState?.channel?.enabled === true;
+  const channelMode = gatewayState?.channel?.mode || 'none';
+  const activeChannels = channelRegistry.size;
+  const activeChannelList = Array.from(channelRegistry.entries()).map(([id, info]) =>
+    `${info.displayName || info.projectName} (${id.slice(0, 8)}...)`).join(', ');
 
-请处理这条消息，并给出简洁的回复。`;
+  // 构建系统上下文
+  const commMode = channelEnabled ? `Channel (${channelMode})` : '标准 WebSocket (Headless)';
+  const systemContext = '[系统上下文]\n' +
+`- 通信模式: ${commMode}\n` +
+`- Channel 已启用: ${channelEnabled ? '是' : '否'}\n` +
+`- 活跃 Channel 数: ${activeChannels}\n` +
+(activeChannelList ? `- 活跃列表: ${activeChannelList}` : '');
+
+  // 构建提示词
+  const prompt = '[QQ 消息 - 项目: ' + projectName + ']\n' +
+originalContent + '\n\n' +
+systemContext + '\n' +
+'请处理这条消息，并给出简洁的回复。';
 
   // 获取用户激活状态用于心跳消息
   const userActivation = getUserActivation(authorId);

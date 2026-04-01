@@ -3228,8 +3228,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path4) {
-      let input = path4;
+    function removeDotSegments(path5) {
+      let input = path5;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3428,8 +3428,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path4, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path4 && path4 !== "/" ? path4 : void 0;
+        const [path5, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path5 && path5 !== "/" ? path5 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6782,12 +6782,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs3, exportName) {
+    function addFormats(ajv, list, fs4, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs3[f]);
+        ajv.addFormat(f, fs4[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -10770,8 +10770,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path4, errorMaps, issueData } = params;
-  const fullPath = [...path4, ...issueData.path || []];
+  const { data, path: path5, errorMaps, issueData } = params;
+  const fullPath = [...path5, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -10886,11 +10886,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path4, key) {
+  constructor(parent, value, path5, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path4;
+    this._path = path5;
     this._key = key;
   }
   get path() {
@@ -14813,10 +14813,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path4) {
-  if (!path4)
+function getElementAtPath(obj, path5) {
+  if (!path5)
     return obj;
-  return path4.reduce((acc, key) => acc?.[key], obj);
+  return path5.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -15199,11 +15199,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path4, issues) {
+function prefixIssues(path5, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path4);
+    iss.path.unshift(path5);
     return iss;
   });
 }
@@ -15386,7 +15386,7 @@ function formatError(error48, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error48, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error49, path4 = []) => {
+  const processError = (error49, path5 = []) => {
     var _a2, _b;
     for (const issue2 of error49.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
@@ -15396,7 +15396,7 @@ function treeifyError(error48, mapper = (issue2) => issue2.message) {
       } else if (issue2.code === "invalid_element") {
         processError({ issues: issue2.issues }, issue2.path);
       } else {
-        const fullpath = [...path4, ...issue2.path];
+        const fullpath = [...path5, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -15428,8 +15428,8 @@ function treeifyError(error48, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path4 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path4) {
+  const path5 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path5) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -27710,13 +27710,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path4 = ref.slice(1).split("/").filter(Boolean);
-  if (path4.length === 0) {
+  const path5 = ref.slice(1).split("/").filter(Boolean);
+  if (path5.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path4[0] === defsKey) {
-    const key = path4[1];
+  if (path5[0] === defsKey) {
+    const key = path5[1];
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -31692,13 +31692,13 @@ function getNextMsgSeq(_msgId) {
 }
 var DEFAULT_API_TIMEOUT = 3e4;
 var FILE_UPLOAD_TIMEOUT = 12e4;
-async function apiRequest(accessToken, method, path4, body, timeoutMs) {
-  const url2 = `${API_BASE}${path4}`;
+async function apiRequest(accessToken, method, path5, body, timeoutMs) {
+  const url2 = `${API_BASE}${path5}`;
   const headers = {
     Authorization: `QQBot ${accessToken}`,
     "Content-Type": "application/json"
   };
-  const isFileUpload = path4.includes("/files");
+  const isFileUpload = path5.includes("/files");
   const timeout = timeoutMs ?? (isFileUpload ? FILE_UPLOAD_TIMEOUT : DEFAULT_API_TIMEOUT);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
@@ -31726,10 +31726,10 @@ async function apiRequest(accessToken, method, path4, body, timeoutMs) {
     clearTimeout(timeoutId);
     if (err instanceof Error && err.name === "AbortError") {
       console.error(`[qqbot-api] <<< Request timeout after ${timeout}ms`);
-      throw new Error(`Request timeout[${path4}]: exceeded ${timeout}ms`);
+      throw new Error(`Request timeout[${path5}]: exceeded ${timeout}ms`);
     }
     console.error(`[qqbot-api] <<< Network error:`, err);
-    throw new Error(`Network error [${path4}]: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`Network error [${path5}]: ${err instanceof Error ? err.message : String(err)}`);
   } finally {
     clearTimeout(timeoutId);
   }
@@ -31744,21 +31744,21 @@ async function apiRequest(accessToken, method, path4, body, timeoutMs) {
     rawBody = await res.text();
     data = JSON.parse(rawBody);
   } catch (err) {
-    throw new Error(`Failed to parse response[${path4}]: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`Failed to parse response[${path5}]: ${err instanceof Error ? err.message : String(err)}`);
   }
   if (!res.ok) {
     const error48 = data;
-    throw new Error(`API Error [${path4}]: ${error48.message ?? JSON.stringify(data)}`);
+    throw new Error(`API Error [${path5}]: ${error48.message ?? JSON.stringify(data)}`);
   }
   return data;
 }
 var UPLOAD_MAX_RETRIES = 2;
 var UPLOAD_BASE_DELAY_MS = 1e3;
-async function apiRequestWithRetry(accessToken, method, path4, body, maxRetries = UPLOAD_MAX_RETRIES) {
+async function apiRequestWithRetry(accessToken, method, path5, body, maxRetries = UPLOAD_MAX_RETRIES) {
   let lastError = null;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await apiRequest(accessToken, method, path4, body);
+      return await apiRequest(accessToken, method, path5, body);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       const errMsg = lastError.message;
@@ -33264,8 +33264,8 @@ async function handleUploadMedia(args) {
   let result;
   if (imageExts.includes(ext)) {
     const resolved = path3.resolve(filePath);
-    const fs3 = await import("fs");
-    const fileBase64 = fs3.readFileSync(resolved).toString("base64");
+    const fs4 = await import("fs");
+    const fileBase64 = fs4.readFileSync(resolved).toString("base64");
     const dataUrl = `data:image/${ext.slice(1)};base64,${fileBase64}`;
     result = await client.sendImage(targetId, dataUrl, desc);
   } else if (videoExts.includes(ext)) {
@@ -33348,19 +33348,29 @@ ${contextText}`
   };
 }
 
-// src/mcp/index.ts
-var PermissionRequestSchema = external_exports3.object({
-  method: external_exports3.literal("notifications/claude/channel/permission_request"),
-  params: external_exports3.object({
-    request_id: external_exports3.string(),
-    tool_name: external_exports3.string(),
-    description: external_exports3.string(),
-    input_preview: external_exports3.string().optional()
-  })
-});
-loadEnvFromFile();
+// src/mcp/mode-registry.ts
+import * as fs3 from "fs";
+import * as path4 from "path";
+import * as os2 from "os";
+var GATEWAY_DIR = path4.join(os2.homedir(), ".claude", "qqbot-gateway");
+var MODE_REGISTRY_FILE = path4.join(GATEWAY_DIR, "mode-registry.json");
+var GLOBAL_CONFIG_FILE2 = path4.join(GATEWAY_DIR, "qqbot-config.json");
 var MIN_CHANNEL_VERSION = "2.1.80";
-var GATEWAY_API_URL2 = process.env.QQBOT_GATEWAY_URL || "http://127.0.0.1:3310";
+var DEFAULT_MODE_CONFIG = {
+  version: "1.0.0",
+  mode: "channel",
+  channelSubMode: "gateway-bridge",
+  source: "default",
+  gatewayAvailable: false,
+  nativeSupported: false,
+  lastUpdated: Date.now(),
+  reason: "default configuration"
+};
+function ensureGatewayDir() {
+  if (!fs3.existsSync(GATEWAY_DIR)) {
+    fs3.mkdirSync(GATEWAY_DIR, { recursive: true });
+  }
+}
 function parseVersion(versionStr) {
   if (!versionStr) return null;
   const match = versionStr.match(/(\d+)\.(\d+)\.(\d+)/);
@@ -33380,6 +33390,305 @@ function supportsNativeChannel(version2) {
   if (!current || !required2) return false;
   return compareVersions(current, required2) >= 0;
 }
+function parseEnvFile2(filePath) {
+  const result = {};
+  if (!filePath || !fs3.existsSync(filePath)) {
+    return result;
+  }
+  try {
+    const content = fs3.readFileSync(filePath, "utf-8");
+    const lines = content.split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIndex = trimmed.indexOf("=");
+      if (eqIndex > 0) {
+        const key = trimmed.slice(0, eqIndex).trim();
+        let value = trimmed.slice(eqIndex + 1).trim();
+        if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
+          value = value.slice(1, -1);
+        }
+        result[key] = value;
+      }
+    }
+  } catch (error48) {
+    console.error(`[mode-registry] Failed to parse env file ${filePath}:`, error48);
+  }
+  return result;
+}
+function loadEnvUnified() {
+  let envFile = null;
+  let loaded = 0;
+  try {
+    if (fs3.existsSync(GLOBAL_CONFIG_FILE2)) {
+      const configContent = fs3.readFileSync(GLOBAL_CONFIG_FILE2, "utf-8");
+      const config3 = JSON.parse(configContent);
+      if (config3.envFile) {
+        envFile = config3.envFile.replace("~", os2.homedir());
+        const envVars = parseEnvFile2(envFile);
+        for (const [key, value] of Object.entries(envVars)) {
+          if (process.env[key] === void 0) {
+            process.env[key] = value;
+            loaded++;
+          }
+        }
+        if (loaded > 0) {
+          console.error(`[mode-registry] Loaded ${loaded} env vars from: ${envFile}`);
+        }
+      }
+    }
+  } catch (error48) {
+    console.error("[mode-registry] Failed to load env file:", error48);
+  }
+  return { loaded, envFile };
+}
+var ModeRegistryImpl = class _ModeRegistryImpl {
+  static instance;
+  config;
+  initialized = false;
+  constructor() {
+    this.config = { ...DEFAULT_MODE_CONFIG };
+  }
+  /**
+   * 获取单例实例
+   */
+  static getInstance() {
+    if (!_ModeRegistryImpl.instance) {
+      _ModeRegistryImpl.instance = new _ModeRegistryImpl();
+    }
+    return _ModeRegistryImpl.instance;
+  }
+  /**
+   * 从文件加载配置 (启动时调用)
+   */
+  load() {
+    ensureGatewayDir();
+    try {
+      if (fs3.existsSync(MODE_REGISTRY_FILE)) {
+        const content = fs3.readFileSync(MODE_REGISTRY_FILE, "utf-8");
+        const saved = JSON.parse(content);
+        this.config = { ...DEFAULT_MODE_CONFIG, ...saved };
+        this.initialized = true;
+        console.error(`[mode-registry] Loaded mode: ${this.config.mode} (source: ${this.config.source})`);
+      }
+    } catch (error48) {
+      console.error("[mode-registry] Failed to load config:", error48);
+      this.config = { ...DEFAULT_MODE_CONFIG };
+    }
+    return this.config;
+  }
+  /**
+   * 获取当前模式配置
+   */
+  getConfig() {
+    if (!this.initialized) {
+      this.load();
+    }
+    return { ...this.config };
+  }
+  /**
+   * 获取当前运行模式
+   */
+  getMode() {
+    return this.getConfig().mode;
+  }
+  /**
+   * 设置模式配置
+   */
+  setMode(mode, options = {}) {
+    this.config = {
+      ...this.config,
+      mode,
+      source: options.source || "config",
+      channelSubMode: options.channelSubMode,
+      gatewayAvailable: options.gatewayAvailable ?? this.config.gatewayAvailable,
+      nativeSupported: options.nativeSupported ?? this.config.nativeSupported,
+      sessionId: options.sessionId ?? this.config.sessionId,
+      projectPath: options.projectPath ?? this.config.projectPath,
+      projectName: options.projectName ?? this.config.projectName,
+      reason: options.reason,
+      lastUpdated: Date.now()
+    };
+    this.persist();
+    console.error(`[mode-registry] Mode set to: ${mode} (source: ${this.config.source})`);
+  }
+  /**
+   * 更新 Gateway 可用状态
+   */
+  setGatewayAvailable(available) {
+    this.config.gatewayAvailable = available;
+    this.config.lastUpdated = Date.now();
+    if (!available && this.config.mode === "channel" && this.config.source === "auto") {
+      const globalConfig2 = this.loadGlobalConfig();
+      if (globalConfig2.allowDegradation) {
+        this.config.mode = "tools";
+        this.config.reason = "degraded: gateway unavailable";
+        console.error("[mode-registry] Degraded to tools mode (gateway unavailable)");
+      }
+    }
+    this.persist();
+  }
+  /**
+   * 更新会话信息
+   */
+  setSessionInfo(sessionId2, projectPath2, projectName2) {
+    this.config.sessionId = sessionId2;
+    this.config.projectPath = projectPath2;
+    this.config.projectName = projectName2;
+    this.config.lastUpdated = Date.now();
+    this.persist();
+  }
+  /**
+   * 持久化到文件
+   */
+  persist() {
+    ensureGatewayDir();
+    try {
+      fs3.writeFileSync(MODE_REGISTRY_FILE, JSON.stringify(this.config, null, 2), {
+        encoding: "utf-8",
+        mode: 384
+      });
+    } catch (error48) {
+      console.error("[mode-registry] Failed to persist config:", error48);
+    }
+  }
+  /**
+   * 检测并自动设置模式
+   * 模式优先级:
+   * 1. 环境变量 QQBOT_CHANNEL_MODE=tools -> 强制 Tools 模式
+   * 2. 环境变量 QQBOT_CHANNEL_MODE=channel -> 强制 Channel 模式
+   * 3. 配置文件指定 headless 模式 -> Tools 模式
+   * 4. 自动检测: Gateway 可用 -> Channel (Gateway 桥接)
+   * 5. 自动检测: 原生 Channel -> Channel (原生)
+   * 6. 降级到 Tools 模式
+   */
+  detectAndSetMode(gatewayAvailable = false, nativeSupported = false) {
+    loadEnvUnified();
+    const envMode = process.env.QQBOT_CHANNEL_MODE?.toLowerCase();
+    const globalConfig2 = this.loadGlobalConfig();
+    const claudeVersion = process.env.CLAUDE_CODE_VERSION;
+    const isNativeSupported = nativeSupported || supportsNativeChannel(claudeVersion);
+    if (envMode === "tools") {
+      this.setMode("tools", {
+        source: "env",
+        gatewayAvailable,
+        nativeSupported: isNativeSupported,
+        reason: "forced by QQBOT_CHANNEL_MODE=tools"
+      });
+      return this.config;
+    }
+    if (envMode === "channel") {
+      const subMode = gatewayAvailable ? "gateway-bridge" : isNativeSupported ? "native" : void 0;
+      this.setMode("channel", {
+        source: "env",
+        channelSubMode: subMode,
+        gatewayAvailable,
+        nativeSupported: isNativeSupported,
+        reason: `forced by QQBOT_CHANNEL_MODE=channel, using ${subMode || "unknown"}`
+      });
+      return this.config;
+    }
+    if (globalConfig2.workmode === "headless") {
+      this.setMode("tools", {
+        source: "config",
+        gatewayAvailable,
+        nativeSupported: isNativeSupported,
+        reason: "configured as headless mode in qqbot-config.json"
+      });
+      return this.config;
+    }
+    if (gatewayAvailable) {
+      this.setMode("channel", {
+        source: "auto",
+        channelSubMode: "gateway-bridge",
+        gatewayAvailable: true,
+        nativeSupported: isNativeSupported,
+        reason: "auto-detected gateway-bridge mode"
+      });
+      return this.config;
+    }
+    if (isNativeSupported) {
+      this.setMode("channel", {
+        source: "auto",
+        channelSubMode: "native",
+        gatewayAvailable: false,
+        nativeSupported: true,
+        reason: "auto-detected native channel mode"
+      });
+      return this.config;
+    }
+    if (globalConfig2.allowDegradation) {
+      this.setMode("tools", {
+        source: "auto",
+        gatewayAvailable: false,
+        nativeSupported: false,
+        reason: "degraded from channel to tools (allowDegradation=true)"
+      });
+      return this.config;
+    }
+    this.setMode("channel", {
+      source: "auto",
+      channelSubMode: "gateway-bridge",
+      gatewayAvailable: false,
+      nativeSupported: false,
+      reason: "waiting for gateway (allowDegradation=false)"
+    });
+    return this.config;
+  }
+  /**
+   * 加载全局配置
+   */
+  loadGlobalConfig() {
+    const defaultConfig = {
+      workmode: "channel",
+      allowDegradation: true
+    };
+    try {
+      if (fs3.existsSync(GLOBAL_CONFIG_FILE2)) {
+        const content = fs3.readFileSync(GLOBAL_CONFIG_FILE2, "utf-8");
+        const config3 = JSON.parse(content);
+        return { ...defaultConfig, ...config3 };
+      }
+    } catch (error48) {
+      console.error("[mode-registry] Failed to load global config:", error48);
+    }
+    return defaultConfig;
+  }
+  /**
+   * 重置为默认配置
+   */
+  reset() {
+    this.config = { ...DEFAULT_MODE_CONFIG };
+    this.persist();
+    console.error("[mode-registry] Reset to default configuration");
+  }
+};
+function getModeRegistry() {
+  return ModeRegistryImpl.getInstance();
+}
+function getOperationMode() {
+  return getModeRegistry().getMode();
+}
+function detectAndSetMode(gatewayAvailable, nativeSupported) {
+  return getModeRegistry().detectAndSetMode(gatewayAvailable, nativeSupported);
+}
+function setSessionInfo(sessionId2, projectPath2, projectName2) {
+  getModeRegistry().setSessionInfo(sessionId2, projectPath2, projectName2);
+}
+getModeRegistry().load();
+
+// src/mcp/index.ts
+var PermissionRequestSchema = external_exports3.object({
+  method: external_exports3.literal("notifications/claude/channel/permission_request"),
+  params: external_exports3.object({
+    request_id: external_exports3.string(),
+    tool_name: external_exports3.string(),
+    description: external_exports3.string(),
+    input_preview: external_exports3.string().optional()
+  })
+});
+loadEnvFromFile();
+var GATEWAY_API_URL2 = process.env.QQBOT_GATEWAY_URL || "http://127.0.0.1:3310";
 async function checkGatewayAvailable() {
   try {
     const controller = new AbortController();
@@ -33393,90 +33702,6 @@ async function checkGatewayAvailable() {
   } catch {
     return false;
   }
-}
-function isGatewayConfigured() {
-  if (process.env.QQBOT_GATEWAY_URL) {
-    return true;
-  }
-  return true;
-}
-function getOperationModeSync() {
-  const globalConfig2 = loadGlobalConfig();
-  const envMode = process.env.QQBOT_CHANNEL_MODE?.toLowerCase();
-  const nativeSupported = supportsNativeChannel(process.env.CLAUDE_CODE_VERSION);
-  if (envMode === "tools") {
-    return {
-      mode: "tools",
-      reason: "forced by QQBOT_CHANNEL_MODE=tools"
-    };
-  }
-  if (envMode === "channel") {
-    if (isGatewayConfigured()) {
-      return {
-        mode: "channel",
-        channelSubMode: "gateway-bridge",
-        gatewayAvailable: true,
-        nativeSupported,
-        reason: "forced by QQBOT_CHANNEL_MODE=channel, using gateway-bridge"
-      };
-    }
-    if (nativeSupported) {
-      return {
-        mode: "channel",
-        channelSubMode: "native",
-        gatewayAvailable: false,
-        nativeSupported: true,
-        reason: "forced by QQBOT_CHANNEL_MODE=channel, using native"
-      };
-    }
-    console.warn("[qqbot-mcp] Channel mode forced but no backend available, falling back to Tools");
-    return {
-      mode: "tools",
-      reason: "forced channel but no backend available"
-    };
-  }
-  if (globalConfig2.workmode === "headless") {
-    return {
-      mode: "tools",
-      reason: "configured as headless mode in qqbot-config.json"
-    };
-  }
-  if (isGatewayConfigured()) {
-    return {
-      mode: "channel",
-      channelSubMode: "gateway-bridge",
-      gatewayAvailable: true,
-      nativeSupported,
-      reason: "auto-detected gateway-bridge mode"
-    };
-  }
-  if (nativeSupported) {
-    return {
-      mode: "channel",
-      channelSubMode: "native",
-      gatewayAvailable: false,
-      nativeSupported: true,
-      reason: "auto-detected native channel mode"
-    };
-  }
-  if (globalConfig2.allowDegradation) {
-    console.warn("[qqbot-mcp] Channel backend unavailable, degrading to tools mode (allowDegradation=true)");
-    return {
-      mode: "tools",
-      reason: "degraded from channel to tools (allowDegradation=true)"
-    };
-  }
-  return {
-    mode: "channel",
-    channelSubMode: "gateway-bridge",
-    gatewayAvailable: false,
-    nativeSupported: false,
-    reason: "waiting for gateway (allowDegradation=false)"
-  };
-}
-function getOperationMode() {
-  const result = getOperationModeSync();
-  return result.mode;
 }
 var operationMode = getOperationMode();
 var CHANNEL_INSTRUCTIONS = `
@@ -33571,10 +33796,14 @@ function initializeBots() {
 }
 async function run() {
   console.error("[qqbot-mcp] Starting QQ Bot MCP Server...");
-  console.error(`[qqbot-mcp] Operation mode: ${operationMode}`);
   initializeBots();
+  const gatewayAvailable = await checkGatewayAvailable();
+  const modeConfig = detectAndSetMode(gatewayAvailable, true);
+  console.error(`[qqbot-mcp] Operation mode: ${modeConfig.mode} (source: ${modeConfig.source})`);
+  if (modeConfig.reason) {
+    console.error(`[qqbot-mcp] Reason: ${modeConfig.reason}`);
+  }
   if (operationMode === "channel") {
-    const gatewayAvailable = await checkGatewayAvailable();
     if (!gatewayAvailable) {
       console.error("[qqbot-mcp] \u26A0\uFE0F Gateway \u4E0D\u53EF\u7528");
       console.error("[qqbot-mcp] \u8BF7\u5148\u542F\u52A8 QQ Bot Gateway:");
@@ -33611,6 +33840,8 @@ async function run() {
     const sessionId2 = process.env.CLAUDE_SESSION_ID || generateSessionId();
     const projectPath2 = process.env.CLAUDE_PROJECT_PATH || process.cwd();
     const projectName2 = process.env.CLAUDE_PROJECT_NAME || projectPath2.split("/").pop() || "unknown";
+    setSessionInfo(sessionId2, projectPath2, projectName2);
+    console.error(`[qqbot-mcp] Session ID: ${sessionId2.slice(0, 8)}...`);
     try {
       const cleanupUrl = `${GATEWAY_API_URL2}/api/channels/by-path?path=${encodeURIComponent(projectPath2)}`;
       const cleanupResponse = await fetch(cleanupUrl, {

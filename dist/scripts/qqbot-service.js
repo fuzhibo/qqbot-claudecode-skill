@@ -27,7 +27,14 @@ import {
   parseVersion,
   compareVersions,
   getVersionFromCli as getCliVersion,
-  MIN_VERSION as SHARED_MIN_VERSION
+  MIN_VERSION as SHARED_MIN_VERSION,
+  // 新增: 统一模式注册中心
+  loadEnvUnified,
+  getModeRegistry,
+  setModeRegistry,
+  getOperationMode,
+  getSessionPrefix,
+  detectAndSetMode,
 } from './lib/channel-support.js';
 
 const execAsync = promisify(exec);
@@ -700,6 +707,21 @@ async function cmdStart(options) {
       communicationType = 'gateway-unidirectional';
     }
   }
+
+  // 🔴 关键: 将模式配置写入统一注册中心
+  // 这样 MCP Server 和 Gateway 都可以读取到一致的模式配置
+  const modeRegistryConfig = {
+    version: '1.0.0',
+    mode: result.channel?.enabled ? 'channel' : 'tools',
+    source: result.channel?.source || 'cli',
+    channelSubMode: result.channel?.actualMode || result.channel?.mode,
+    gatewayAvailable: communicationType !== 'tools-polling',
+    nativeSupported: channelSupport.supported,
+    reason: result.channel?.reason || `started with --channel=${channelMode}`,
+    lastUpdated: Date.now(),
+  };
+  setModeRegistry(modeRegistryConfig);
+  console.error(`[qqbot-service] ModeRegistry updated: ${modeRegistryConfig.mode} (${modeRegistryConfig.channelSubMode})`);
 
   // 检查是否已运行
   const pidResult = await getGatewayPid();
