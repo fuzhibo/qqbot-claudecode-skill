@@ -357,12 +357,93 @@ export function setModeRegistry(config) {
 }
 
 /**
+ * 设置运行模式 (与 src/mcp/mode-registry.ts 的 setMode 对齐)
+ * @param {'channel' | 'tools'} mode - 运行模式
+ * @param {object} [options] - 可选参数
+ * @param {'cli' | 'env' | 'config' | 'auto' | 'default'} [options.source] - 来源
+ * @param {'gateway-bridge' | 'native'} [options.channelSubMode] - Channel 子模式
+ * @param {boolean} [options.gatewayAvailable] - Gateway 是否可用
+ * @param {boolean} [options.nativeSupported] - 原生 Channel 是否支持
+ * @param {string} [options.sessionId] - 会话 ID
+ * @param {string} [options.projectPath] - 项目路径
+ * @param {string} [options.projectName] - 项目名称
+ * @param {string} [options.reason] - 原因描述
+ */
+export function setMode(mode, options = {}) {
+  const current = getModeRegistry();
+  const config = {
+    ...current,
+    mode,
+    source: options.source || 'config',
+    channelSubMode: options.channelSubMode,
+    gatewayAvailable: options.gatewayAvailable ?? current.gatewayAvailable,
+    nativeSupported: options.nativeSupported ?? current.nativeSupported,
+    sessionId: options.sessionId ?? current.sessionId,
+    projectPath: options.projectPath ?? current.projectPath,
+    projectName: options.projectName ?? current.projectName,
+    reason: options.reason,
+    lastUpdated: Date.now(),
+  };
+  setModeRegistry(config);
+  console.error(`[channel-support] Mode set to: ${mode} (source: ${config.source})`);
+}
+
+/**
+ * 设置 Gateway 可用状态 (与 src/mcp/mode-registry.ts 的 setGatewayAvailable 对齐)
+ * 当 Gateway 从可用变为不可用时，如果允许降级则自动切换到 tools 模式
+ * @param {boolean} available - Gateway 是否可用
+ */
+export function setGatewayAvailable(available) {
+  const current = getModeRegistry();
+  current.gatewayAvailable = available;
+  current.lastUpdated = Date.now();
+
+  // 如果 Gateway 从可用变为不可用，且当前是 channel 模式，考虑降级
+  if (!available && current.mode === 'channel' && current.source === 'auto') {
+    const globalConfig = readJsonFile(GLOBAL_CONFIG_FILE, {
+      workmode: 'channel',
+      allowDegradation: true,
+    });
+    if (globalConfig.allowDegradation) {
+      current.mode = 'tools';
+      current.reason = 'degraded: gateway unavailable';
+      console.error('[channel-support] Degraded to tools mode (gateway unavailable)');
+    }
+  }
+
+  setModeRegistry(current);
+}
+
+/**
+ * 设置会话信息 (与 src/mcp/mode-registry.ts 的 setSessionInfo 对齐)
+ * @param {string} sessionId - 会话 ID
+ * @param {string} [projectPath] - 项目路径
+ * @param {string} [projectName] - 项目名称
+ */
+export function setSessionInfo(sessionId, projectPath, projectName) {
+  const current = getModeRegistry();
+  current.sessionId = sessionId;
+  current.projectPath = projectPath;
+  current.projectName = projectName;
+  current.lastUpdated = Date.now();
+  setModeRegistry(current);
+}
+
+/**
  * 获取当前运行模式
  * @returns {'channel' | 'tools'} - 运行模式
  */
 export function getOperationMode() {
   const registry = getModeRegistry();
   return registry.mode || 'channel';
+}
+
+/**
+ * 获取完整模式配置
+ * @returns {object} - 完整的 ModeConfig
+ */
+export function getModeConfig() {
+  return getModeRegistry();
 }
 
 /**
@@ -402,24 +483,26 @@ export async function checkGatewayAvailable() {
 }
 
 /**
- * 检测并自动设置模式
+ * 检测并自动设置模式 (与 src/mcp/mode-registry.ts 的 detectAndSetMode 对齐)
  * 模式优先级:
  * 1. 环境变量 QQBOT_CHANNEL_MODE=tools -> 强制 Tools 模式
  * 2. 环境变量 QQBOT_CHANNEL_MODE=channel -> 强制 Channel 模式
  * 3. 配置文件指定 headless 模式 -> Tools 模式
  * 4. 自动检测: Gateway 可用 -> Channel (Gateway 桥接)
- * 5. 降级到 Tools 模式
+ * 5. 自动检测: 原生 Channel 支持 -> Channel (原生)
+ * 6. 降级到 Tools 模式
  *
- * @param {boolean} gatewayAvailable - Gateway 是否可用
+ * @param {boolean} [gatewayAvailable=false] - Gateway 是否可用
+ * @param {boolean} [nativeSupported=false] - 是否支持原生 Channel
  * @returns {object} - 模式配置
  */
-export function detectAndSetMode(gatewayAvailable = false) {
+export function detectAndSetMode(gatewayAvailable = false, nativeSupported = false) {
   // 先加载环境变量
   loadEnvUnified();
 
   const envMode = process.env.QQBOT_CHANNEL_MODE?.toLowerCase();
   const claudeVersion = process.env.CLAUDE_CODE_VERSION;
-  const nativeSupported = checkChannelSupport(false).supported;
+  const isNativeSupported = nativeSupported || checkChannelSupport(false).supported;
 
   // 读取全局配置
   const globalConfig = readJsonFile(GLOBAL_CONFIG_FILE, {
@@ -429,6 +512,7 @@ export function detectAndSetMode(gatewayAvailable = false) {
 
   let mode = 'channel';
   let source = 'auto';
+  let channelSubMode = undefined;
   let reason = '';
 
   // 1. 环境变量强制模式（最高优先级）
@@ -439,7 +523,8 @@ export function detectAndSetMode(gatewayAvailable = false) {
   } else if (envMode === 'channel') {
     mode = 'channel';
     source = 'env';
-    reason = 'forced by QQBOT_CHANNEL_MODE=channel';
+    channelSubMode = gatewayAvailable ? 'gateway-bridge' : (isNativeSupported ? 'native' : undefined);
+    reason = `forced by QQBOT_CHANNEL_MODE=channel, using ${channelSubMode || 'unknown'}`;
   }
   // 2. 配置文件指定 headless 模式
   else if (globalConfig.workmode === 'headless') {
@@ -447,35 +532,41 @@ export function detectAndSetMode(gatewayAvailable = false) {
     source = 'config';
     reason = 'configured as headless mode in qqbot-config.json';
   }
-  // 3. 自动检测
+  // 3. 自动检测: Gateway 可用
   else if (gatewayAvailable) {
     mode = 'channel';
     source = 'auto';
+    channelSubMode = 'gateway-bridge';
     reason = 'auto-detected gateway-bridge mode';
-  } else if (nativeSupported) {
+  }
+  // 4. 自动检测: 原生 Channel 支持
+  else if (isNativeSupported) {
     mode = 'channel';
     source = 'auto';
+    channelSubMode = 'native';
     reason = 'auto-detected native channel mode';
   }
-  // 4. 降级到 Tools 模式
+  // 5. 降级到 Tools 模式
   else if (globalConfig.allowDegradation) {
     mode = 'tools';
     source = 'auto';
     reason = 'degraded from channel to tools (allowDegradation=true)';
   }
-  // 5. 不允许降级，保持 channel 模式等待 Gateway
+  // 6. 不允许降级，保持 channel 模式等待 Gateway
   else {
     mode = 'channel';
     source = 'auto';
+    channelSubMode = 'gateway-bridge';
     reason = 'waiting for gateway (allowDegradation=false)';
   }
 
   const config = {
     version: '1.0.0',
     mode,
+    channelSubMode,
     source,
     gatewayAvailable,
-    nativeSupported,
+    nativeSupported: isNativeSupported,
     reason,
     lastUpdated: Date.now(),
   };
@@ -498,13 +589,17 @@ export default {
   recordHookExecution,
   getHookState,
   getAllHookStates,
-  // 新增: 统一环境变量加载
+  // 统一环境变量加载
   parseEnvFile,
   loadEnvUnified,
-  // 新增: 模式注册中心
+  // 模式注册中心 (与 src/mcp/mode-registry.ts 对齐)
   getModeRegistry,
   setModeRegistry,
   getOperationMode,
+  getModeConfig,
+  setMode,
+  setGatewayAvailable,
+  setSessionInfo,
   getSessionPrefix,
   checkGatewayAvailable,
   detectAndSetMode,

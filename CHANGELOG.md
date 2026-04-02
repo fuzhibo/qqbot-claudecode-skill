@@ -2,6 +2,21 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.23.0] - 2026-04-02
+
+### 功能更新
+
+  - 16c44d8 fix: marketplace 路径修复、hooks 统一、发布流程加固
+  - fa27d58 feat: Channel 模式类封装与类型统一 (v1.23.x)
+  - 1398ab7 feat: Harness 流水线任务完成 (v1.23.1)
+  - fcc8af8 feat: Channel 模式统一模式注册中心 (v1.23.0)
+  - 978b5ac feat: Gateway 按需健康检测与自动恢复 (v1.22.0)
+  - 7726a96 feat: Doctor 自动修复 SessionStart Hook (v1.21.1)
+  - 3d3d48b feat: Channel 注册状态一致性修复 (v1.21.0)
+  - f7d1b63 fix: 同步版本号到 v1.20.2
+  - 9cbd402 fix: MCP 协议兼容性修复 - console.log 输出到 stdout 导致 Channel 不可用 (v1.20.2)
+  - 9b0be2d fix: Channel 模式启动修复 (v1.20.1)
+
 ## [1.22.0] - 2026-03-31
 
 ### 新功能
