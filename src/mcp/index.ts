@@ -30,7 +30,18 @@ import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { toolDefinitions, handleToolCall } from './tools.js';
 import { loadFromEnv, setBot, getAllBots, loadGlobalConfig } from './config.js';
 import { getClient, cleanupAllClients } from './qq-client.js';
-import { Channel } from './channel.js';
+import { Channel, PermissionRequestSchema } from './channel.js';
+import {
+  startChannelPusher,
+  stopChannelPusher,
+  registerChannel,
+  unregisterChannel,
+  isGatewayRegistered,
+} from './channel-pusher.js';
+import {
+  initPermissionRelay,
+  handlePermissionRequest,
+} from './permission-relay.js';
 import {
   getModeRegistry,
   getOperationMode,

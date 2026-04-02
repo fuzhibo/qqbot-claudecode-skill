@@ -117,6 +117,12 @@ let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 /** HTTP 心跳计数器 */
 let heartbeatCounter = 0;
 
+/** 重注册重试配置 */
+let reRegisterAttempts = 0;
+const MAX_RE_REGISTER_ATTEMPTS = 3;
+const RE_REGISTER_COOLDOWN_MS = 10000; // 10 秒冷却
+let lastReRegisterAttempt = 0;
+
 /**
  * 连接到 Gateway WebSocket
  */
@@ -472,6 +478,36 @@ async function checkAndPush(): Promise<void> {
     }
     heartbeatCounter++;
 
+    // 0.5 自动重注册 (心跳检测到失连后尝试恢复)
+    if (!isRegisteredWithGateway && sessionId && config.registerToGateway) {
+      const now = Date.now();
+      if (reRegisterAttempts < MAX_RE_REGISTER_ATTEMPTS &&
+          now - lastReRegisterAttempt > RE_REGISTER_COOLDOWN_MS) {
+        lastReRegisterAttempt = now;
+        reRegisterAttempts++;
+        console.error(`[channel-pusher] 🔄 Auto re-registration attempt ${reRegisterAttempts}/${MAX_RE_REGISTER_ATTEMPTS}...`);
+
+        try {
+          const success = await registerChannel(sessionId, projectPath ?? process.cwd(), projectName ?? undefined);
+          if (success) {
+            reRegisterAttempts = 0;
+            console.error('[channel-pusher] ✅ Auto re-registration successful');
+
+            // 重新建立 WebSocket 实时连接
+            connectToGatewayWebSocket().catch(err => {
+              console.error(`[channel-pusher] ⚠️ WebSocket reconnect after re-register failed: ${err.message}`);
+            });
+          }
+        } catch (error) {
+          console.error(`[channel-pusher] ❌ Auto re-registration failed: ${error}`);
+        }
+
+        if (reRegisterAttempts >= MAX_RE_REGISTER_ATTEMPTS) {
+          console.error(`[channel-pusher] ⛔ Max re-registration attempts (${MAX_RE_REGISTER_ATTEMPTS}) reached, giving up`);
+        }
+      }
+    }
+
     let totalSent = 0;
 
     // 1. 从本地消息队列获取未读任务
@@ -685,6 +721,7 @@ export async function registerChannel(
 
     if (result.status === 'registered') {
       isRegisteredWithGateway = true;
+      reRegisterAttempts = 0; // 重置重注册计数器
       console.error(`[channel-pusher] ✅ Channel 已注册到 Gateway: ${sessionId}`);
       console.error(`[channel-pusher]    项目: ${projectName}`);
       console.error(`[channel-pusher]    默认: ${result.isDefault ? '是' : '否'}`);

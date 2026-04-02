@@ -3796,6 +3796,10 @@ var wsClient = null;
 var wsConnected = false;
 var wsReconnectTimer = null;
 var heartbeatCounter = 0;
+var reRegisterAttempts = 0;
+var MAX_RE_REGISTER_ATTEMPTS = 3;
+var RE_REGISTER_COOLDOWN_MS = 1e4;
+var lastReRegisterAttempt = 0;
 async function connectToGatewayWebSocket() {
   if (wsClient && wsConnected) {
     return;
@@ -4044,6 +4048,29 @@ async function checkAndPush() {
       await sendHeartbeat();
     }
     heartbeatCounter++;
+    if (!isRegisteredWithGateway && sessionId && config.registerToGateway) {
+      const now = Date.now();
+      if (reRegisterAttempts < MAX_RE_REGISTER_ATTEMPTS && now - lastReRegisterAttempt > RE_REGISTER_COOLDOWN_MS) {
+        lastReRegisterAttempt = now;
+        reRegisterAttempts++;
+        console.error(`[channel-pusher] \u{1F504} Auto re-registration attempt ${reRegisterAttempts}/${MAX_RE_REGISTER_ATTEMPTS}...`);
+        try {
+          const success = await registerChannel(sessionId, projectPath ?? process.cwd(), projectName ?? void 0);
+          if (success) {
+            reRegisterAttempts = 0;
+            console.error("[channel-pusher] \u2705 Auto re-registration successful");
+            connectToGatewayWebSocket().catch((err) => {
+              console.error(`[channel-pusher] \u26A0\uFE0F WebSocket reconnect after re-register failed: ${err.message}`);
+            });
+          }
+        } catch (error) {
+          console.error(`[channel-pusher] \u274C Auto re-registration failed: ${error}`);
+        }
+        if (reRegisterAttempts >= MAX_RE_REGISTER_ATTEMPTS) {
+          console.error(`[channel-pusher] \u26D4 Max re-registration attempts (${MAX_RE_REGISTER_ATTEMPTS}) reached, giving up`);
+        }
+      }
+    }
     let totalSent = 0;
     const localTasks = fetchAllUnreadTasks();
     if (localTasks.length > 0) {
@@ -4176,6 +4203,7 @@ async function registerChannel(sid, pPath, pName) {
     const result = await response.json();
     if (result.status === "registered") {
       isRegisteredWithGateway = true;
+      reRegisterAttempts = 0;
       console.error(`[channel-pusher] \u2705 Channel \u5DF2\u6CE8\u518C\u5230 Gateway: ${sessionId}`);
       console.error(`[channel-pusher]    \u9879\u76EE: ${projectName}`);
       console.error(`[channel-pusher]    \u9ED8\u8BA4: ${result.isDefault ? "\u662F" : "\u5426"}`);

@@ -2,6 +2,19 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.25.0] - 2026-04-03
+
+### 新功能
+
+- **Channel 自动重注册**: Gateway 重启后 MCP Server 自动重注册 Channel（最多 3 次重试，10s 冷却）
+- **Hook 集成 Channel 注册/注销**: SessionStart 自动注册 Channel，SessionEnd 自动注销 Channel
+- **CLI register/unregister 命令**: 支持手动注册/注销 Channel 到 Gateway
+
+### 修复
+
+- **ModeRegistry 持久化对齐**: `detectAndSetMode()` 使用 `...current` 保留 sessionId/projectPath，修复消息前缀丢失
+- **TypeScript 编译修复**: 导出 `PermissionRequestSchema`，补充缺失的 import 语句
+
 ## [1.23.0] - 2026-04-02
 
 ### 功能更新

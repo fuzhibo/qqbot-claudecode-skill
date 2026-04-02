@@ -1059,6 +1059,158 @@ async function cmdSwitch(projectName, options) {
 }
 
 /**
+ * register 命令 - 手动注册 Channel 到 Gateway
+ */
+async function cmdRegister(options) {
+  const sessionId = process.env.CLAUDE_SESSION_ID || options.session;
+  const projectPath = process.env.CLAUDE_PROJECT_PATH || process.cwd();
+  const projectName = projectPath.split('/').pop() || 'unknown';
+  const gatewayUrl = process.env.QQBOT_GATEWAY_URL || 'http://127.0.0.1:3310';
+
+  const result = {
+    success: false,
+    action: 'register',
+    message: ''
+  };
+
+  if (!sessionId) {
+    result.message = 'Missing session ID. Set CLAUDE_SESSION_ID env or pass --session <id>';
+    if (options.human) {
+      console.log(`❌ ${result.message}`);
+    } else {
+      console.log(JSON.stringify(result, null, 2));
+    }
+    return;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(`${gatewayUrl}/api/channels/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, projectPath, projectName }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      result.message = `Gateway returned HTTP ${response.status}`;
+      if (options.human) {
+        console.log(`❌ ${result.message}`);
+      } else {
+        console.log(JSON.stringify(result, null, 2));
+      }
+      return;
+    }
+
+    const data = await response.json();
+
+    if (data.status === 'registered') {
+      result.success = true;
+      result.message = `Channel registered: ${sessionId.slice(0, 12)}... (project: ${projectName})`;
+      if (options.human) {
+        console.log(`✅ Channel 已注册到 Gateway`);
+        console.log(`   会话: ${sessionId.slice(0, 12)}...`);
+        console.log(`   项目: ${projectName}`);
+        console.log(`   默认: ${data.isDefault ? '是' : '否'}`);
+      } else {
+        console.log(JSON.stringify(result, null, 2));
+      }
+    } else {
+      result.message = data.error || 'Unknown error';
+      if (options.human) {
+        console.log(`❌ 注册失败: ${result.message}`);
+      } else {
+        console.log(JSON.stringify(result, null, 2));
+      }
+    }
+  } catch (error) {
+    result.message = `Gateway 不可用: ${error.message}`;
+    if (options.human) {
+      console.log(`❌ ${result.message}`);
+    } else {
+      console.log(JSON.stringify(result, null, 2));
+    }
+  }
+}
+
+/**
+ * unregister 命令 - 手动从 Gateway 注销 Channel
+ */
+async function cmdUnregister(options) {
+  const sessionId = process.env.CLAUDE_SESSION_ID || options.session;
+  const gatewayUrl = process.env.QQBOT_GATEWAY_URL || 'http://127.0.0.1:3310';
+
+  const result = {
+    success: false,
+    action: 'unregister',
+    message: ''
+  };
+
+  if (!sessionId) {
+    result.message = 'Missing session ID. Set CLAUDE_SESSION_ID env or pass --session <id>';
+    if (options.human) {
+      console.log(`❌ ${result.message}`);
+    } else {
+      console.log(JSON.stringify(result, null, 2));
+    }
+    return;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(`${gatewayUrl}/api/channels/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      result.message = `Gateway returned HTTP ${response.status}`;
+      if (options.human) {
+        console.log(`❌ ${result.message}`);
+      } else {
+        console.log(JSON.stringify(result, null, 2));
+      }
+      return;
+    }
+
+    const data = await response.json();
+
+    if (data.status === 'unregistered') {
+      result.success = true;
+      result.message = `Channel unregistered: ${sessionId.slice(0, 12)}...`;
+      if (options.human) {
+        console.log(`✅ Channel 已从 Gateway 注销`);
+        console.log(`   会话: ${sessionId.slice(0, 12)}...`);
+      } else {
+        console.log(JSON.stringify(result, null, 2));
+      }
+    } else {
+      result.message = data.error || 'Unknown error';
+      if (options.human) {
+        console.log(`❌ 注销失败: ${result.message}`);
+      } else {
+        console.log(JSON.stringify(result, null, 2));
+      }
+    }
+  } catch (error) {
+    result.message = `Gateway 不可用: ${error.message}`;
+    if (options.human) {
+      console.log(`❌ ${result.message}`);
+    } else {
+      console.log(JSON.stringify(result, null, 2));
+    }
+  }
+}
+
+/**
  * 帮助信息
  */
 function showHelp(options) {
@@ -1075,6 +1227,8 @@ QQ Bot 服务管理脚本
   restart             重启后台服务
   list                查看项目列表
   switch <name>       切换默认项目
+  register            注册 Channel 到 Gateway
+  unregister          从 Gateway 注销 Channel
 
 选项:
   --human             输出人类可读格式 (默认 JSON)
@@ -1106,7 +1260,9 @@ QQ Bot 服务管理脚本
         stop: '停止后台服务',
         restart: '重启后台服务',
         list: '查看项目列表',
-        switch: '切换默认项目'
+        switch: '切换默认项目',
+        register: '注册 Channel 到 Gateway',
+        unregister: '从 Gateway 注销 Channel'
       },
       options: {
         '--human': '输出人类可读格式 (默认 JSON)',
@@ -1146,13 +1302,19 @@ async function main() {
       }
       await cmdSwitch(positional[0], options);
       break;
+    case 'register':
+      await cmdRegister(options);
+      break;
+    case 'unregister':
+      await cmdUnregister(options);
+      break;
     case 'help':
     case '--help':
     case '-h':
       showHelp(options);
       break;
     default:
-      console.log(JSON.stringify({ error: `未知命令: ${command}`, commands: ['status', 'start', 'stop', 'restart', 'list', 'switch'] }, null, 2));
+      console.log(JSON.stringify({ error: `未知命令: ${command}`, commands: ['status', 'start', 'stop', 'restart', 'list', 'switch', 'register', 'unregister'] }, null, 2));
       process.exit(1);
   }
 }

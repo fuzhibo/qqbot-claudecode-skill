@@ -65,7 +65,7 @@ export interface ChannelStatus {
 }
 
 /** Claude Code 权限请求通知 Schema */
-const PermissionRequestSchema = z.object({
+export const PermissionRequestSchema = z.object({
   method: z.literal('notifications/claude/channel/permission_request'),
   params: z.object({
     request_id: z.string(),

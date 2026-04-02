@@ -25,6 +25,7 @@ const GATEWAY_DIR = path.join(os.homedir(), '.claude', 'qqbot-gateway');
 const CONFIG_FILE = path.join(GATEWAY_DIR, 'qqbot-config.json');
 const PID_FILE = path.join(GATEWAY_DIR, 'gateway.pid');
 const PROJECTS_FILE = path.join(GATEWAY_DIR, 'projects.json');
+const GATEWAY_API_URL = process.env.QQBOT_GATEWAY_URL || 'http://127.0.0.1:3310';
 
 // 默认配置
 const DEFAULT_CONFIG = {
@@ -231,6 +232,75 @@ function registerProject() {
 }
 
 /**
+ * 注册 Channel 到 Gateway
+ * 在 SessionStart Hook 中调用，确保 Claude Code 会话被 Gateway 的 channelRegistry 记录
+ */
+async function registerChannelToGateway() {
+  const sessionId = process.env.CLAUDE_SESSION_ID;
+  const projectPath = getCurrentProjectPath();
+  const projectName = getCurrentProjectName();
+
+  if (!sessionId) {
+    console.error('[session-start] ⚠️ No CLAUDE_SESSION_ID, skipping Channel registration');
+    return false;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    // 先清理同路径的旧注册（避免僵尸 Channel）
+    try {
+      const cleanupUrl = `${GATEWAY_API_URL}/api/channels/by-path?path=${encodeURIComponent(projectPath)}`;
+      const cleanupResponse = await fetch(cleanupUrl, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(3000),
+      });
+      if (cleanupResponse.ok) {
+        const result = await cleanupResponse.json();
+        if (result.cleaned && result.cleaned > 0) {
+          console.error(`[session-start] 🧹 Cleaned up ${result.cleaned} old Channel registration(s)`);
+        }
+      }
+    } catch (e) {
+      // 清理失败不阻塞注册
+    }
+
+    const response = await fetch(`${GATEWAY_API_URL}/api/channels/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId,
+        projectPath,
+        projectName,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.error(`[session-start] ⚠️ Channel registration failed: HTTP ${response.status}`);
+      return false;
+    }
+
+    const result = await response.json();
+
+    if (result.status === 'registered') {
+      console.error(`[session-start] ✅ Channel registered to Gateway: ${sessionId.slice(0, 12)}...`);
+      console.error(`[session-start]    Project: ${projectName}`);
+      return true;
+    }
+
+    console.error(`[session-start] ⚠️ Channel registration failed: ${result.error}`);
+    return false;
+  } catch (error) {
+    console.error(`[session-start] ⚠️ Channel registration error: ${error.message}`);
+    return false;
+  }
+}
+
+/**
  * 启动 Gateway
  */
 async function startGateway() {
@@ -304,6 +374,7 @@ async function main() {
 
       if (restarted) {
         registerProject();
+        await registerChannelToGateway();
         recordHookExecution('session-start-handler', 'success', 'Gateway restarted from zombie state', Date.now() - startTime, 0, { projectName, autoRestarted: true, health });
       } else {
         recordHookExecution('session-start-handler', 'failed', 'Gateway restart failed', Date.now() - startTime, 1, { projectName, health });
@@ -313,6 +384,7 @@ async function main() {
 
     console.error('[session-start] ✅ Gateway 健康');
     registerProject();
+    await registerChannelToGateway();
     recordHookExecution('session-start-handler', 'success', 'Gateway healthy', Date.now() - startTime, 0, { projectName, gatewayAlreadyRunning: true });
     return;
   }
@@ -321,6 +393,9 @@ async function main() {
   if (config.autoStartGateway) {
     const started = await startGateway();
     registerProject();
+    if (started) {
+      await registerChannelToGateway();
+    }
     recordHookExecution('session-start-handler', started ? 'success' : 'failed',
       started ? 'Gateway started successfully' : 'Gateway start failed',
       Date.now() - startTime, started ? 0 : 1, { projectName, autoStarted: true });

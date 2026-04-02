@@ -11,6 +11,9 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   if (typeof require !== "undefined") return require.apply(this, arguments);
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __commonJS = (cb, mod) => function __require2() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
@@ -475,9 +478,9 @@ var require_codegen = __commonJS({
       }
     };
     var Throw = class extends Node {
-      constructor(error2) {
+      constructor(error48) {
         super();
-        this.error = error2;
+        this.error = error48;
       }
       render({ _n }) {
         return `throw ${this.error};` + _n;
@@ -714,9 +717,9 @@ var require_codegen = __commonJS({
       }
     };
     var Catch = class extends BlockNode {
-      constructor(error2) {
+      constructor(error48) {
         super();
-        this.error = error2;
+        this.error = error48;
       }
       render(opts) {
         return `catch(${this.error})` + super.render(opts);
@@ -907,9 +910,9 @@ var require_codegen = __commonJS({
         this._blockNode(node);
         this.code(tryBody);
         if (catchCode) {
-          const error2 = this.name("e");
-          this._currNode = node.catch = new Catch(error2);
-          catchCode(error2);
+          const error48 = this.name("e");
+          this._currNode = node.catch = new Catch(error48);
+          catchCode(error48);
         }
         if (finallyCode) {
           this._currNode = node.finally = new Finally();
@@ -918,8 +921,8 @@ var require_codegen = __commonJS({
         return this._endBlockNode(Catch, Finally);
       }
       // `throw` statement
-      throw(error2) {
-        return this._leafNode(new Throw(error2));
+      throw(error48) {
+        return this._leafNode(new Throw(error48));
       }
       // start self-balancing block
       block(body, nodeCount) {
@@ -1275,10 +1278,10 @@ var require_errors = __commonJS({
     exports.keyword$DataError = {
       message: ({ keyword, schemaType }) => schemaType ? (0, codegen_1.str)`"${keyword}" keyword must be ${schemaType} ($data)` : (0, codegen_1.str)`"${keyword}" keyword is invalid ($data)`
     };
-    function reportError(cxt, error2 = exports.keywordError, errorPaths, overrideAllErrors) {
+    function reportError(cxt, error48 = exports.keywordError, errorPaths, overrideAllErrors) {
       const { it } = cxt;
       const { gen, compositeRule, allErrors } = it;
-      const errObj = errorObjectCode(cxt, error2, errorPaths);
+      const errObj = errorObjectCode(cxt, error48, errorPaths);
       if (overrideAllErrors !== null && overrideAllErrors !== void 0 ? overrideAllErrors : compositeRule || allErrors) {
         addError(gen, errObj);
       } else {
@@ -1286,10 +1289,10 @@ var require_errors = __commonJS({
       }
     }
     exports.reportError = reportError;
-    function reportExtraError(cxt, error2 = exports.keywordError, errorPaths) {
+    function reportExtraError(cxt, error48 = exports.keywordError, errorPaths) {
       const { it } = cxt;
       const { gen, compositeRule, allErrors } = it;
-      const errObj = errorObjectCode(cxt, error2, errorPaths);
+      const errObj = errorObjectCode(cxt, error48, errorPaths);
       addError(gen, errObj);
       if (!(compositeRule || allErrors)) {
         returnErrors(it, names_1.default.vErrors);
@@ -1340,19 +1343,19 @@ var require_errors = __commonJS({
       schema: new codegen_1.Name("schema"),
       parentSchema: new codegen_1.Name("parentSchema")
     };
-    function errorObjectCode(cxt, error2, errorPaths) {
+    function errorObjectCode(cxt, error48, errorPaths) {
       const { createErrors } = cxt.it;
       if (createErrors === false)
         return (0, codegen_1._)`{}`;
-      return errorObject(cxt, error2, errorPaths);
+      return errorObject(cxt, error48, errorPaths);
     }
-    function errorObject(cxt, error2, errorPaths = {}) {
+    function errorObject(cxt, error48, errorPaths = {}) {
       const { gen, it } = cxt;
       const keyValues = [
         errorInstancePath(it, errorPaths),
         errorSchemaPath(cxt, errorPaths)
       ];
-      extraErrorProps(cxt, error2, keyValues);
+      extraErrorProps(cxt, error48, keyValues);
       return gen.object(...keyValues);
     }
     function errorInstancePath({ errorPath }, { instancePath }) {
@@ -2980,7 +2983,7 @@ var require_compile = __commonJS({
       }
     }
     exports.compileSchema = compileSchema;
-    function resolveRef(root, baseId, ref) {
+    function resolveRef2(root, baseId, ref) {
       var _a2;
       ref = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, ref);
       const schOrFunc = root.refs[ref];
@@ -2997,7 +3000,7 @@ var require_compile = __commonJS({
         return;
       return root.refs[ref] = inlineOrCompile.call(this, _sch);
     }
-    exports.resolveRef = resolveRef;
+    exports.resolveRef = resolveRef2;
     function inlineOrCompile(sch) {
       if ((0, resolve_1.inlineRef)(sch.schema, this.opts.inlineRefs))
         return sch.schema;
@@ -4620,7 +4623,7 @@ var require_limitNumber = __commonJS({
       exclusiveMaximum: { okStr: "<", ok: ops.LT, fail: ops.GTE },
       exclusiveMinimum: { okStr: ">", ok: ops.GT, fail: ops.LTE }
     };
-    var error2 = {
+    var error48 = {
       message: ({ keyword, schemaCode }) => (0, codegen_1.str)`must be ${KWDs[keyword].okStr} ${schemaCode}`,
       params: ({ keyword, schemaCode }) => (0, codegen_1._)`{comparison: ${KWDs[keyword].okStr}, limit: ${schemaCode}}`
     };
@@ -4629,7 +4632,7 @@ var require_limitNumber = __commonJS({
       type: "number",
       schemaType: "number",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { keyword, data, schemaCode } = cxt;
         cxt.fail$data((0, codegen_1._)`${data} ${KWDs[keyword].fail} ${schemaCode} || isNaN(${data})`);
@@ -4645,7 +4648,7 @@ var require_multipleOf = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
-    var error2 = {
+    var error48 = {
       message: ({ schemaCode }) => (0, codegen_1.str)`must be multiple of ${schemaCode}`,
       params: ({ schemaCode }) => (0, codegen_1._)`{multipleOf: ${schemaCode}}`
     };
@@ -4654,7 +4657,7 @@ var require_multipleOf = __commonJS({
       type: "number",
       schemaType: "number",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, schemaCode, it } = cxt;
         const prec = it.opts.multipleOfPrecision;
@@ -4701,7 +4704,7 @@ var require_limitLength = __commonJS({
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var ucs2length_1 = require_ucs2length();
-    var error2 = {
+    var error48 = {
       message({ keyword, schemaCode }) {
         const comp = keyword === "maxLength" ? "more" : "fewer";
         return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} characters`;
@@ -4713,7 +4716,7 @@ var require_limitLength = __commonJS({
       type: "string",
       schemaType: "number",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { keyword, data, schemaCode, it } = cxt;
         const op = keyword === "maxLength" ? codegen_1.operators.GT : codegen_1.operators.LT;
@@ -4732,7 +4735,7 @@ var require_pattern = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
     var codegen_1 = require_codegen();
-    var error2 = {
+    var error48 = {
       message: ({ schemaCode }) => (0, codegen_1.str)`must match pattern "${schemaCode}"`,
       params: ({ schemaCode }) => (0, codegen_1._)`{pattern: ${schemaCode}}`
     };
@@ -4741,7 +4744,7 @@ var require_pattern = __commonJS({
       type: "string",
       schemaType: "string",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { data, $data, schema, schemaCode, it } = cxt;
         const u = it.opts.unicodeRegExp ? "u" : "";
@@ -4759,7 +4762,7 @@ var require_limitProperties = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
-    var error2 = {
+    var error48 = {
       message({ keyword, schemaCode }) {
         const comp = keyword === "maxProperties" ? "more" : "fewer";
         return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} properties`;
@@ -4771,7 +4774,7 @@ var require_limitProperties = __commonJS({
       type: "object",
       schemaType: "number",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { keyword, data, schemaCode } = cxt;
         const op = keyword === "maxProperties" ? codegen_1.operators.GT : codegen_1.operators.LT;
@@ -4790,7 +4793,7 @@ var require_required = __commonJS({
     var code_1 = require_code2();
     var codegen_1 = require_codegen();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: ({ params: { missingProperty } }) => (0, codegen_1.str)`must have required property '${missingProperty}'`,
       params: ({ params: { missingProperty } }) => (0, codegen_1._)`{missingProperty: ${missingProperty}}`
     };
@@ -4799,7 +4802,7 @@ var require_required = __commonJS({
       type: "object",
       schemaType: "array",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, schema, schemaCode, data, $data, it } = cxt;
         const { opts } = it;
@@ -4870,7 +4873,7 @@ var require_limitItems = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
-    var error2 = {
+    var error48 = {
       message({ keyword, schemaCode }) {
         const comp = keyword === "maxItems" ? "more" : "fewer";
         return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} items`;
@@ -4882,7 +4885,7 @@ var require_limitItems = __commonJS({
       type: "array",
       schemaType: "number",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { keyword, data, schemaCode } = cxt;
         const op = keyword === "maxItems" ? codegen_1.operators.GT : codegen_1.operators.LT;
@@ -4913,7 +4916,7 @@ var require_uniqueItems = __commonJS({
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var equal_1 = require_equal();
-    var error2 = {
+    var error48 = {
       message: ({ params: { i, j } }) => (0, codegen_1.str)`must NOT have duplicate items (items ## ${j} and ${i} are identical)`,
       params: ({ params: { i, j } }) => (0, codegen_1._)`{i: ${i}, j: ${j}}`
     };
@@ -4922,7 +4925,7 @@ var require_uniqueItems = __commonJS({
       type: "array",
       schemaType: "boolean",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, $data, schema, parentSchema, schemaCode, it } = cxt;
         if (!$data && !schema)
@@ -4979,14 +4982,14 @@ var require_const = __commonJS({
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var equal_1 = require_equal();
-    var error2 = {
+    var error48 = {
       message: "must be equal to constant",
       params: ({ schemaCode }) => (0, codegen_1._)`{allowedValue: ${schemaCode}}`
     };
     var def = {
       keyword: "const",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, $data, schemaCode, schema } = cxt;
         if ($data || schema && typeof schema == "object") {
@@ -5008,7 +5011,7 @@ var require_enum = __commonJS({
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var equal_1 = require_equal();
-    var error2 = {
+    var error48 = {
       message: "must be equal to one of the allowed values",
       params: ({ schemaCode }) => (0, codegen_1._)`{allowedValues: ${schemaCode}}`
     };
@@ -5016,7 +5019,7 @@ var require_enum = __commonJS({
       keyword: "enum",
       schemaType: "array",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, $data, schema, schemaCode, it } = cxt;
         if (!$data && schema.length === 0)
@@ -5095,7 +5098,7 @@ var require_additionalItems = __commonJS({
     exports.validateAdditionalItems = void 0;
     var codegen_1 = require_codegen();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: ({ params: { len } }) => (0, codegen_1.str)`must NOT have more than ${len} items`,
       params: ({ params: { len } }) => (0, codegen_1._)`{limit: ${len}}`
     };
@@ -5104,7 +5107,7 @@ var require_additionalItems = __commonJS({
       type: "array",
       schemaType: ["boolean", "object"],
       before: "uniqueItems",
-      error: error2,
+      error: error48,
       code(cxt) {
         const { parentSchema, it } = cxt;
         const { items } = parentSchema;
@@ -5223,7 +5226,7 @@ var require_items2020 = __commonJS({
     var util_1 = require_util();
     var code_1 = require_code2();
     var additionalItems_1 = require_additionalItems();
-    var error2 = {
+    var error48 = {
       message: ({ params: { len } }) => (0, codegen_1.str)`must NOT have more than ${len} items`,
       params: ({ params: { len } }) => (0, codegen_1._)`{limit: ${len}}`
     };
@@ -5232,7 +5235,7 @@ var require_items2020 = __commonJS({
       type: "array",
       schemaType: ["object", "boolean"],
       before: "uniqueItems",
-      error: error2,
+      error: error48,
       code(cxt) {
         const { schema, parentSchema, it } = cxt;
         const { prefixItems } = parentSchema;
@@ -5256,7 +5259,7 @@ var require_contains = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: ({ params: { min, max } }) => max === void 0 ? (0, codegen_1.str)`must contain at least ${min} valid item(s)` : (0, codegen_1.str)`must contain at least ${min} and no more than ${max} valid item(s)`,
       params: ({ params: { min, max } }) => max === void 0 ? (0, codegen_1._)`{minContains: ${min}}` : (0, codegen_1._)`{minContains: ${min}, maxContains: ${max}}`
     };
@@ -5266,7 +5269,7 @@ var require_contains = __commonJS({
       schemaType: ["object", "boolean"],
       before: "uniqueItems",
       trackErrors: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, schema, parentSchema, data, it } = cxt;
         let min;
@@ -5444,7 +5447,7 @@ var require_propertyNames = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: "property name must be valid",
       params: ({ params }) => (0, codegen_1._)`{propertyName: ${params.propertyName}}`
     };
@@ -5452,7 +5455,7 @@ var require_propertyNames = __commonJS({
       keyword: "propertyNames",
       type: "object",
       schemaType: ["object", "boolean"],
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, schema, data, it } = cxt;
         if ((0, util_1.alwaysValidSchema)(it, schema))
@@ -5489,7 +5492,7 @@ var require_additionalProperties = __commonJS({
     var codegen_1 = require_codegen();
     var names_1 = require_names();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: "must NOT have additional properties",
       params: ({ params }) => (0, codegen_1._)`{additionalProperty: ${params.additionalProperty}}`
     };
@@ -5499,7 +5502,7 @@ var require_additionalProperties = __commonJS({
       schemaType: ["boolean", "object"],
       allowUndefined: true,
       trackErrors: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, schema, parentSchema, data, errsCount, it } = cxt;
         if (!errsCount)
@@ -5773,7 +5776,7 @@ var require_oneOf = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: "must match exactly one schema in oneOf",
       params: ({ params }) => (0, codegen_1._)`{passingSchemas: ${params.passing}}`
     };
@@ -5781,7 +5784,7 @@ var require_oneOf = __commonJS({
       keyword: "oneOf",
       schemaType: "array",
       trackErrors: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, schema, parentSchema, it } = cxt;
         if (!Array.isArray(schema))
@@ -5858,7 +5861,7 @@ var require_if = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: ({ params }) => (0, codegen_1.str)`must match "${params.ifClause}" schema`,
       params: ({ params }) => (0, codegen_1._)`{failingKeyword: ${params.ifClause}}`
     };
@@ -5866,7 +5869,7 @@ var require_if = __commonJS({
       keyword: "if",
       schemaType: ["object", "boolean"],
       trackErrors: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, parentSchema, it } = cxt;
         if (parentSchema.then === void 0 && parentSchema.else === void 0) {
@@ -5992,7 +5995,7 @@ var require_format = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
-    var error2 = {
+    var error48 = {
       message: ({ schemaCode }) => (0, codegen_1.str)`must match format "${schemaCode}"`,
       params: ({ schemaCode }) => (0, codegen_1._)`{format: ${schemaCode}}`
     };
@@ -6001,7 +6004,7 @@ var require_format = __commonJS({
       type: ["number", "string"],
       schemaType: "string",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt, ruleType) {
         const { gen, data, $data, schema, schemaCode, it } = cxt;
         const { opts, errSchemaPath, schemaEnv, self } = it;
@@ -6156,7 +6159,7 @@ var require_discriminator = __commonJS({
     var compile_1 = require_compile();
     var ref_error_1 = require_ref_error();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: ({ params: { discrError, tagName } }) => discrError === types_1.DiscrError.Tag ? `tag "${tagName}" must be string` : `value of tag "${tagName}" must be in oneOf`,
       params: ({ params: { discrError, tag, tagName } }) => (0, codegen_1._)`{error: ${discrError}, tag: ${tagName}, tagValue: ${tag}}`
     };
@@ -6164,7 +6167,7 @@ var require_discriminator = __commonJS({
       keyword: "discriminator",
       type: "object",
       schemaType: "object",
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, schema, parentSchema, it } = cxt;
         const { oneOf } = parentSchema;
@@ -6489,7 +6492,7 @@ var require_formats = __commonJS({
     }
     exports.fullFormats = {
       // date: http://tools.ietf.org/html/rfc3339#section-5.6
-      date: fmtDef(date4, compareDate),
+      date: fmtDef(date5, compareDate),
       // date-time: http://tools.ietf.org/html/rfc3339#section-5.6
       time: fmtDef(getTime(true), compareTime),
       "date-time": fmtDef(getDateTime(true), compareDateTime),
@@ -6555,7 +6558,7 @@ var require_formats = __commonJS({
     }
     var DATE = /^(\d\d\d\d)-(\d\d)-(\d\d)$/;
     var DAYS = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    function date4(str) {
+    function date5(str) {
       const matches = DATE.exec(str);
       if (!matches)
         return false;
@@ -6624,7 +6627,7 @@ var require_formats = __commonJS({
       const time3 = getTime(strictTimeZone);
       return function date_time(str) {
         const dateTime = str.split(DATE_TIME_SEPARATOR);
-        return dateTime.length === 2 && date4(dateTime[0]) && time3(dateTime[1]);
+        return dateTime.length === 2 && date5(dateTime[0]) && time3(dateTime[1]);
       };
     }
     function compareDateTime(dt1, dt2) {
@@ -6696,7 +6699,7 @@ var require_limit = __commonJS({
       formatExclusiveMaximum: { okStr: "<", ok: ops.LT, fail: ops.GTE },
       formatExclusiveMinimum: { okStr: ">", ok: ops.GT, fail: ops.LTE }
     };
-    var error2 = {
+    var error48 = {
       message: ({ keyword, schemaCode }) => (0, codegen_1.str)`should be ${KWDs[keyword].okStr} ${schemaCode}`,
       params: ({ keyword, schemaCode }) => (0, codegen_1._)`{comparison: ${KWDs[keyword].okStr}, limit: ${schemaCode}}`
     };
@@ -6705,7 +6708,7 @@ var require_limit = __commonJS({
       type: "string",
       schemaType: "string",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, schemaCode, keyword, it } = cxt;
         const { opts, self } = it;
@@ -6792,6 +6795,933 @@ var require_dist = __commonJS({
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = formatsPlugin;
+  }
+});
+
+// src/mcp/config.ts
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
+function ensureConfigDir() {
+  if (!fs.existsSync(CONFIG_DIR)) {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  }
+}
+function readConfig() {
+  ensureConfigDir();
+  if (!fs.existsSync(CONFIG_FILE)) {
+    return {
+      version: "1.0.0",
+      bots: {},
+      lastUpdated: Date.now()
+    };
+  }
+  try {
+    const content = fs.readFileSync(CONFIG_FILE, "utf-8");
+    return JSON.parse(content);
+  } catch (error48) {
+    console.error("[qqbot-mcp] Failed to read config:", error48);
+    return {
+      version: "1.0.0",
+      bots: {},
+      lastUpdated: Date.now()
+    };
+  }
+}
+function writeConfig(config3) {
+  ensureConfigDir();
+  config3.lastUpdated = Date.now();
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config3, null, 2), {
+    encoding: "utf-8",
+    mode: 384
+  });
+}
+function getAllBots() {
+  return readConfig().bots;
+}
+function getBot(name) {
+  return readConfig().bots[name];
+}
+function setBot(config3) {
+  const cfg = readConfig();
+  cfg.bots[config3.name] = {
+    ...config3,
+    updatedAt: Date.now()
+  };
+  writeConfig(cfg);
+}
+function botExists(name) {
+  return name in readConfig().bots;
+}
+function loadFromEnv() {
+  const appId = process.env.QQBOT_APP_ID;
+  const clientSecret = process.env.QQBOT_CLIENT_SECRET;
+  if (!appId || !clientSecret) {
+    return null;
+  }
+  return {
+    name: "default",
+    appId,
+    clientSecret,
+    enabled: true,
+    imageServerBaseUrl: process.env.QQBOT_IMAGE_SERVER_BASE_URL,
+    markdownSupport: process.env.QQBOT_MARKDOWN_SUPPORT !== "false",
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+}
+var CONFIG_DIR, CONFIG_FILE, GLOBAL_CONFIG_DIR, GLOBAL_CONFIG_FILE;
+var init_config = __esm({
+  "src/mcp/config.ts"() {
+    "use strict";
+    CONFIG_DIR = path.join(os.homedir(), ".claude", "qqbot-mcp");
+    CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
+    GLOBAL_CONFIG_DIR = path.join(os.homedir(), ".claude", "qqbot-gateway");
+    GLOBAL_CONFIG_FILE = path.join(GLOBAL_CONFIG_DIR, "qqbot-config.json");
+  }
+});
+
+// src/utils/upload-cache.ts
+import * as crypto from "node:crypto";
+function computeFileHash(data) {
+  const content = typeof data === "string" ? data : data;
+  return crypto.createHash("md5").update(content).digest("hex");
+}
+function buildCacheKey(contentHash, scope, targetId, fileType) {
+  return `${contentHash}:${scope}:${targetId}:${fileType}`;
+}
+function getCachedFileInfo(contentHash, scope, targetId, fileType) {
+  const key = buildCacheKey(contentHash, scope, targetId, fileType);
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() >= entry.expiresAt) {
+    cache.delete(key);
+    return null;
+  }
+  console.log(`[upload-cache] Cache HIT: key=${key.slice(0, 40)}..., fileUuid=${entry.fileUuid}`);
+  return entry.fileInfo;
+}
+function setCachedFileInfo(contentHash, scope, targetId, fileType, fileInfo, fileUuid, ttl) {
+  if (cache.size >= MAX_CACHE_SIZE) {
+    const now = Date.now();
+    for (const [k, v] of cache) {
+      if (now >= v.expiresAt) {
+        cache.delete(k);
+      }
+    }
+    if (cache.size >= MAX_CACHE_SIZE) {
+      const keys = Array.from(cache.keys());
+      for (let i = 0; i < keys.length / 2; i++) {
+        cache.delete(keys[i]);
+      }
+    }
+  }
+  const key = buildCacheKey(contentHash, scope, targetId, fileType);
+  const safetyMargin = 60;
+  const effectiveTtl = Math.max(ttl - safetyMargin, 10);
+  cache.set(key, {
+    fileInfo,
+    fileUuid,
+    expiresAt: Date.now() + effectiveTtl * 1e3
+  });
+  console.log(`[upload-cache] Cache SET: key=${key.slice(0, 40)}..., ttl=${effectiveTtl}s, uuid=${fileUuid}`);
+}
+var cache, MAX_CACHE_SIZE;
+var init_upload_cache = __esm({
+  "src/utils/upload-cache.ts"() {
+    "use strict";
+    cache = /* @__PURE__ */ new Map();
+    MAX_CACHE_SIZE = 500;
+  }
+});
+
+// src/utils/platform.ts
+function sanitizeFileName(name) {
+  if (!name) return name;
+  let result = name.trim();
+  if (result.includes("%")) {
+    try {
+      result = decodeURIComponent(result);
+    } catch {
+    }
+  }
+  result = result.normalize("NFC");
+  result = result.replace(/[\x00-\x1F\x7F]/g, "");
+  return result;
+}
+var init_platform = __esm({
+  "src/utils/platform.ts"() {
+    "use strict";
+  }
+});
+
+// src/api.ts
+function initApiConfig(options) {
+  currentMarkdownSupport = options.markdownSupport === true;
+}
+async function getAccessToken(appId, clientSecret) {
+  const cachedToken = tokenCacheMap.get(appId);
+  if (cachedToken && Date.now() < cachedToken.expiresAt - 5 * 60 * 1e3) {
+    return cachedToken.token;
+  }
+  let fetchPromise = tokenFetchPromises.get(appId);
+  if (fetchPromise) {
+    console.error(`[qqbot-api:${appId}] Token fetch in progress, waiting for existing request...`);
+    return fetchPromise;
+  }
+  fetchPromise = (async () => {
+    try {
+      return await doFetchToken(appId, clientSecret);
+    } finally {
+      tokenFetchPromises.delete(appId);
+    }
+  })();
+  tokenFetchPromises.set(appId, fetchPromise);
+  return fetchPromise;
+}
+async function doFetchToken(appId, clientSecret) {
+  const requestBody = { appId, clientSecret };
+  const requestHeaders = { "Content-Type": "application/json" };
+  console.error(`[qqbot-api:${appId}] >>> POST ${TOKEN_URL}`);
+  let response;
+  try {
+    response = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: requestHeaders,
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(3e4)
+      // 30 秒超时
+    });
+  } catch (err) {
+    console.error(`[qqbot-api:${appId}] <<< Network error:`, err);
+    throw new Error(`Network error getting access_token: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const responseHeaders = {};
+  response.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
+  });
+  console.error(`[qqbot-api:${appId}] <<< Status: ${response.status} ${response.statusText}`);
+  let data;
+  let rawBody;
+  try {
+    rawBody = await response.text();
+    const logBody = rawBody.replace(/"access_token"\s*:\s*"[^"]+"/g, '"access_token": "***"');
+    console.error(`[qqbot-api:${appId}] <<< Body:`, logBody);
+    data = JSON.parse(rawBody);
+  } catch (err) {
+    console.error(`[qqbot-api:${appId}] <<< Parse error:`, err);
+    throw new Error(`Failed to parse access_token response: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  if (!data.access_token) {
+    throw new Error(`Failed to get access_token: ${JSON.stringify(data)}`);
+  }
+  const expiresAt = Date.now() + (data.expires_in ?? 7200) * 1e3;
+  tokenCacheMap.set(appId, {
+    token: data.access_token,
+    expiresAt,
+    appId
+  });
+  console.error(`[qqbot-api:${appId}] Token cached, expires at: ${new Date(expiresAt).toISOString()}`);
+  return data.access_token;
+}
+function getNextMsgSeq(_msgId) {
+  const timePart = Date.now() % 1e8;
+  const random = Math.floor(Math.random() * 65536);
+  return (timePart ^ random) % 65536;
+}
+async function apiRequest(accessToken, method, path5, body, timeoutMs) {
+  const url2 = `${API_BASE}${path5}`;
+  const headers = {
+    Authorization: `QQBot ${accessToken}`,
+    "Content-Type": "application/json"
+  };
+  const isFileUpload = path5.includes("/files");
+  const timeout = timeoutMs ?? (isFileUpload ? FILE_UPLOAD_TIMEOUT : DEFAULT_API_TIMEOUT);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeout);
+  const options = {
+    method,
+    headers,
+    signal: controller.signal
+  };
+  if (body) {
+    options.body = JSON.stringify(body);
+  }
+  console.error(`[qqbot-api] >>> ${method} ${url2} (timeout: ${timeout}ms)`);
+  if (body) {
+    const logBody = { ...body };
+    if (typeof logBody.file_data === "string") {
+      logBody.file_data = `<base64 ${logBody.file_data.length} chars>`;
+    }
+  }
+  let res;
+  try {
+    res = await fetch(url2, options);
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === "AbortError") {
+      console.error(`[qqbot-api] <<< Request timeout after ${timeout}ms`);
+      throw new Error(`Request timeout[${path5}]: exceeded ${timeout}ms`);
+    }
+    console.error(`[qqbot-api] <<< Network error:`, err);
+    throw new Error(`Network error [${path5}]: ${err instanceof Error ? err.message : String(err)}`);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+  const responseHeaders = {};
+  res.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
+  });
+  console.error(`[qqbot-api] <<< Status: ${res.status} ${res.statusText}`);
+  let data;
+  let rawBody;
+  try {
+    rawBody = await res.text();
+    data = JSON.parse(rawBody);
+  } catch (err) {
+    throw new Error(`Failed to parse response[${path5}]: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  if (!res.ok) {
+    const error48 = data;
+    throw new Error(`API Error [${path5}]: ${error48.message ?? JSON.stringify(data)}`);
+  }
+  return data;
+}
+async function apiRequestWithRetry(accessToken, method, path5, body, maxRetries = UPLOAD_MAX_RETRIES) {
+  let lastError = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await apiRequest(accessToken, method, path5, body);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      const errMsg = lastError.message;
+      if (errMsg.includes("400") || errMsg.includes("401") || errMsg.includes("Invalid") || errMsg.includes("\u4E0A\u4F20\u8D85\u65F6") || errMsg.includes("timeout") || errMsg.includes("Timeout")) {
+        throw lastError;
+      }
+      if (attempt < maxRetries) {
+        const delay = UPLOAD_BASE_DELAY_MS * Math.pow(2, attempt);
+        console.error(`[qqbot-api] Upload attempt ${attempt + 1} failed, retrying in ${delay}ms: ${errMsg.slice(0, 100)}`);
+        await new Promise((resolve3) => setTimeout(resolve3, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+function buildMessageBody(content, msgId, msgSeq) {
+  const body = currentMarkdownSupport ? {
+    markdown: { content },
+    msg_type: 2,
+    msg_seq: msgSeq
+  } : {
+    content,
+    msg_type: 0,
+    msg_seq: msgSeq
+  };
+  if (msgId) {
+    body.msg_id = msgId;
+  }
+  return body;
+}
+async function sendC2CMessage(accessToken, openid, content, msgId) {
+  const msgSeq = msgId ? getNextMsgSeq(msgId) : 1;
+  const body = buildMessageBody(content, msgId, msgSeq);
+  return apiRequest(accessToken, "POST", `/v2/users/${openid}/messages`, body);
+}
+async function sendChannelMessage(accessToken, channelId, content, msgId) {
+  return apiRequest(accessToken, "POST", `/channels/${channelId}/messages`, {
+    content,
+    ...msgId ? { msg_id: msgId } : {}
+  });
+}
+async function sendGroupMessage(accessToken, groupOpenid, content, msgId) {
+  const msgSeq = msgId ? getNextMsgSeq(msgId) : 1;
+  const body = buildMessageBody(content, msgId, msgSeq);
+  return apiRequest(accessToken, "POST", `/v2/groups/${groupOpenid}/messages`, body);
+}
+function buildProactiveMessageBody(content) {
+  if (!content || content.trim().length === 0) {
+    throw new Error("\u4E3B\u52A8\u6D88\u606F\u5185\u5BB9\u4E0D\u80FD\u4E3A\u7A7A (markdown.content is empty)");
+  }
+  if (currentMarkdownSupport) {
+    return { markdown: { content }, msg_type: 2 };
+  } else {
+    return { content, msg_type: 0 };
+  }
+}
+async function sendProactiveC2CMessage(accessToken, openid, content) {
+  const body = buildProactiveMessageBody(content);
+  return apiRequest(accessToken, "POST", `/v2/users/${openid}/messages`, body);
+}
+async function sendProactiveGroupMessage(accessToken, groupOpenid, content) {
+  const body = buildProactiveMessageBody(content);
+  return apiRequest(accessToken, "POST", `/v2/groups/${groupOpenid}/messages`, body);
+}
+async function uploadC2CMedia(accessToken, openid, fileType, url2, fileData, srvSendMsg = false, fileName) {
+  if (!url2 && !fileData) throw new Error("uploadC2CMedia: url or fileData is required");
+  if (fileData) {
+    const contentHash = computeFileHash(fileData);
+    const cachedInfo = getCachedFileInfo(contentHash, "c2c", openid, fileType);
+    if (cachedInfo) {
+      return { file_uuid: "", file_info: cachedInfo, ttl: 0 };
+    }
+  }
+  const body = { file_type: fileType, srv_send_msg: srvSendMsg };
+  if (url2) body.url = url2;
+  else if (fileData) body.file_data = fileData;
+  if (fileType === 4 /* FILE */ && fileName) body.file_name = sanitizeFileName(fileName);
+  const result = await apiRequestWithRetry(
+    accessToken,
+    "POST",
+    `/v2/users/${openid}/files`,
+    body
+  );
+  if (fileData && result.file_info && result.ttl > 0) {
+    const contentHash = computeFileHash(fileData);
+    setCachedFileInfo(contentHash, "c2c", openid, fileType, result.file_info, result.file_uuid, result.ttl);
+  }
+  return result;
+}
+async function uploadGroupMedia(accessToken, groupOpenid, fileType, url2, fileData, srvSendMsg = false, fileName) {
+  if (!url2 && !fileData) throw new Error("uploadGroupMedia: url or fileData is required");
+  if (fileData) {
+    const contentHash = computeFileHash(fileData);
+    const cachedInfo = getCachedFileInfo(contentHash, "group", groupOpenid, fileType);
+    if (cachedInfo) {
+      return { file_uuid: "", file_info: cachedInfo, ttl: 0 };
+    }
+  }
+  const body = { file_type: fileType, srv_send_msg: srvSendMsg };
+  if (url2) body.url = url2;
+  else if (fileData) body.file_data = fileData;
+  if (fileType === 4 /* FILE */ && fileName) body.file_name = sanitizeFileName(fileName);
+  const result = await apiRequestWithRetry(
+    accessToken,
+    "POST",
+    `/v2/groups/${groupOpenid}/files`,
+    body
+  );
+  if (fileData && result.file_info && result.ttl > 0) {
+    const contentHash = computeFileHash(fileData);
+    setCachedFileInfo(contentHash, "group", groupOpenid, fileType, result.file_info, result.file_uuid, result.ttl);
+  }
+  return result;
+}
+async function sendC2CMediaMessage(accessToken, openid, fileInfo, msgId, content) {
+  const msgSeq = msgId ? getNextMsgSeq(msgId) : 1;
+  return apiRequest(accessToken, "POST", `/v2/users/${openid}/messages`, {
+    msg_type: 7,
+    media: { file_info: fileInfo },
+    msg_seq: msgSeq,
+    ...content ? { content } : {},
+    ...msgId ? { msg_id: msgId } : {}
+  });
+}
+async function sendGroupMediaMessage(accessToken, groupOpenid, fileInfo, msgId, content) {
+  const msgSeq = msgId ? getNextMsgSeq(msgId) : 1;
+  return apiRequest(accessToken, "POST", `/v2/groups/${groupOpenid}/messages`, {
+    msg_type: 7,
+    media: { file_info: fileInfo },
+    msg_seq: msgSeq,
+    ...content ? { content } : {},
+    ...msgId ? { msg_id: msgId } : {}
+  });
+}
+async function sendC2CImageMessage(accessToken, openid, imageUrl, msgId, content) {
+  let uploadResult;
+  if (imageUrl.startsWith("data:")) {
+    const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) throw new Error("Invalid Base64 Data URL format");
+    uploadResult = await uploadC2CMedia(accessToken, openid, 1 /* IMAGE */, void 0, matches[2], false);
+  } else {
+    uploadResult = await uploadC2CMedia(accessToken, openid, 1 /* IMAGE */, imageUrl, void 0, false);
+  }
+  return sendC2CMediaMessage(accessToken, openid, uploadResult.file_info, msgId, content);
+}
+async function sendGroupImageMessage(accessToken, groupOpenid, imageUrl, msgId, content) {
+  let uploadResult;
+  if (imageUrl.startsWith("data:")) {
+    const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) throw new Error("Invalid Base64 Data URL format");
+    uploadResult = await uploadGroupMedia(accessToken, groupOpenid, 1 /* IMAGE */, void 0, matches[2], false);
+  } else {
+    uploadResult = await uploadGroupMedia(accessToken, groupOpenid, 1 /* IMAGE */, imageUrl, void 0, false);
+  }
+  return sendGroupMediaMessage(accessToken, groupOpenid, uploadResult.file_info, msgId, content);
+}
+async function sendC2CFileMessage(accessToken, openid, fileBase64, fileUrl, msgId, fileName) {
+  const uploadResult = await uploadC2CMedia(accessToken, openid, 4 /* FILE */, fileUrl, fileBase64, false, fileName);
+  return sendC2CMediaMessage(accessToken, openid, uploadResult.file_info, msgId);
+}
+async function sendGroupFileMessage(accessToken, groupOpenid, fileBase64, fileUrl, msgId, fileName) {
+  const uploadResult = await uploadGroupMedia(accessToken, groupOpenid, 4 /* FILE */, fileUrl, fileBase64, false, fileName);
+  return sendGroupMediaMessage(accessToken, groupOpenid, uploadResult.file_info, msgId);
+}
+async function sendC2CVideoMessage(accessToken, openid, videoUrl, videoBase64, msgId, content) {
+  const uploadResult = await uploadC2CMedia(accessToken, openid, 2 /* VIDEO */, videoUrl, videoBase64, false);
+  return sendC2CMediaMessage(accessToken, openid, uploadResult.file_info, msgId, content);
+}
+async function sendGroupVideoMessage(accessToken, groupOpenid, videoUrl, videoBase64, msgId, content) {
+  const uploadResult = await uploadGroupMedia(accessToken, groupOpenid, 2 /* VIDEO */, videoUrl, videoBase64, false);
+  return sendGroupMediaMessage(accessToken, groupOpenid, uploadResult.file_info, msgId, content);
+}
+function startBackgroundTokenRefresh(appId, clientSecret, options) {
+  if (backgroundRefreshControllers.has(appId)) {
+    console.error(`[qqbot-api:${appId}] Background token refresh already running`);
+    return;
+  }
+  const {
+    refreshAheadMs = 5 * 60 * 1e3,
+    randomOffsetMs = 30 * 1e3,
+    minRefreshIntervalMs = 60 * 1e3,
+    retryDelayMs = 5 * 1e3,
+    log
+  } = options ?? {};
+  const controller = new AbortController();
+  backgroundRefreshControllers.set(appId, controller);
+  const signal = controller.signal;
+  const refreshLoop = async () => {
+    log?.info?.(`[qqbot-api:${appId}] Background token refresh started`);
+    while (!signal.aborted) {
+      try {
+        await getAccessToken(appId, clientSecret);
+        const cached2 = tokenCacheMap.get(appId);
+        if (cached2) {
+          const expiresIn = cached2.expiresAt - Date.now();
+          const randomOffset = Math.random() * randomOffsetMs;
+          const refreshIn = Math.max(
+            expiresIn - refreshAheadMs - randomOffset,
+            minRefreshIntervalMs
+          );
+          log?.debug?.(`[qqbot-api:${appId}] Token valid, next refresh in ${Math.round(refreshIn / 1e3)}s`);
+          await sleep(refreshIn, signal);
+        } else {
+          log?.debug?.(`[qqbot-api:${appId}] No cached token, retrying soon`);
+          await sleep(minRefreshIntervalMs, signal);
+        }
+      } catch (err) {
+        if (signal.aborted) break;
+        log?.error?.(`[qqbot-api:${appId}] Background token refresh failed: ${err}`);
+        await sleep(retryDelayMs, signal);
+      }
+    }
+    backgroundRefreshControllers.delete(appId);
+    log?.info?.(`[qqbot-api:${appId}] Background token refresh stopped`);
+  };
+  refreshLoop().catch((err) => {
+    backgroundRefreshControllers.delete(appId);
+    log?.error?.(`[qqbot-api:${appId}] Background token refresh crashed: ${err}`);
+  });
+}
+function stopBackgroundTokenRefresh(appId) {
+  if (appId) {
+    const controller = backgroundRefreshControllers.get(appId);
+    if (controller) {
+      controller.abort();
+      backgroundRefreshControllers.delete(appId);
+    }
+  } else {
+    for (const controller of backgroundRefreshControllers.values()) {
+      controller.abort();
+    }
+    backgroundRefreshControllers.clear();
+  }
+}
+async function sleep(ms, signal) {
+  return new Promise((resolve3, reject) => {
+    const timer = setTimeout(resolve3, ms);
+    if (signal) {
+      if (signal.aborted) {
+        clearTimeout(timer);
+        reject(new Error("Aborted"));
+        return;
+      }
+      const onAbort = () => {
+        clearTimeout(timer);
+        reject(new Error("Aborted"));
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
+  });
+}
+var API_BASE, TOKEN_URL, currentMarkdownSupport, tokenCacheMap, tokenFetchPromises, DEFAULT_API_TIMEOUT, FILE_UPLOAD_TIMEOUT, UPLOAD_MAX_RETRIES, UPLOAD_BASE_DELAY_MS, backgroundRefreshControllers;
+var init_api = __esm({
+  "src/api.ts"() {
+    "use strict";
+    init_upload_cache();
+    init_platform();
+    API_BASE = "https://api.sgroup.qq.com";
+    TOKEN_URL = "https://bots.qq.com/app/getAppAccessToken";
+    currentMarkdownSupport = false;
+    tokenCacheMap = /* @__PURE__ */ new Map();
+    tokenFetchPromises = /* @__PURE__ */ new Map();
+    DEFAULT_API_TIMEOUT = 3e4;
+    FILE_UPLOAD_TIMEOUT = 12e4;
+    UPLOAD_MAX_RETRIES = 2;
+    UPLOAD_BASE_DELAY_MS = 1e3;
+    backgroundRefreshControllers = /* @__PURE__ */ new Map();
+  }
+});
+
+// src/mcp/message-queue.ts
+import * as crypto2 from "crypto";
+function generateMessageId(botName, sourceId, timestamp, content) {
+  const hash2 = crypto2.createHash("md5");
+  hash2.update(`${botName}:${sourceId}:${timestamp}:${content}`);
+  return hash2.digest("hex");
+}
+function ensureQueue(botName) {
+  if (!messageQueues.has(botName)) {
+    messageQueues.set(botName, []);
+  }
+  return messageQueues.get(botName);
+}
+function enqueueMessage(botName, sourceType, sourceId, content, authorId, attachments) {
+  const queue = ensureQueue(botName);
+  const timestamp = Date.now();
+  const id = generateMessageId(botName, sourceId, timestamp, content);
+  if (processedMessageIds.has(id)) {
+    console.log(`[qqbot-mcp] Duplicate message ignored: ${id.slice(0, 8)}...`);
+    return false;
+  }
+  if (queue.length >= MAX_QUEUE_SIZE) {
+    console.warn(`[qqbot-mcp] Queue full for ${botName}, dropping oldest message`);
+    const removed = queue.shift();
+    if (removed) {
+      processedMessageIds.delete(removed.id);
+    }
+  }
+  const task = {
+    id,
+    botName,
+    sourceType: sourceType === "user" ? "c2c" : sourceType === "group" ? "group" : "channel",
+    sourceId,
+    content,
+    authorId,
+    timestamp,
+    read: false,
+    attachments
+  };
+  queue.push(task);
+  processedMessageIds.add(id);
+  if (processedMessageIds.size > MAX_PROCESSED_IDS) {
+    const ids = Array.from(processedMessageIds).slice(0, MAX_PROCESSED_IDS / 2);
+    ids.forEach((id2) => processedMessageIds.delete(id2));
+  }
+  console.log(`[qqbot-mcp] Message enqueued for ${botName}: ${content.slice(0, 50)}...`);
+  return true;
+}
+function fetchUnreadTasks(botName) {
+  const queue = messageQueues.get(botName);
+  if (!queue) {
+    return [];
+  }
+  const unreadTasks = queue.filter((task) => !task.read);
+  unreadTasks.forEach((task) => {
+    task.read = true;
+  });
+  return unreadTasks;
+}
+function fetchAllUnreadTasks() {
+  const allTasks = [];
+  messageQueues.forEach((queue, botName) => {
+    const unreadTasks = queue.filter((task) => !task.read);
+    unreadTasks.forEach((task) => {
+      task.read = true;
+    });
+    allTasks.push(...unreadTasks);
+  });
+  return allTasks;
+}
+function getMessageContext(botName, sourceId, limit = 10) {
+  const queue = messageQueues.get(botName);
+  if (!queue) {
+    return [];
+  }
+  const relevantMessages = queue.filter((task) => task.sourceId === sourceId).slice(-limit).map((task) => ({
+    id: task.id,
+    content: task.content,
+    authorId: task.authorId,
+    timestamp: task.timestamp,
+    sourceType: task.sourceType === "c2c" ? "user" : task.sourceType,
+    attachments: task.attachments
+  }));
+  return relevantMessages;
+}
+function clearReadMessages(botName) {
+  let cleared = 0;
+  if (botName) {
+    const queue = messageQueues.get(botName);
+    if (queue) {
+      const before = queue.length;
+      const remaining = queue.filter((task) => !task.read);
+      messageQueues.set(botName, remaining);
+      cleared = before - remaining.length;
+    }
+  } else {
+    messageQueues.forEach((queue, name) => {
+      const before = queue.length;
+      const remaining = queue.filter((task) => !task.read);
+      messageQueues.set(name, remaining);
+      cleared += before - remaining.length;
+    });
+  }
+  return cleared;
+}
+function getQueueStatus() {
+  const status = {};
+  messageQueues.forEach((queue, botName) => {
+    status[botName] = {
+      total: queue.length,
+      unread: queue.filter((t) => !t.read).length
+    };
+  });
+  return status;
+}
+var messageQueues, processedMessageIds, MAX_QUEUE_SIZE, MAX_PROCESSED_IDS;
+var init_message_queue = __esm({
+  "src/mcp/message-queue.ts"() {
+    "use strict";
+    messageQueues = /* @__PURE__ */ new Map();
+    processedMessageIds = /* @__PURE__ */ new Set();
+    MAX_QUEUE_SIZE = 1e3;
+    MAX_PROCESSED_IDS = 1e4;
+  }
+});
+
+// src/mcp/qq-client.ts
+import * as path2 from "path";
+import * as fs2 from "fs";
+function parseTargetId(targetId) {
+  if (targetId.startsWith("G_")) {
+    return { type: "group", id: targetId.slice(2) };
+  }
+  if (targetId.startsWith("U_")) {
+    return { type: "user", id: targetId.slice(2) };
+  }
+  if (targetId.startsWith("C_")) {
+    return { type: "channel", id: targetId.slice(2) };
+  }
+  return { type: "group", id: targetId };
+}
+function getClient(config3) {
+  let client = clients.get(config3.name);
+  if (!client) {
+    client = new QQClient(config3);
+    clients.set(config3.name, client);
+  }
+  return client;
+}
+function getActiveClients() {
+  return clients;
+}
+function cleanupAllClients() {
+  for (const [name, client] of clients) {
+    try {
+      client.stopTokenRefresh();
+      console.error(`[qqbot-mcp] Client stopped: ${name}`);
+    } catch (error48) {
+      console.error(`[qqbot-mcp] Error stopping client ${name}:`, error48);
+    }
+  }
+  clients.clear();
+  console.error("[qqbot-mcp] All clients cleaned up");
+}
+var QQClient, clients;
+var init_qq_client = __esm({
+  "src/mcp/qq-client.ts"() {
+    "use strict";
+    init_api();
+    init_message_queue();
+    QQClient = class {
+      config;
+      accessToken = null;
+      constructor(config3) {
+        this.config = config3;
+        initApiConfig({ markdownSupport: config3.markdownSupport ?? true });
+      }
+      /**
+       * 获取机器人名称
+       */
+      get name() {
+        return this.config.name;
+      }
+      /**
+       * 获取访问令牌
+       */
+      async getAccessToken() {
+        if (!this.accessToken) {
+          this.accessToken = await getAccessToken(this.config.appId, this.config.clientSecret);
+        }
+        return this.accessToken;
+      }
+      /**
+       * 启动后台 Token 刷新
+       */
+      startTokenRefresh() {
+        startBackgroundTokenRefresh(this.config.appId, this.config.clientSecret, {
+          log: {
+            // 🔴 重要: MCP Server 中所有日志必须输出到 stderr，不能输出到 stdout
+            // stdout 只能用于 JSON-RPC 消息，否则会破坏 MCP 协议
+            info: (msg) => console.error(`[qqbot:${this.name}] ${msg}`),
+            error: (msg) => console.error(`[qqbot:${this.name}] ${msg}`)
+          }
+        });
+      }
+      /**
+       * 停止后台 Token 刷新
+       */
+      stopTokenRefresh() {
+        stopBackgroundTokenRefresh(this.config.appId);
+      }
+      /**
+       * 发送文本消息
+       */
+      async sendMessage(targetId, content, msgId) {
+        try {
+          const token = await this.getAccessToken();
+          const { type, id } = parseTargetId(targetId);
+          let result;
+          switch (type) {
+            case "user":
+              result = await sendC2CMessage(token, id, content, msgId);
+              break;
+            case "group":
+              result = await sendGroupMessage(token, id, content, msgId);
+              break;
+            case "channel":
+              result = await sendChannelMessage(token, id, content, msgId);
+              break;
+          }
+          return { success: true, messageId: result.id };
+        } catch (error48) {
+          const errMsg = error48 instanceof Error ? error48.message : String(error48);
+          console.error(`[qqbot:${this.name}] Send message failed:`, errMsg);
+          return { success: false, error: errMsg };
+        }
+      }
+      /**
+       * 发送主动消息（无需回复）
+       */
+      async sendProactiveMessage(targetId, content) {
+        try {
+          const token = await this.getAccessToken();
+          const { type, id } = parseTargetId(targetId);
+          let result;
+          if (type === "user") {
+            result = await sendProactiveC2CMessage(token, id, content);
+          } else if (type === "group") {
+            result = await sendProactiveGroupMessage(token, id, content);
+          } else {
+            return { success: false, error: "Channel does not support proactive messages" };
+          }
+          return { success: true, messageId: result.id };
+        } catch (error48) {
+          const errMsg = error48 instanceof Error ? error48.message : String(error48);
+          console.error(`[qqbot:${this.name}] Send proactive message failed:`, errMsg);
+          return { success: false, error: errMsg };
+        }
+      }
+      /**
+       * 上传媒体文件
+       */
+      async uploadMedia(targetId, filePath, fileType, description) {
+        try {
+          const resolvedPath = path2.resolve(filePath);
+          if (!fs2.existsSync(resolvedPath)) {
+            return { success: false, error: `File not found: ${resolvedPath}` };
+          }
+          const token = await this.getAccessToken();
+          const { type, id } = parseTargetId(targetId);
+          const fileBuffer = fs2.readFileSync(resolvedPath);
+          const fileBase64 = fileBuffer.toString("base64");
+          const fileName = path2.basename(resolvedPath);
+          let result;
+          if (type === "user") {
+            result = await uploadC2CMedia(token, id, fileType, void 0, fileBase64, false, fileName);
+          } else {
+            result = await uploadGroupMedia(token, id, fileType, void 0, fileBase64, false, fileName);
+          }
+          return { success: true, fileInfo: result.file_info };
+        } catch (error48) {
+          const errMsg = error48 instanceof Error ? error48.message : String(error48);
+          console.error(`[qqbot:${this.name}] Upload media failed:`, errMsg);
+          return { success: false, error: errMsg };
+        }
+      }
+      /**
+       * 发送图片消息
+       */
+      async sendImage(targetId, imageUrl, content, msgId) {
+        try {
+          const token = await this.getAccessToken();
+          const { type, id } = parseTargetId(targetId);
+          let result;
+          if (type === "user") {
+            result = await sendC2CImageMessage(token, id, imageUrl, msgId, content);
+          } else {
+            result = await sendGroupImageMessage(token, id, imageUrl, msgId, content);
+          }
+          return { success: true, messageId: result.id };
+        } catch (error48) {
+          const errMsg = error48 instanceof Error ? error48.message : String(error48);
+          return { success: false, error: errMsg };
+        }
+      }
+      /**
+       * 发送文件消息
+       */
+      async sendFile(targetId, filePath, msgId) {
+        try {
+          const resolvedPath = path2.resolve(filePath);
+          if (!fs2.existsSync(resolvedPath)) {
+            return { success: false, error: `File not found: ${resolvedPath}` };
+          }
+          const token = await this.getAccessToken();
+          const { type, id } = parseTargetId(targetId);
+          const fileName = path2.basename(resolvedPath);
+          const fileBuffer = fs2.readFileSync(resolvedPath);
+          const fileBase64 = fileBuffer.toString("base64");
+          let result;
+          if (type === "user") {
+            result = await sendC2CFileMessage(token, id, fileBase64, void 0, msgId, fileName);
+          } else {
+            result = await sendGroupFileMessage(token, id, fileBase64, void 0, msgId, fileName);
+          }
+          return { success: true, messageId: result.id };
+        } catch (error48) {
+          const errMsg = error48 instanceof Error ? error48.message : String(error48);
+          return { success: false, error: errMsg };
+        }
+      }
+      /**
+       * 发送视频消息
+       */
+      async sendVideo(targetId, videoUrl, content, msgId) {
+        try {
+          const token = await this.getAccessToken();
+          const { type, id } = parseTargetId(targetId);
+          let result;
+          if (type === "user") {
+            result = await sendC2CVideoMessage(token, id, videoUrl, void 0, msgId, content);
+          } else {
+            result = await sendGroupVideoMessage(token, id, videoUrl, void 0, msgId, content);
+          }
+          return { success: true, messageId: result.id };
+        } catch (error48) {
+          const errMsg = error48 instanceof Error ? error48.message : String(error48);
+          return { success: false, error: errMsg };
+        }
+      }
+      /**
+       * 接收消息（供 WebSocket 回调使用）
+       */
+      receiveMessage(sourceType, sourceId, content, authorId, attachments) {
+        enqueueMessage(this.config.name, sourceType, sourceId, content, authorId, attachments);
+      }
+    };
+    clients = /* @__PURE__ */ new Map();
   }
 });
 
@@ -7688,26 +8618,26 @@ var require_receiver = __commonJS({
         }
         const buf = this.consume(2);
         if ((buf[0] & 48) !== 0) {
-          const error2 = this.createError(
+          const error48 = this.createError(
             RangeError,
             "RSV2 and RSV3 must be clear",
             true,
             1002,
             "WS_ERR_UNEXPECTED_RSV_2_3"
           );
-          cb(error2);
+          cb(error48);
           return;
         }
         const compressed = (buf[0] & 64) === 64;
         if (compressed && !this._extensions[PerMessageDeflate.extensionName]) {
-          const error2 = this.createError(
+          const error48 = this.createError(
             RangeError,
             "RSV1 must be clear",
             true,
             1002,
             "WS_ERR_UNEXPECTED_RSV_1"
           );
-          cb(error2);
+          cb(error48);
           return;
         }
         this._fin = (buf[0] & 128) === 128;
@@ -7715,109 +8645,109 @@ var require_receiver = __commonJS({
         this._payloadLength = buf[1] & 127;
         if (this._opcode === 0) {
           if (compressed) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               "RSV1 must be clear",
               true,
               1002,
               "WS_ERR_UNEXPECTED_RSV_1"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
           if (!this._fragmented) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               "invalid opcode 0",
               true,
               1002,
               "WS_ERR_INVALID_OPCODE"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
           this._opcode = this._fragmented;
         } else if (this._opcode === 1 || this._opcode === 2) {
           if (this._fragmented) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               `invalid opcode ${this._opcode}`,
               true,
               1002,
               "WS_ERR_INVALID_OPCODE"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
           this._compressed = compressed;
         } else if (this._opcode > 7 && this._opcode < 11) {
           if (!this._fin) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               "FIN must be set",
               true,
               1002,
               "WS_ERR_EXPECTED_FIN"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
           if (compressed) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               "RSV1 must be clear",
               true,
               1002,
               "WS_ERR_UNEXPECTED_RSV_1"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
           if (this._payloadLength > 125 || this._opcode === 8 && this._payloadLength === 1) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               `invalid payload length ${this._payloadLength}`,
               true,
               1002,
               "WS_ERR_INVALID_CONTROL_PAYLOAD_LENGTH"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
         } else {
-          const error2 = this.createError(
+          const error48 = this.createError(
             RangeError,
             `invalid opcode ${this._opcode}`,
             true,
             1002,
             "WS_ERR_INVALID_OPCODE"
           );
-          cb(error2);
+          cb(error48);
           return;
         }
         if (!this._fin && !this._fragmented) this._fragmented = this._opcode;
         this._masked = (buf[1] & 128) === 128;
         if (this._isServer) {
           if (!this._masked) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               "MASK must be set",
               true,
               1002,
               "WS_ERR_EXPECTED_MASK"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
         } else if (this._masked) {
-          const error2 = this.createError(
+          const error48 = this.createError(
             RangeError,
             "MASK must be clear",
             true,
             1002,
             "WS_ERR_UNEXPECTED_MASK"
           );
-          cb(error2);
+          cb(error48);
           return;
         }
         if (this._payloadLength === 126) this._state = GET_PAYLOAD_LENGTH_16;
@@ -7852,14 +8782,14 @@ var require_receiver = __commonJS({
         const buf = this.consume(8);
         const num = buf.readUInt32BE(0);
         if (num > Math.pow(2, 53 - 32) - 1) {
-          const error2 = this.createError(
+          const error48 = this.createError(
             RangeError,
             "Unsupported WebSocket frame: payload length > 2^53 - 1",
             false,
             1009,
             "WS_ERR_UNSUPPORTED_DATA_PAYLOAD_LENGTH"
           );
-          cb(error2);
+          cb(error48);
           return;
         }
         this._payloadLength = num * Math.pow(2, 32) + buf.readUInt32BE(4);
@@ -7875,14 +8805,14 @@ var require_receiver = __commonJS({
         if (this._payloadLength && this._opcode < 8) {
           this._totalPayloadLength += this._payloadLength;
           if (this._totalPayloadLength > this._maxPayload && this._maxPayload > 0) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               "Max payload size exceeded",
               false,
               1009,
               "WS_ERR_UNSUPPORTED_MESSAGE_LENGTH"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
         }
@@ -7949,14 +8879,14 @@ var require_receiver = __commonJS({
           if (buf.length) {
             this._messageLength += buf.length;
             if (this._messageLength > this._maxPayload && this._maxPayload > 0) {
-              const error2 = this.createError(
+              const error48 = this.createError(
                 RangeError,
                 "Max payload size exceeded",
                 false,
                 1009,
                 "WS_ERR_UNSUPPORTED_MESSAGE_LENGTH"
               );
-              cb(error2);
+              cb(error48);
               return;
             }
             this._fragments.push(buf);
@@ -8007,14 +8937,14 @@ var require_receiver = __commonJS({
         } else {
           const buf = concat(fragments, messageLength);
           if (!this._skipUTF8Validation && !isValidUTF8(buf)) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               Error,
               "invalid UTF-8 sequence",
               true,
               1007,
               "WS_ERR_INVALID_UTF8"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
           if (this._state === INFLATING || this._allowSynchronousEvents) {
@@ -8046,14 +8976,14 @@ var require_receiver = __commonJS({
           } else {
             const code = data.readUInt16BE(0);
             if (!isValidStatusCode(code)) {
-              const error2 = this.createError(
+              const error48 = this.createError(
                 RangeError,
                 `invalid status code ${code}`,
                 true,
                 1002,
                 "WS_ERR_INVALID_CLOSE_CODE"
               );
-              cb(error2);
+              cb(error48);
               return;
             }
             const buf = new FastBuffer(
@@ -8062,14 +8992,14 @@ var require_receiver = __commonJS({
               data.length - 2
             );
             if (!this._skipUTF8Validation && !isValidUTF8(buf)) {
-              const error2 = this.createError(
+              const error48 = this.createError(
                 Error,
                 "invalid UTF-8 sequence",
                 true,
                 1007,
                 "WS_ERR_INVALID_UTF8"
               );
-              cb(error2);
+              cb(error48);
               return;
             }
             this._loop = false;
@@ -8778,10 +9708,10 @@ var require_event_target = __commonJS({
             callListener(handler, this, event);
           };
         } else if (type === "error") {
-          wrapper = function onError(error2) {
+          wrapper = function onError(error48) {
             const event = new ErrorEvent("error", {
-              error: error2,
-              message: error2.message
+              error: error48,
+              message: error48.message
             });
             event[kTarget] = this;
             callListener(handler, this, event);
@@ -9909,7 +10839,7 @@ var require_stream = __commonJS({
         const data = !isBinary && duplex._readableState.objectMode ? msg.toString() : msg;
         if (!duplex.push(data)) ws.pause();
       });
-      ws.once("error", function error2(err) {
+      ws.once("error", function error48(err) {
         if (duplex.destroyed) return;
         terminateOnDestroy = false;
         duplex.destroy(err);
@@ -9925,7 +10855,7 @@ var require_stream = __commonJS({
           return;
         }
         let called = false;
-        ws.once("error", function error2(err2) {
+        ws.once("error", function error48(err2) {
           called = true;
           callback(err2);
         });
@@ -10411,6 +11341,142 @@ var require_websocket_server = __commonJS({
   }
 });
 
+// src/mcp/permission-relay.ts
+function initPermissionRelay(server2, config3) {
+  mcpServer = server2;
+  if (config3?.adminOpenids) {
+    adminOpenids = config3.adminOpenids;
+  }
+  console.error("[permission-relay] Initialized");
+}
+function generateRequestId() {
+  const chars = "abcdefghijkmnopqrstuvwxyz";
+  let id = "";
+  for (let i = 0; i < 5; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return id;
+}
+function cleanupExpiredRequests() {
+  const now = Date.now();
+  for (const [id, request] of pendingRequests.entries()) {
+    if (request.expiresAt < now) {
+      pendingRequests.delete(id);
+      console.error(`[permission-relay] Expired request: ${id}`);
+    }
+  }
+}
+async function handlePermissionRequest(params) {
+  cleanupExpiredRequests();
+  const requestId = params.request_id || generateRequestId();
+  if (!PERMISSION_ID_PATTERN.test(requestId)) {
+    const newId = generateRequestId();
+    console.warn(`[permission-relay] Invalid request_id ${requestId}, generated ${newId}`);
+  }
+  const request = {
+    id: requestId,
+    toolName: params.tool_name,
+    description: params.description || "",
+    inputPreview: params.input_preview || "",
+    createdAt: Date.now(),
+    expiresAt: Date.now() + REQUEST_EXPIRY_MS
+  };
+  pendingRequests.set(requestId, request);
+  const message = `\u{1F512} \u6743\u9650\u8BF7\u6C42
+
+\u5DE5\u5177: ${params.tool_name}
+${params.description ? `\u63CF\u8FF0: ${params.description}` : ""}
+${params.input_preview ? `\u8F93\u5165\u9884\u89C8: ${params.input_preview.slice(0, 200)}${params.input_preview.length > 200 ? "..." : ""}` : ""}
+
+\u8BF7\u56DE\u590D "yes ${requestId}" \u6216 "no ${requestId}"`;
+  try {
+    const clientsMap = getActiveClients();
+    if (clientsMap.size === 0) {
+      console.error("[permission-relay] No active clients to send permission request");
+      return { success: false, request_id: requestId };
+    }
+    for (const [botName, client] of clientsMap) {
+      const bots = getAllBots();
+      const botConfig = bots[botName];
+      const targetId = botConfig?.defaultTargetId;
+      if (targetId && adminOpenids.includes(targetId)) {
+        await client.sendMessage(targetId, message);
+        request.adminOpenid = targetId;
+        console.error(`[permission-relay] Sent to admin ${targetId}`);
+        break;
+      }
+    }
+    if (!request.adminOpenid && clientsMap.size > 0) {
+      const firstEntry = clientsMap.entries().next().value;
+      if (firstEntry) {
+        const [botName, client] = firstEntry;
+        const bots = getAllBots();
+        const botConfig = bots[botName];
+        if (botConfig?.defaultTargetId) {
+          await client.sendMessage(botConfig.defaultTargetId, message);
+          request.adminOpenid = botConfig.defaultTargetId;
+          console.error(`[permission-relay] Sent to default target ${botConfig.defaultTargetId}`);
+        }
+      }
+    }
+    return { success: true, request_id: requestId };
+  } catch (error48) {
+    console.error("[permission-relay] Failed to send permission request:", error48);
+    return { success: false, request_id: requestId };
+  }
+}
+async function handlePermissionReply(content, senderOpenid) {
+  const match = content.match(PERMISSION_REPLY_RE);
+  if (!match) {
+    return { handled: false };
+  }
+  const [, answer, requestId] = match;
+  const approved = answer.toLowerCase() === "y" || answer.toLowerCase() === "yes";
+  const request = pendingRequests.get(requestId);
+  if (!request) {
+    console.warn(`[permission-relay] Unknown request ID: ${requestId}`);
+    return { handled: false };
+  }
+  if (request.expiresAt < Date.now()) {
+    pendingRequests.delete(requestId);
+    console.warn(`[permission-relay] Request ${requestId} already expired`);
+    return { handled: false };
+  }
+  if (mcpServer) {
+    try {
+      await mcpServer.notification({
+        method: "notifications/claude/channel/permission",
+        params: {
+          request_id: requestId,
+          behavior: approved ? "allow" : "deny"
+        }
+      });
+      console.error(`[permission-relay] Sent verdict: ${approved ? "allow" : "deny"} for ${requestId}`);
+    } catch (error48) {
+      console.error("[permission-relay] Failed to send verdict:", error48);
+    }
+  }
+  pendingRequests.delete(requestId);
+  return { handled: true, request_id: requestId, approved };
+}
+function isPermissionReply(content) {
+  return PERMISSION_REPLY_RE.test(content.trim());
+}
+var PERMISSION_ID_PATTERN, PERMISSION_REPLY_RE, pendingRequests, REQUEST_EXPIRY_MS, adminOpenids, mcpServer;
+var init_permission_relay = __esm({
+  "src/mcp/permission-relay.ts"() {
+    "use strict";
+    init_qq_client();
+    init_config();
+    PERMISSION_ID_PATTERN = /^[a-km-z]{5}$/;
+    PERMISSION_REPLY_RE = /^\s*(y|yes|n|no)\s+([a-km-z]{5})\s*$/i;
+    pendingRequests = /* @__PURE__ */ new Map();
+    REQUEST_EXPIRY_MS = 5 * 60 * 1e3;
+    adminOpenids = [];
+    mcpServer = null;
+  }
+});
+
 // node_modules/zod/v3/helpers/util.js
 var util;
 (function(util2) {
@@ -10591,8 +11657,8 @@ var ZodError = class _ZodError extends Error {
       return issue2.message;
     };
     const fieldErrors = { _errors: [] };
-    const processError = (error2) => {
-      for (const issue2 of error2.issues) {
+    const processError = (error48) => {
+      for (const issue2 of error48.issues) {
         if (issue2.code === "invalid_union") {
           issue2.unionErrors.map(processError);
         } else if (issue2.code === "invalid_return_type") {
@@ -10655,8 +11721,8 @@ var ZodError = class _ZodError extends Error {
   }
 };
 ZodError.create = (issues) => {
-  const error2 = new ZodError(issues);
-  return error2;
+  const error48 = new ZodError(issues);
+  return error48;
 };
 
 // node_modules/zod/v3/locales/en.js
@@ -10916,8 +11982,8 @@ var handleResult = (ctx, result) => {
       get error() {
         if (this._error)
           return this._error;
-        const error2 = new ZodError(ctx.common.issues);
-        this._error = error2;
+        const error48 = new ZodError(ctx.common.issues);
+        this._error = error48;
         return this._error;
       }
     };
@@ -13572,25 +14638,25 @@ var ZodFunction = class _ZodFunction extends ZodType {
       });
       return INVALID;
     }
-    function makeArgsIssue(args, error2) {
+    function makeArgsIssue(args, error48) {
       return makeIssue({
         data: args,
         path: ctx.path,
         errorMaps: [ctx.common.contextualErrorMap, ctx.schemaErrorMap, getErrorMap(), en_default].filter((x) => !!x),
         issueData: {
           code: ZodIssueCode.invalid_arguments,
-          argumentsError: error2
+          argumentsError: error48
         }
       });
     }
-    function makeReturnsIssue(returns, error2) {
+    function makeReturnsIssue(returns, error48) {
       return makeIssue({
         data: returns,
         path: ctx.path,
         errorMaps: [ctx.common.contextualErrorMap, ctx.schemaErrorMap, getErrorMap(), en_default].filter((x) => !!x),
         issueData: {
           code: ZodIssueCode.invalid_return_type,
-          returnTypeError: error2
+          returnTypeError: error48
         }
       });
     }
@@ -13599,15 +14665,15 @@ var ZodFunction = class _ZodFunction extends ZodType {
     if (this._def.returns instanceof ZodPromise) {
       const me = this;
       return OK(async function(...args) {
-        const error2 = new ZodError([]);
+        const error48 = new ZodError([]);
         const parsedArgs = await me._def.args.parseAsync(args, params).catch((e) => {
-          error2.addIssue(makeArgsIssue(args, e));
-          throw error2;
+          error48.addIssue(makeArgsIssue(args, e));
+          throw error48;
         });
         const result = await Reflect.apply(fn, this, parsedArgs);
         const parsedReturns = await me._def.returns._def.type.parseAsync(result, params).catch((e) => {
-          error2.addIssue(makeReturnsIssue(result, e));
-          throw error2;
+          error48.addIssue(makeReturnsIssue(result, e));
+          throw error48;
         });
         return parsedReturns;
       });
@@ -14287,6 +15353,284 @@ var nullableType = ZodNullable.create;
 var preprocessType = ZodEffects.createWithPreprocess;
 var pipelineType = ZodPipeline.create;
 
+// node_modules/zod/v4/core/index.js
+var core_exports2 = {};
+__export(core_exports2, {
+  $ZodAny: () => $ZodAny,
+  $ZodArray: () => $ZodArray,
+  $ZodAsyncError: () => $ZodAsyncError,
+  $ZodBase64: () => $ZodBase64,
+  $ZodBase64URL: () => $ZodBase64URL,
+  $ZodBigInt: () => $ZodBigInt,
+  $ZodBigIntFormat: () => $ZodBigIntFormat,
+  $ZodBoolean: () => $ZodBoolean,
+  $ZodCIDRv4: () => $ZodCIDRv4,
+  $ZodCIDRv6: () => $ZodCIDRv6,
+  $ZodCUID: () => $ZodCUID,
+  $ZodCUID2: () => $ZodCUID2,
+  $ZodCatch: () => $ZodCatch,
+  $ZodCheck: () => $ZodCheck,
+  $ZodCheckBigIntFormat: () => $ZodCheckBigIntFormat,
+  $ZodCheckEndsWith: () => $ZodCheckEndsWith,
+  $ZodCheckGreaterThan: () => $ZodCheckGreaterThan,
+  $ZodCheckIncludes: () => $ZodCheckIncludes,
+  $ZodCheckLengthEquals: () => $ZodCheckLengthEquals,
+  $ZodCheckLessThan: () => $ZodCheckLessThan,
+  $ZodCheckLowerCase: () => $ZodCheckLowerCase,
+  $ZodCheckMaxLength: () => $ZodCheckMaxLength,
+  $ZodCheckMaxSize: () => $ZodCheckMaxSize,
+  $ZodCheckMimeType: () => $ZodCheckMimeType,
+  $ZodCheckMinLength: () => $ZodCheckMinLength,
+  $ZodCheckMinSize: () => $ZodCheckMinSize,
+  $ZodCheckMultipleOf: () => $ZodCheckMultipleOf,
+  $ZodCheckNumberFormat: () => $ZodCheckNumberFormat,
+  $ZodCheckOverwrite: () => $ZodCheckOverwrite,
+  $ZodCheckProperty: () => $ZodCheckProperty,
+  $ZodCheckRegex: () => $ZodCheckRegex,
+  $ZodCheckSizeEquals: () => $ZodCheckSizeEquals,
+  $ZodCheckStartsWith: () => $ZodCheckStartsWith,
+  $ZodCheckStringFormat: () => $ZodCheckStringFormat,
+  $ZodCheckUpperCase: () => $ZodCheckUpperCase,
+  $ZodCodec: () => $ZodCodec,
+  $ZodCustom: () => $ZodCustom,
+  $ZodCustomStringFormat: () => $ZodCustomStringFormat,
+  $ZodDate: () => $ZodDate,
+  $ZodDefault: () => $ZodDefault,
+  $ZodDiscriminatedUnion: () => $ZodDiscriminatedUnion,
+  $ZodE164: () => $ZodE164,
+  $ZodEmail: () => $ZodEmail,
+  $ZodEmoji: () => $ZodEmoji,
+  $ZodEncodeError: () => $ZodEncodeError,
+  $ZodEnum: () => $ZodEnum,
+  $ZodError: () => $ZodError,
+  $ZodExactOptional: () => $ZodExactOptional,
+  $ZodFile: () => $ZodFile,
+  $ZodFunction: () => $ZodFunction,
+  $ZodGUID: () => $ZodGUID,
+  $ZodIPv4: () => $ZodIPv4,
+  $ZodIPv6: () => $ZodIPv6,
+  $ZodISODate: () => $ZodISODate,
+  $ZodISODateTime: () => $ZodISODateTime,
+  $ZodISODuration: () => $ZodISODuration,
+  $ZodISOTime: () => $ZodISOTime,
+  $ZodIntersection: () => $ZodIntersection,
+  $ZodJWT: () => $ZodJWT,
+  $ZodKSUID: () => $ZodKSUID,
+  $ZodLazy: () => $ZodLazy,
+  $ZodLiteral: () => $ZodLiteral,
+  $ZodMAC: () => $ZodMAC,
+  $ZodMap: () => $ZodMap,
+  $ZodNaN: () => $ZodNaN,
+  $ZodNanoID: () => $ZodNanoID,
+  $ZodNever: () => $ZodNever,
+  $ZodNonOptional: () => $ZodNonOptional,
+  $ZodNull: () => $ZodNull,
+  $ZodNullable: () => $ZodNullable,
+  $ZodNumber: () => $ZodNumber,
+  $ZodNumberFormat: () => $ZodNumberFormat,
+  $ZodObject: () => $ZodObject,
+  $ZodObjectJIT: () => $ZodObjectJIT,
+  $ZodOptional: () => $ZodOptional,
+  $ZodPipe: () => $ZodPipe,
+  $ZodPrefault: () => $ZodPrefault,
+  $ZodPromise: () => $ZodPromise,
+  $ZodReadonly: () => $ZodReadonly,
+  $ZodRealError: () => $ZodRealError,
+  $ZodRecord: () => $ZodRecord,
+  $ZodRegistry: () => $ZodRegistry,
+  $ZodSet: () => $ZodSet,
+  $ZodString: () => $ZodString,
+  $ZodStringFormat: () => $ZodStringFormat,
+  $ZodSuccess: () => $ZodSuccess,
+  $ZodSymbol: () => $ZodSymbol,
+  $ZodTemplateLiteral: () => $ZodTemplateLiteral,
+  $ZodTransform: () => $ZodTransform,
+  $ZodTuple: () => $ZodTuple,
+  $ZodType: () => $ZodType,
+  $ZodULID: () => $ZodULID,
+  $ZodURL: () => $ZodURL,
+  $ZodUUID: () => $ZodUUID,
+  $ZodUndefined: () => $ZodUndefined,
+  $ZodUnion: () => $ZodUnion,
+  $ZodUnknown: () => $ZodUnknown,
+  $ZodVoid: () => $ZodVoid,
+  $ZodXID: () => $ZodXID,
+  $ZodXor: () => $ZodXor,
+  $brand: () => $brand,
+  $constructor: () => $constructor,
+  $input: () => $input,
+  $output: () => $output,
+  Doc: () => Doc,
+  JSONSchema: () => json_schema_exports,
+  JSONSchemaGenerator: () => JSONSchemaGenerator,
+  NEVER: () => NEVER,
+  TimePrecision: () => TimePrecision,
+  _any: () => _any,
+  _array: () => _array,
+  _base64: () => _base64,
+  _base64url: () => _base64url,
+  _bigint: () => _bigint,
+  _boolean: () => _boolean,
+  _catch: () => _catch,
+  _check: () => _check,
+  _cidrv4: () => _cidrv4,
+  _cidrv6: () => _cidrv6,
+  _coercedBigint: () => _coercedBigint,
+  _coercedBoolean: () => _coercedBoolean,
+  _coercedDate: () => _coercedDate,
+  _coercedNumber: () => _coercedNumber,
+  _coercedString: () => _coercedString,
+  _cuid: () => _cuid,
+  _cuid2: () => _cuid2,
+  _custom: () => _custom,
+  _date: () => _date,
+  _decode: () => _decode,
+  _decodeAsync: () => _decodeAsync,
+  _default: () => _default,
+  _discriminatedUnion: () => _discriminatedUnion,
+  _e164: () => _e164,
+  _email: () => _email,
+  _emoji: () => _emoji2,
+  _encode: () => _encode,
+  _encodeAsync: () => _encodeAsync,
+  _endsWith: () => _endsWith,
+  _enum: () => _enum,
+  _file: () => _file,
+  _float32: () => _float32,
+  _float64: () => _float64,
+  _gt: () => _gt,
+  _gte: () => _gte,
+  _guid: () => _guid,
+  _includes: () => _includes,
+  _int: () => _int,
+  _int32: () => _int32,
+  _int64: () => _int64,
+  _intersection: () => _intersection,
+  _ipv4: () => _ipv4,
+  _ipv6: () => _ipv6,
+  _isoDate: () => _isoDate,
+  _isoDateTime: () => _isoDateTime,
+  _isoDuration: () => _isoDuration,
+  _isoTime: () => _isoTime,
+  _jwt: () => _jwt,
+  _ksuid: () => _ksuid,
+  _lazy: () => _lazy,
+  _length: () => _length,
+  _literal: () => _literal,
+  _lowercase: () => _lowercase,
+  _lt: () => _lt,
+  _lte: () => _lte,
+  _mac: () => _mac,
+  _map: () => _map,
+  _max: () => _lte,
+  _maxLength: () => _maxLength,
+  _maxSize: () => _maxSize,
+  _mime: () => _mime,
+  _min: () => _gte,
+  _minLength: () => _minLength,
+  _minSize: () => _minSize,
+  _multipleOf: () => _multipleOf,
+  _nan: () => _nan,
+  _nanoid: () => _nanoid,
+  _nativeEnum: () => _nativeEnum,
+  _negative: () => _negative,
+  _never: () => _never,
+  _nonnegative: () => _nonnegative,
+  _nonoptional: () => _nonoptional,
+  _nonpositive: () => _nonpositive,
+  _normalize: () => _normalize,
+  _null: () => _null2,
+  _nullable: () => _nullable,
+  _number: () => _number,
+  _optional: () => _optional,
+  _overwrite: () => _overwrite,
+  _parse: () => _parse,
+  _parseAsync: () => _parseAsync,
+  _pipe: () => _pipe,
+  _positive: () => _positive,
+  _promise: () => _promise,
+  _property: () => _property,
+  _readonly: () => _readonly,
+  _record: () => _record,
+  _refine: () => _refine,
+  _regex: () => _regex,
+  _safeDecode: () => _safeDecode,
+  _safeDecodeAsync: () => _safeDecodeAsync,
+  _safeEncode: () => _safeEncode,
+  _safeEncodeAsync: () => _safeEncodeAsync,
+  _safeParse: () => _safeParse,
+  _safeParseAsync: () => _safeParseAsync,
+  _set: () => _set,
+  _size: () => _size,
+  _slugify: () => _slugify,
+  _startsWith: () => _startsWith,
+  _string: () => _string,
+  _stringFormat: () => _stringFormat,
+  _stringbool: () => _stringbool,
+  _success: () => _success,
+  _superRefine: () => _superRefine,
+  _symbol: () => _symbol,
+  _templateLiteral: () => _templateLiteral,
+  _toLowerCase: () => _toLowerCase,
+  _toUpperCase: () => _toUpperCase,
+  _transform: () => _transform,
+  _trim: () => _trim,
+  _tuple: () => _tuple,
+  _uint32: () => _uint32,
+  _uint64: () => _uint64,
+  _ulid: () => _ulid,
+  _undefined: () => _undefined2,
+  _union: () => _union,
+  _unknown: () => _unknown,
+  _uppercase: () => _uppercase,
+  _url: () => _url,
+  _uuid: () => _uuid,
+  _uuidv4: () => _uuidv4,
+  _uuidv6: () => _uuidv6,
+  _uuidv7: () => _uuidv7,
+  _void: () => _void,
+  _xid: () => _xid,
+  _xor: () => _xor,
+  clone: () => clone,
+  config: () => config,
+  createStandardJSONSchemaMethod: () => createStandardJSONSchemaMethod,
+  createToJSONSchemaMethod: () => createToJSONSchemaMethod,
+  decode: () => decode,
+  decodeAsync: () => decodeAsync,
+  describe: () => describe,
+  encode: () => encode,
+  encodeAsync: () => encodeAsync,
+  extractDefs: () => extractDefs,
+  finalize: () => finalize,
+  flattenError: () => flattenError,
+  formatError: () => formatError,
+  globalConfig: () => globalConfig,
+  globalRegistry: () => globalRegistry,
+  initializeContext: () => initializeContext,
+  isValidBase64: () => isValidBase64,
+  isValidBase64URL: () => isValidBase64URL,
+  isValidJWT: () => isValidJWT2,
+  locales: () => locales_exports,
+  meta: () => meta,
+  parse: () => parse,
+  parseAsync: () => parseAsync,
+  prettifyError: () => prettifyError,
+  process: () => process2,
+  regexes: () => regexes_exports,
+  registry: () => registry,
+  safeDecode: () => safeDecode,
+  safeDecodeAsync: () => safeDecodeAsync,
+  safeEncode: () => safeEncode,
+  safeEncodeAsync: () => safeEncodeAsync,
+  safeParse: () => safeParse,
+  safeParseAsync: () => safeParseAsync,
+  toDotPath: () => toDotPath,
+  toJSONSchema: () => toJSONSchema,
+  treeifyError: () => treeifyError,
+  util: () => util_exports,
+  version: () => version
+});
+
 // node_modules/zod/v4/core/core.js
 var NEVER = Object.freeze({
   status: "aborted"
@@ -14343,6 +15687,7 @@ function $constructor(name, initializer3, params) {
   Object.defineProperty(_, "name", { value: name });
   return _;
 }
+var $brand = /* @__PURE__ */ Symbol("zod_brand");
 var $ZodAsyncError = class extends Error {
   constructor() {
     super(`Encountered Promise during synchronous parse. Use .parseAsync() instead.`);
@@ -14931,10 +16276,10 @@ function prefixIssues(path5, issues) {
 function unwrapMessage(message) {
   return typeof message === "string" ? message : message?.message;
 }
-function finalizeIssue(iss, ctx, config2) {
+function finalizeIssue(iss, ctx, config3) {
   const full = { ...iss, path: iss.path ?? [] };
   if (!iss.message) {
-    const message = unwrapMessage(iss.inst?._zod.def?.error?.(iss)) ?? unwrapMessage(ctx?.error?.(iss)) ?? unwrapMessage(config2.customError?.(iss)) ?? unwrapMessage(config2.localeError?.(iss)) ?? "Invalid input";
+    const message = unwrapMessage(iss.inst?._zod.def?.error?.(iss)) ?? unwrapMessage(ctx?.error?.(iss)) ?? unwrapMessage(config3.customError?.(iss)) ?? unwrapMessage(config3.localeError?.(iss)) ?? "Invalid input";
     full.message = message;
   }
   delete full.inst;
@@ -15059,10 +16404,10 @@ var initializer = (inst, def) => {
 };
 var $ZodError = $constructor("$ZodError", initializer);
 var $ZodRealError = $constructor("$ZodError", initializer, { Parent: Error });
-function flattenError(error2, mapper = (issue2) => issue2.message) {
+function flattenError(error48, mapper = (issue2) => issue2.message) {
   const fieldErrors = {};
   const formErrors = [];
-  for (const sub of error2.issues) {
+  for (const sub of error48.issues) {
     if (sub.path.length > 0) {
       fieldErrors[sub.path[0]] = fieldErrors[sub.path[0]] || [];
       fieldErrors[sub.path[0]].push(mapper(sub));
@@ -15072,10 +16417,10 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
   }
   return { formErrors, fieldErrors };
 }
-function formatError(error2, mapper = (issue2) => issue2.message) {
+function formatError(error48, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3) => {
-    for (const issue2 of error3.issues) {
+  const processError = (error49) => {
+    for (const issue2 of error49.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
         issue2.errors.map((issues) => processError({ issues }));
       } else if (issue2.code === "invalid_key") {
@@ -15102,8 +16447,78 @@ function formatError(error2, mapper = (issue2) => issue2.message) {
       }
     }
   };
-  processError(error2);
+  processError(error48);
   return fieldErrors;
+}
+function treeifyError(error48, mapper = (issue2) => issue2.message) {
+  const result = { errors: [] };
+  const processError = (error49, path5 = []) => {
+    var _a2, _b;
+    for (const issue2 of error49.issues) {
+      if (issue2.code === "invalid_union" && issue2.errors.length) {
+        issue2.errors.map((issues) => processError({ issues }, issue2.path));
+      } else if (issue2.code === "invalid_key") {
+        processError({ issues: issue2.issues }, issue2.path);
+      } else if (issue2.code === "invalid_element") {
+        processError({ issues: issue2.issues }, issue2.path);
+      } else {
+        const fullpath = [...path5, ...issue2.path];
+        if (fullpath.length === 0) {
+          result.errors.push(mapper(issue2));
+          continue;
+        }
+        let curr = result;
+        let i = 0;
+        while (i < fullpath.length) {
+          const el = fullpath[i];
+          const terminal = i === fullpath.length - 1;
+          if (typeof el === "string") {
+            curr.properties ?? (curr.properties = {});
+            (_a2 = curr.properties)[el] ?? (_a2[el] = { errors: [] });
+            curr = curr.properties[el];
+          } else {
+            curr.items ?? (curr.items = []);
+            (_b = curr.items)[el] ?? (_b[el] = { errors: [] });
+            curr = curr.items[el];
+          }
+          if (terminal) {
+            curr.errors.push(mapper(issue2));
+          }
+          i++;
+        }
+      }
+    }
+  };
+  processError(error48);
+  return result;
+}
+function toDotPath(_path) {
+  const segs = [];
+  const path5 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path5) {
+    if (typeof seg === "number")
+      segs.push(`[${seg}]`);
+    else if (typeof seg === "symbol")
+      segs.push(`[${JSON.stringify(String(seg))}]`);
+    else if (/[^\w$]/.test(seg))
+      segs.push(`[${JSON.stringify(seg)}]`);
+    else {
+      if (segs.length)
+        segs.push(".");
+      segs.push(seg);
+    }
+  }
+  return segs.join("");
+}
+function prettifyError(error48) {
+  const lines = [];
+  const issues = [...error48.issues].sort((a, b) => (a.path ?? []).length - (b.path ?? []).length);
+  for (const issue2 of issues) {
+    lines.push(`\u2716 ${issue2.message}`);
+    if (issue2.path?.length)
+      lines.push(`  \u2192 at ${toDotPath(issue2.path)}`);
+  }
+  return lines.join("\n");
 }
 
 // node_modules/zod/v4/core/parse.js
@@ -15161,30 +16576,38 @@ var _encode = (_Err) => (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
   return _parse(_Err)(schema, value, ctx);
 };
+var encode = /* @__PURE__ */ _encode($ZodRealError);
 var _decode = (_Err) => (schema, value, _ctx) => {
   return _parse(_Err)(schema, value, _ctx);
 };
+var decode = /* @__PURE__ */ _decode($ZodRealError);
 var _encodeAsync = (_Err) => async (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
   return _parseAsync(_Err)(schema, value, ctx);
 };
+var encodeAsync = /* @__PURE__ */ _encodeAsync($ZodRealError);
 var _decodeAsync = (_Err) => async (schema, value, _ctx) => {
   return _parseAsync(_Err)(schema, value, _ctx);
 };
+var decodeAsync = /* @__PURE__ */ _decodeAsync($ZodRealError);
 var _safeEncode = (_Err) => (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
   return _safeParse(_Err)(schema, value, ctx);
 };
+var safeEncode = /* @__PURE__ */ _safeEncode($ZodRealError);
 var _safeDecode = (_Err) => (schema, value, _ctx) => {
   return _safeParse(_Err)(schema, value, _ctx);
 };
+var safeDecode = /* @__PURE__ */ _safeDecode($ZodRealError);
 var _safeEncodeAsync = (_Err) => async (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
   return _safeParseAsync(_Err)(schema, value, ctx);
 };
+var safeEncodeAsync = /* @__PURE__ */ _safeEncodeAsync($ZodRealError);
 var _safeDecodeAsync = (_Err) => async (schema, value, _ctx) => {
   return _safeParseAsync(_Err)(schema, value, _ctx);
 };
+var safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync($ZodRealError);
 
 // node_modules/zod/v4/core/regexes.js
 var regexes_exports = {};
@@ -17905,8 +19328,999 @@ function handleRefineResult(result, payload, input, inst) {
   }
 }
 
-// node_modules/zod/v4/locales/en.js
+// node_modules/zod/v4/locales/index.js
+var locales_exports = {};
+__export(locales_exports, {
+  ar: () => ar_default,
+  az: () => az_default,
+  be: () => be_default,
+  bg: () => bg_default,
+  ca: () => ca_default,
+  cs: () => cs_default,
+  da: () => da_default,
+  de: () => de_default,
+  en: () => en_default2,
+  eo: () => eo_default,
+  es: () => es_default,
+  fa: () => fa_default,
+  fi: () => fi_default,
+  fr: () => fr_default,
+  frCA: () => fr_CA_default,
+  he: () => he_default,
+  hu: () => hu_default,
+  hy: () => hy_default,
+  id: () => id_default,
+  is: () => is_default,
+  it: () => it_default,
+  ja: () => ja_default,
+  ka: () => ka_default,
+  kh: () => kh_default,
+  km: () => km_default,
+  ko: () => ko_default,
+  lt: () => lt_default,
+  mk: () => mk_default,
+  ms: () => ms_default,
+  nl: () => nl_default,
+  no: () => no_default,
+  ota: () => ota_default,
+  pl: () => pl_default,
+  ps: () => ps_default,
+  pt: () => pt_default,
+  ru: () => ru_default,
+  sl: () => sl_default,
+  sv: () => sv_default,
+  ta: () => ta_default,
+  th: () => th_default,
+  tr: () => tr_default,
+  ua: () => ua_default,
+  uk: () => uk_default,
+  ur: () => ur_default,
+  uz: () => uz_default,
+  vi: () => vi_default,
+  yo: () => yo_default,
+  zhCN: () => zh_CN_default,
+  zhTW: () => zh_TW_default
+});
+
+// node_modules/zod/v4/locales/ar.js
 var error = () => {
+  const Sizable = {
+    string: { unit: "\u062D\u0631\u0641", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
+    file: { unit: "\u0628\u0627\u064A\u062A", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
+    array: { unit: "\u0639\u0646\u0635\u0631", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
+    set: { unit: "\u0639\u0646\u0635\u0631", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0645\u062F\u062E\u0644",
+    email: "\u0628\u0631\u064A\u062F \u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A",
+    url: "\u0631\u0627\u0628\u0637",
+    emoji: "\u0625\u064A\u0645\u0648\u062C\u064A",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u062A\u0627\u0631\u064A\u062E \u0648\u0648\u0642\u062A \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
+    date: "\u062A\u0627\u0631\u064A\u062E \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
+    time: "\u0648\u0642\u062A \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
+    duration: "\u0645\u062F\u0629 \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
+    ipv4: "\u0639\u0646\u0648\u0627\u0646 IPv4",
+    ipv6: "\u0639\u0646\u0648\u0627\u0646 IPv6",
+    cidrv4: "\u0645\u062F\u0649 \u0639\u0646\u0627\u0648\u064A\u0646 \u0628\u0635\u064A\u063A\u0629 IPv4",
+    cidrv6: "\u0645\u062F\u0649 \u0639\u0646\u0627\u0648\u064A\u0646 \u0628\u0635\u064A\u063A\u0629 IPv6",
+    base64: "\u0646\u064E\u0635 \u0628\u062A\u0631\u0645\u064A\u0632 base64-encoded",
+    base64url: "\u0646\u064E\u0635 \u0628\u062A\u0631\u0645\u064A\u0632 base64url-encoded",
+    json_string: "\u0646\u064E\u0635 \u0639\u0644\u0649 \u0647\u064A\u0626\u0629 JSON",
+    e164: "\u0631\u0642\u0645 \u0647\u0627\u062A\u0641 \u0628\u0645\u0639\u064A\u0627\u0631 E.164",
+    jwt: "JWT",
+    template_literal: "\u0645\u062F\u062E\u0644"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 instanceof ${issue2.expected}\u060C \u0648\u0644\u0643\u0646 \u062A\u0645 \u0625\u062F\u062E\u0627\u0644 ${received}`;
+        }
+        return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 ${expected}\u060C \u0648\u0644\u0643\u0646 \u062A\u0645 \u0625\u062F\u062E\u0627\u0644 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u0627\u062E\u062A\u064A\u0627\u0631 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062A\u0648\u0642\u0639 \u0627\u0646\u062A\u0642\u0627\u0621 \u0623\u062D\u062F \u0647\u0630\u0647 \u0627\u0644\u062E\u064A\u0627\u0631\u0627\u062A: ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return ` \u0623\u0643\u0628\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0623\u0646 \u062A\u0643\u0648\u0646 ${issue2.origin ?? "\u0627\u0644\u0642\u064A\u0645\u0629"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631"}`;
+        return `\u0623\u0643\u0628\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0623\u0646 \u062A\u0643\u0648\u0646 ${issue2.origin ?? "\u0627\u0644\u0642\u064A\u0645\u0629"} ${adj} ${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0623\u0635\u063A\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0644\u0640 ${issue2.origin} \u0623\u0646 \u064A\u0643\u0648\u0646 ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u0623\u0635\u063A\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0644\u0640 ${issue2.origin} \u0623\u0646 \u064A\u0643\u0648\u0646 ${adj} ${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0628\u062F\u0623 \u0628\u0640 "${issue2.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0646\u062A\u0647\u064A \u0628\u0640 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u062A\u0636\u0645\u0651\u064E\u0646 "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0637\u0627\u0628\u0642 \u0627\u0644\u0646\u0645\u0637 ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644`;
+      }
+      case "not_multiple_of":
+        return `\u0631\u0642\u0645 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0645\u0646 \u0645\u0636\u0627\u0639\u0641\u0627\u062A ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u0645\u0639\u0631\u0641${issue2.keys.length > 1 ? "\u0627\u062A" : ""} \u063A\u0631\u064A\u0628${issue2.keys.length > 1 ? "\u0629" : ""}: ${joinValues(issue2.keys, "\u060C ")}`;
+      case "invalid_key":
+        return `\u0645\u0639\u0631\u0641 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644 \u0641\u064A ${issue2.origin}`;
+      case "invalid_union":
+        return "\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644";
+      case "invalid_element":
+        return `\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644 \u0641\u064A ${issue2.origin}`;
+      default:
+        return "\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644";
+    }
+  };
+};
+function ar_default() {
+  return {
+    localeError: error()
+  };
+}
+
+// node_modules/zod/v4/locales/az.js
+var error2 = () => {
+  const Sizable = {
+    string: { unit: "simvol", verb: "olmal\u0131d\u0131r" },
+    file: { unit: "bayt", verb: "olmal\u0131d\u0131r" },
+    array: { unit: "element", verb: "olmal\u0131d\u0131r" },
+    set: { unit: "element", verb: "olmal\u0131d\u0131r" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "input",
+    email: "email address",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO datetime",
+    date: "ISO date",
+    time: "ISO time",
+    duration: "ISO duration",
+    ipv4: "IPv4 address",
+    ipv6: "IPv6 address",
+    cidrv4: "IPv4 range",
+    cidrv6: "IPv6 range",
+    base64: "base64-encoded string",
+    base64url: "base64url-encoded string",
+    json_string: "JSON string",
+    e164: "E.164 number",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n instanceof ${issue2.expected}, daxil olan ${received}`;
+        }
+        return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n ${expected}, daxil olan ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n ${stringifyPrimitive(issue2.values[0])}`;
+        return `Yanl\u0131\u015F se\xE7im: a\u015Fa\u011F\u0131dak\u0131lardan biri olmal\u0131d\u0131r: ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\xC7ox b\xF6y\xFCk: g\xF6zl\u0259nil\u0259n ${issue2.origin ?? "d\u0259y\u0259r"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
+        return `\xC7ox b\xF6y\xFCk: g\xF6zl\u0259nil\u0259n ${issue2.origin ?? "d\u0259y\u0259r"} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\xC7ox ki\xE7ik: g\xF6zl\u0259nil\u0259n ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        return `\xC7ox ki\xE7ik: g\xF6zl\u0259nil\u0259n ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Yanl\u0131\u015F m\u0259tn: "${_issue.prefix}" il\u0259 ba\u015Flamal\u0131d\u0131r`;
+        if (_issue.format === "ends_with")
+          return `Yanl\u0131\u015F m\u0259tn: "${_issue.suffix}" il\u0259 bitm\u0259lidir`;
+        if (_issue.format === "includes")
+          return `Yanl\u0131\u015F m\u0259tn: "${_issue.includes}" daxil olmal\u0131d\u0131r`;
+        if (_issue.format === "regex")
+          return `Yanl\u0131\u015F m\u0259tn: ${_issue.pattern} \u015Fablonuna uy\u011Fun olmal\u0131d\u0131r`;
+        return `Yanl\u0131\u015F ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Yanl\u0131\u015F \u0259d\u0259d: ${issue2.divisor} il\u0259 b\xF6l\xFCn\u0259 bil\u0259n olmal\u0131d\u0131r`;
+      case "unrecognized_keys":
+        return `Tan\u0131nmayan a\xE7ar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `${issue2.origin} daxilind\u0259 yanl\u0131\u015F a\xE7ar`;
+      case "invalid_union":
+        return "Yanl\u0131\u015F d\u0259y\u0259r";
+      case "invalid_element":
+        return `${issue2.origin} daxilind\u0259 yanl\u0131\u015F d\u0259y\u0259r`;
+      default:
+        return `Yanl\u0131\u015F d\u0259y\u0259r`;
+    }
+  };
+};
+function az_default() {
+  return {
+    localeError: error2()
+  };
+}
+
+// node_modules/zod/v4/locales/be.js
+function getBelarusianPlural(count, one, few, many) {
+  const absCount = Math.abs(count);
+  const lastDigit = absCount % 10;
+  const lastTwoDigits = absCount % 100;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
+    return many;
+  }
+  if (lastDigit === 1) {
+    return one;
+  }
+  if (lastDigit >= 2 && lastDigit <= 4) {
+    return few;
+  }
+  return many;
+}
+var error3 = () => {
+  const Sizable = {
+    string: {
+      unit: {
+        one: "\u0441\u0456\u043C\u0432\u0430\u043B",
+        few: "\u0441\u0456\u043C\u0432\u0430\u043B\u044B",
+        many: "\u0441\u0456\u043C\u0432\u0430\u043B\u0430\u045E"
+      },
+      verb: "\u043C\u0435\u0446\u044C"
+    },
+    array: {
+      unit: {
+        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
+        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u044B",
+        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430\u045E"
+      },
+      verb: "\u043C\u0435\u0446\u044C"
+    },
+    set: {
+      unit: {
+        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
+        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u044B",
+        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430\u045E"
+      },
+      verb: "\u043C\u0435\u0446\u044C"
+    },
+    file: {
+      unit: {
+        one: "\u0431\u0430\u0439\u0442",
+        few: "\u0431\u0430\u0439\u0442\u044B",
+        many: "\u0431\u0430\u0439\u0442\u0430\u045E"
+      },
+      verb: "\u043C\u0435\u0446\u044C"
+    }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0443\u0432\u043E\u0434",
+    email: "email \u0430\u0434\u0440\u0430\u0441",
+    url: "URL",
+    emoji: "\u044D\u043C\u043E\u0434\u0437\u0456",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u0434\u0430\u0442\u0430 \u0456 \u0447\u0430\u0441",
+    date: "ISO \u0434\u0430\u0442\u0430",
+    time: "ISO \u0447\u0430\u0441",
+    duration: "ISO \u043F\u0440\u0430\u0446\u044F\u0433\u043B\u0430\u0441\u0446\u044C",
+    ipv4: "IPv4 \u0430\u0434\u0440\u0430\u0441",
+    ipv6: "IPv6 \u0430\u0434\u0440\u0430\u0441",
+    cidrv4: "IPv4 \u0434\u044B\u044F\u043F\u0430\u0437\u043E\u043D",
+    cidrv6: "IPv6 \u0434\u044B\u044F\u043F\u0430\u0437\u043E\u043D",
+    base64: "\u0440\u0430\u0434\u043E\u043A \u0443 \u0444\u0430\u0440\u043C\u0430\u0446\u0435 base64",
+    base64url: "\u0440\u0430\u0434\u043E\u043A \u0443 \u0444\u0430\u0440\u043C\u0430\u0446\u0435 base64url",
+    json_string: "JSON \u0440\u0430\u0434\u043E\u043A",
+    e164: "\u043D\u0443\u043C\u0430\u0440 E.164",
+    jwt: "JWT",
+    template_literal: "\u0443\u0432\u043E\u0434"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u043B\u0456\u043A",
+    array: "\u043C\u0430\u0441\u0456\u045E"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u045E\u0441\u044F instanceof ${issue2.expected}, \u0430\u0442\u0440\u044B\u043C\u0430\u043D\u0430 ${received}`;
+        }
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u045E\u0441\u044F ${expected}, \u0430\u0442\u0440\u044B\u043C\u0430\u043D\u0430 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0432\u0430\u0440\u044B\u044F\u043D\u0442: \u0447\u0430\u043A\u0430\u045E\u0441\u044F \u0430\u0434\u0437\u0456\u043D \u0437 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          const maxValue = Number(issue2.maximum);
+          const unit = getBelarusianPlural(maxValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
+          return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u0432\u044F\u043B\u0456\u043A\u0456: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435"} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 ${sizing.verb} ${adj}${issue2.maximum.toString()} ${unit}`;
+        }
+        return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u0432\u044F\u043B\u0456\u043A\u0456: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435"} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 \u0431\u044B\u0446\u044C ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          const minValue = Number(issue2.minimum);
+          const unit = getBelarusianPlural(minValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
+          return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u043C\u0430\u043B\u044B: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 ${sizing.verb} ${adj}${issue2.minimum.toString()} ${unit}`;
+        }
+        return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u043C\u0430\u043B\u044B: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 \u0431\u044B\u0446\u044C ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u043F\u0430\u0447\u044B\u043D\u0430\u0446\u0446\u0430 \u0437 "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0437\u0430\u043A\u0430\u043D\u0447\u0432\u0430\u0446\u0446\u0430 \u043D\u0430 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0437\u043C\u044F\u0448\u0447\u0430\u0446\u044C "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0430\u0434\u043F\u0430\u0432\u044F\u0434\u0430\u0446\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u043B\u0456\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0431\u044B\u0446\u044C \u043A\u0440\u0430\u0442\u043D\u044B\u043C ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u041D\u0435\u0440\u0430\u0441\u043F\u0430\u0437\u043D\u0430\u043D\u044B ${issue2.keys.length > 1 ? "\u043A\u043B\u044E\u0447\u044B" : "\u043A\u043B\u044E\u0447"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u043A\u043B\u044E\u0447 \u0443 ${issue2.origin}`;
+      case "invalid_union":
+        return "\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434";
+      case "invalid_element":
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u0430\u0435 \u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435 \u045E ${issue2.origin}`;
+      default:
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434`;
+    }
+  };
+};
+function be_default() {
+  return {
+    localeError: error3()
+  };
+}
+
+// node_modules/zod/v4/locales/bg.js
+var error4 = () => {
+  const Sizable = {
+    string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
+    file: { unit: "\u0431\u0430\u0439\u0442\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
+    array: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
+    set: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0432\u0445\u043E\u0434",
+    email: "\u0438\u043C\u0435\u0439\u043B \u0430\u0434\u0440\u0435\u0441",
+    url: "URL",
+    emoji: "\u0435\u043C\u043E\u0434\u0436\u0438",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u0432\u0440\u0435\u043C\u0435",
+    date: "ISO \u0434\u0430\u0442\u0430",
+    time: "ISO \u0432\u0440\u0435\u043C\u0435",
+    duration: "ISO \u043F\u0440\u043E\u0434\u044A\u043B\u0436\u0438\u0442\u0435\u043B\u043D\u043E\u0441\u0442",
+    ipv4: "IPv4 \u0430\u0434\u0440\u0435\u0441",
+    ipv6: "IPv6 \u0430\u0434\u0440\u0435\u0441",
+    cidrv4: "IPv4 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
+    cidrv6: "IPv6 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
+    base64: "base64-\u043A\u043E\u0434\u0438\u0440\u0430\u043D \u043D\u0438\u0437",
+    base64url: "base64url-\u043A\u043E\u0434\u0438\u0440\u0430\u043D \u043D\u0438\u0437",
+    json_string: "JSON \u043D\u0438\u0437",
+    e164: "E.164 \u043D\u043E\u043C\u0435\u0440",
+    jwt: "JWT",
+    template_literal: "\u0432\u0445\u043E\u0434"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0447\u0438\u0441\u043B\u043E",
+    array: "\u043C\u0430\u0441\u0438\u0432"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D instanceof ${issue2.expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D ${received}`;
+        }
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D ${expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430 \u043E\u043F\u0446\u0438\u044F: \u043E\u0447\u0430\u043A\u0432\u0430\u043D\u043E \u0435\u0434\u043D\u043E \u043E\u0442 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u0422\u0432\u044A\u0440\u0434\u0435 \u0433\u043E\u043B\u044F\u043C\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin ?? "\u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442"} \u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430"}`;
+        return `\u0422\u0432\u044A\u0440\u0434\u0435 \u0433\u043E\u043B\u044F\u043C\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin ?? "\u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442"} \u0434\u0430 \u0431\u044A\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0422\u0432\u044A\u0440\u0434\u0435 \u043C\u0430\u043B\u043A\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin} \u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u0422\u0432\u044A\u0440\u0434\u0435 \u043C\u0430\u043B\u043A\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin} \u0434\u0430 \u0431\u044A\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0437\u0430\u043F\u043E\u0447\u0432\u0430 \u0441 "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0437\u0430\u0432\u044A\u0440\u0448\u0432\u0430 \u0441 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0432\u043A\u043B\u044E\u0447\u0432\u0430 "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0441\u044A\u0432\u043F\u0430\u0434\u0430 \u0441 ${_issue.pattern}`;
+        let invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D";
+        if (_issue.format === "emoji")
+          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E";
+        if (_issue.format === "datetime")
+          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E";
+        if (_issue.format === "date")
+          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430";
+        if (_issue.format === "time")
+          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E";
+        if (_issue.format === "duration")
+          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430";
+        return `${invalid_adj} ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E \u0447\u0438\u0441\u043B\u043E: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0431\u044A\u0434\u0435 \u043A\u0440\u0430\u0442\u043D\u043E \u043D\u0430 ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u041D\u0435\u0440\u0430\u0437\u043F\u043E\u0437\u043D\u0430\u0442${issue2.keys.length > 1 ? "\u0438" : ""} \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u043E\u0432\u0435" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043A\u043B\u044E\u0447 \u0432 ${issue2.origin}`;
+      case "invalid_union":
+        return "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434";
+      case "invalid_element":
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430 \u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442 \u0432 ${issue2.origin}`;
+      default:
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434`;
+    }
+  };
+};
+function bg_default() {
+  return {
+    localeError: error4()
+  };
+}
+
+// node_modules/zod/v4/locales/ca.js
+var error5 = () => {
+  const Sizable = {
+    string: { unit: "car\xE0cters", verb: "contenir" },
+    file: { unit: "bytes", verb: "contenir" },
+    array: { unit: "elements", verb: "contenir" },
+    set: { unit: "elements", verb: "contenir" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "entrada",
+    email: "adre\xE7a electr\xF2nica",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "data i hora ISO",
+    date: "data ISO",
+    time: "hora ISO",
+    duration: "durada ISO",
+    ipv4: "adre\xE7a IPv4",
+    ipv6: "adre\xE7a IPv6",
+    cidrv4: "rang IPv4",
+    cidrv6: "rang IPv6",
+    base64: "cadena codificada en base64",
+    base64url: "cadena codificada en base64url",
+    json_string: "cadena JSON",
+    e164: "n\xFAmero E.164",
+    jwt: "JWT",
+    template_literal: "entrada"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Tipus inv\xE0lid: s'esperava instanceof ${issue2.expected}, s'ha rebut ${received}`;
+        }
+        return `Tipus inv\xE0lid: s'esperava ${expected}, s'ha rebut ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Valor inv\xE0lid: s'esperava ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opci\xF3 inv\xE0lida: s'esperava una de ${joinValues(issue2.values, " o ")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "com a m\xE0xim" : "menys de";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Massa gran: s'esperava que ${issue2.origin ?? "el valor"} contingu\xE9s ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "elements"}`;
+        return `Massa gran: s'esperava que ${issue2.origin ?? "el valor"} fos ${adj} ${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? "com a m\xEDnim" : "m\xE9s de";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Massa petit: s'esperava que ${issue2.origin} contingu\xE9s ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Massa petit: s'esperava que ${issue2.origin} fos ${adj} ${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Format inv\xE0lid: ha de comen\xE7ar amb "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `Format inv\xE0lid: ha d'acabar amb "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Format inv\xE0lid: ha d'incloure "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Format inv\xE0lid: ha de coincidir amb el patr\xF3 ${_issue.pattern}`;
+        return `Format inv\xE0lid per a ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `N\xFAmero inv\xE0lid: ha de ser m\xFAltiple de ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Clau${issue2.keys.length > 1 ? "s" : ""} no reconeguda${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Clau inv\xE0lida a ${issue2.origin}`;
+      case "invalid_union":
+        return "Entrada inv\xE0lida";
+      // Could also be "Tipus d'unió invàlid" but "Entrada invàlida" is more general
+      case "invalid_element":
+        return `Element inv\xE0lid a ${issue2.origin}`;
+      default:
+        return `Entrada inv\xE0lida`;
+    }
+  };
+};
+function ca_default() {
+  return {
+    localeError: error5()
+  };
+}
+
+// node_modules/zod/v4/locales/cs.js
+var error6 = () => {
+  const Sizable = {
+    string: { unit: "znak\u016F", verb: "m\xEDt" },
+    file: { unit: "bajt\u016F", verb: "m\xEDt" },
+    array: { unit: "prvk\u016F", verb: "m\xEDt" },
+    set: { unit: "prvk\u016F", verb: "m\xEDt" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "regul\xE1rn\xED v\xFDraz",
+    email: "e-mailov\xE1 adresa",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "datum a \u010Das ve form\xE1tu ISO",
+    date: "datum ve form\xE1tu ISO",
+    time: "\u010Das ve form\xE1tu ISO",
+    duration: "doba trv\xE1n\xED ISO",
+    ipv4: "IPv4 adresa",
+    ipv6: "IPv6 adresa",
+    cidrv4: "rozsah IPv4",
+    cidrv6: "rozsah IPv6",
+    base64: "\u0159et\u011Bzec zak\xF3dovan\xFD ve form\xE1tu base64",
+    base64url: "\u0159et\u011Bzec zak\xF3dovan\xFD ve form\xE1tu base64url",
+    json_string: "\u0159et\u011Bzec ve form\xE1tu JSON",
+    e164: "\u010D\xEDslo E.164",
+    jwt: "JWT",
+    template_literal: "vstup"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u010D\xEDslo",
+    string: "\u0159et\u011Bzec",
+    function: "funkce",
+    array: "pole"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no instanceof ${issue2.expected}, obdr\u017Eeno ${received}`;
+        }
+        return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no ${expected}, obdr\u017Eeno ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no ${stringifyPrimitive(issue2.values[0])}`;
+        return `Neplatn\xE1 mo\u017Enost: o\u010Dek\xE1v\xE1na jedna z hodnot ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Hodnota je p\u0159\xEDli\u0161 velk\xE1: ${issue2.origin ?? "hodnota"} mus\xED m\xEDt ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "prvk\u016F"}`;
+        }
+        return `Hodnota je p\u0159\xEDli\u0161 velk\xE1: ${issue2.origin ?? "hodnota"} mus\xED b\xFDt ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Hodnota je p\u0159\xEDli\u0161 mal\xE1: ${issue2.origin ?? "hodnota"} mus\xED m\xEDt ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "prvk\u016F"}`;
+        }
+        return `Hodnota je p\u0159\xEDli\u0161 mal\xE1: ${issue2.origin ?? "hodnota"} mus\xED b\xFDt ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED za\u010D\xEDnat na "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED kon\u010Dit na "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED obsahovat "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED odpov\xEDdat vzoru ${_issue.pattern}`;
+        return `Neplatn\xFD form\xE1t ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Neplatn\xE9 \u010D\xEDslo: mus\xED b\xFDt n\xE1sobkem ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Nezn\xE1m\xE9 kl\xED\u010De: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Neplatn\xFD kl\xED\u010D v ${issue2.origin}`;
+      case "invalid_union":
+        return "Neplatn\xFD vstup";
+      case "invalid_element":
+        return `Neplatn\xE1 hodnota v ${issue2.origin}`;
+      default:
+        return `Neplatn\xFD vstup`;
+    }
+  };
+};
+function cs_default() {
+  return {
+    localeError: error6()
+  };
+}
+
+// node_modules/zod/v4/locales/da.js
+var error7 = () => {
+  const Sizable = {
+    string: { unit: "tegn", verb: "havde" },
+    file: { unit: "bytes", verb: "havde" },
+    array: { unit: "elementer", verb: "indeholdt" },
+    set: { unit: "elementer", verb: "indeholdt" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "input",
+    email: "e-mailadresse",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO dato- og klokkesl\xE6t",
+    date: "ISO-dato",
+    time: "ISO-klokkesl\xE6t",
+    duration: "ISO-varighed",
+    ipv4: "IPv4-omr\xE5de",
+    ipv6: "IPv6-omr\xE5de",
+    cidrv4: "IPv4-spektrum",
+    cidrv6: "IPv6-spektrum",
+    base64: "base64-kodet streng",
+    base64url: "base64url-kodet streng",
+    json_string: "JSON-streng",
+    e164: "E.164-nummer",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    string: "streng",
+    number: "tal",
+    boolean: "boolean",
+    array: "liste",
+    object: "objekt",
+    set: "s\xE6t",
+    file: "fil"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Ugyldigt input: forventede instanceof ${issue2.expected}, fik ${received}`;
+        }
+        return `Ugyldigt input: forventede ${expected}, fik ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Ugyldig v\xE6rdi: forventede ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ugyldigt valg: forventede en af f\xF8lgende ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        if (sizing)
+          return `For stor: forventede ${origin ?? "value"} ${sizing.verb} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "elementer"}`;
+        return `For stor: forventede ${origin ?? "value"} havde ${adj} ${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        if (sizing) {
+          return `For lille: forventede ${origin} ${sizing.verb} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `For lille: forventede ${origin} havde ${adj} ${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Ugyldig streng: skal starte med "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Ugyldig streng: skal ende med "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Ugyldig streng: skal indeholde "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Ugyldig streng: skal matche m\xF8nsteret ${_issue.pattern}`;
+        return `Ugyldig ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Ugyldigt tal: skal v\xE6re deleligt med ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `${issue2.keys.length > 1 ? "Ukendte n\xF8gler" : "Ukendt n\xF8gle"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Ugyldig n\xF8gle i ${issue2.origin}`;
+      case "invalid_union":
+        return "Ugyldigt input: matcher ingen af de tilladte typer";
+      case "invalid_element":
+        return `Ugyldig v\xE6rdi i ${issue2.origin}`;
+      default:
+        return `Ugyldigt input`;
+    }
+  };
+};
+function da_default() {
+  return {
+    localeError: error7()
+  };
+}
+
+// node_modules/zod/v4/locales/de.js
+var error8 = () => {
+  const Sizable = {
+    string: { unit: "Zeichen", verb: "zu haben" },
+    file: { unit: "Bytes", verb: "zu haben" },
+    array: { unit: "Elemente", verb: "zu haben" },
+    set: { unit: "Elemente", verb: "zu haben" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "Eingabe",
+    email: "E-Mail-Adresse",
+    url: "URL",
+    emoji: "Emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO-Datum und -Uhrzeit",
+    date: "ISO-Datum",
+    time: "ISO-Uhrzeit",
+    duration: "ISO-Dauer",
+    ipv4: "IPv4-Adresse",
+    ipv6: "IPv6-Adresse",
+    cidrv4: "IPv4-Bereich",
+    cidrv6: "IPv6-Bereich",
+    base64: "Base64-codierter String",
+    base64url: "Base64-URL-codierter String",
+    json_string: "JSON-String",
+    e164: "E.164-Nummer",
+    jwt: "JWT",
+    template_literal: "Eingabe"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "Zahl",
+    array: "Array"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Ung\xFCltige Eingabe: erwartet instanceof ${issue2.expected}, erhalten ${received}`;
+        }
+        return `Ung\xFCltige Eingabe: erwartet ${expected}, erhalten ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Ung\xFCltige Eingabe: erwartet ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ung\xFCltige Option: erwartet eine von ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Zu gro\xDF: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "Elemente"} hat`;
+        return `Zu gro\xDF: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ist`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Zu klein: erwartet, dass ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} hat`;
+        }
+        return `Zu klein: erwartet, dass ${issue2.origin} ${adj}${issue2.minimum.toString()} ist`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Ung\xFCltiger String: muss mit "${_issue.prefix}" beginnen`;
+        if (_issue.format === "ends_with")
+          return `Ung\xFCltiger String: muss mit "${_issue.suffix}" enden`;
+        if (_issue.format === "includes")
+          return `Ung\xFCltiger String: muss "${_issue.includes}" enthalten`;
+        if (_issue.format === "regex")
+          return `Ung\xFCltiger String: muss dem Muster ${_issue.pattern} entsprechen`;
+        return `Ung\xFCltig: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Ung\xFCltige Zahl: muss ein Vielfaches von ${issue2.divisor} sein`;
+      case "unrecognized_keys":
+        return `${issue2.keys.length > 1 ? "Unbekannte Schl\xFCssel" : "Unbekannter Schl\xFCssel"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Ung\xFCltiger Schl\xFCssel in ${issue2.origin}`;
+      case "invalid_union":
+        return "Ung\xFCltige Eingabe";
+      case "invalid_element":
+        return `Ung\xFCltiger Wert in ${issue2.origin}`;
+      default:
+        return `Ung\xFCltige Eingabe`;
+    }
+  };
+};
+function de_default() {
+  return {
+    localeError: error8()
+  };
+}
+
+// node_modules/zod/v4/locales/en.js
+var error9 = () => {
   const Sizable = {
     string: { unit: "characters", verb: "to have" },
     file: { unit: "bytes", verb: "to have" },
@@ -18010,12 +20424,4491 @@ var error = () => {
 };
 function en_default2() {
   return {
-    localeError: error()
+    localeError: error9()
+  };
+}
+
+// node_modules/zod/v4/locales/eo.js
+var error10 = () => {
+  const Sizable = {
+    string: { unit: "karaktrojn", verb: "havi" },
+    file: { unit: "bajtojn", verb: "havi" },
+    array: { unit: "elementojn", verb: "havi" },
+    set: { unit: "elementojn", verb: "havi" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "enigo",
+    email: "retadreso",
+    url: "URL",
+    emoji: "emo\u011Dio",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO-datotempo",
+    date: "ISO-dato",
+    time: "ISO-tempo",
+    duration: "ISO-da\u016Dro",
+    ipv4: "IPv4-adreso",
+    ipv6: "IPv6-adreso",
+    cidrv4: "IPv4-rango",
+    cidrv6: "IPv6-rango",
+    base64: "64-ume kodita karaktraro",
+    base64url: "URL-64-ume kodita karaktraro",
+    json_string: "JSON-karaktraro",
+    e164: "E.164-nombro",
+    jwt: "JWT",
+    template_literal: "enigo"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "nombro",
+    array: "tabelo",
+    null: "senvalora"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Nevalida enigo: atendi\u011Dis instanceof ${issue2.expected}, ricevi\u011Dis ${received}`;
+        }
+        return `Nevalida enigo: atendi\u011Dis ${expected}, ricevi\u011Dis ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Nevalida enigo: atendi\u011Dis ${stringifyPrimitive(issue2.values[0])}`;
+        return `Nevalida opcio: atendi\u011Dis unu el ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Tro granda: atendi\u011Dis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementojn"}`;
+        return `Tro granda: atendi\u011Dis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Tro malgranda: atendi\u011Dis ke ${issue2.origin} havu ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Tro malgranda: atendi\u011Dis ke ${issue2.origin} estu ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Nevalida karaktraro: devas komenci\u011Di per "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Nevalida karaktraro: devas fini\u011Di per "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Nevalida karaktraro: devas inkluzivi "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Nevalida karaktraro: devas kongrui kun la modelo ${_issue.pattern}`;
+        return `Nevalida ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Nevalida nombro: devas esti oblo de ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Nekonata${issue2.keys.length > 1 ? "j" : ""} \u015Dlosilo${issue2.keys.length > 1 ? "j" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Nevalida \u015Dlosilo en ${issue2.origin}`;
+      case "invalid_union":
+        return "Nevalida enigo";
+      case "invalid_element":
+        return `Nevalida valoro en ${issue2.origin}`;
+      default:
+        return `Nevalida enigo`;
+    }
+  };
+};
+function eo_default() {
+  return {
+    localeError: error10()
+  };
+}
+
+// node_modules/zod/v4/locales/es.js
+var error11 = () => {
+  const Sizable = {
+    string: { unit: "caracteres", verb: "tener" },
+    file: { unit: "bytes", verb: "tener" },
+    array: { unit: "elementos", verb: "tener" },
+    set: { unit: "elementos", verb: "tener" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "entrada",
+    email: "direcci\xF3n de correo electr\xF3nico",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "fecha y hora ISO",
+    date: "fecha ISO",
+    time: "hora ISO",
+    duration: "duraci\xF3n ISO",
+    ipv4: "direcci\xF3n IPv4",
+    ipv6: "direcci\xF3n IPv6",
+    cidrv4: "rango IPv4",
+    cidrv6: "rango IPv6",
+    base64: "cadena codificada en base64",
+    base64url: "URL codificada en base64",
+    json_string: "cadena JSON",
+    e164: "n\xFAmero E.164",
+    jwt: "JWT",
+    template_literal: "entrada"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    string: "texto",
+    number: "n\xFAmero",
+    boolean: "booleano",
+    array: "arreglo",
+    object: "objeto",
+    set: "conjunto",
+    file: "archivo",
+    date: "fecha",
+    bigint: "n\xFAmero grande",
+    symbol: "s\xEDmbolo",
+    undefined: "indefinido",
+    null: "nulo",
+    function: "funci\xF3n",
+    map: "mapa",
+    record: "registro",
+    tuple: "tupla",
+    enum: "enumeraci\xF3n",
+    union: "uni\xF3n",
+    literal: "literal",
+    promise: "promesa",
+    void: "vac\xEDo",
+    never: "nunca",
+    unknown: "desconocido",
+    any: "cualquiera"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Entrada inv\xE1lida: se esperaba instanceof ${issue2.expected}, recibido ${received}`;
+        }
+        return `Entrada inv\xE1lida: se esperaba ${expected}, recibido ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Entrada inv\xE1lida: se esperaba ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opci\xF3n inv\xE1lida: se esperaba una de ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        if (sizing)
+          return `Demasiado grande: se esperaba que ${origin ?? "valor"} tuviera ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementos"}`;
+        return `Demasiado grande: se esperaba que ${origin ?? "valor"} fuera ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        if (sizing) {
+          return `Demasiado peque\xF1o: se esperaba que ${origin} tuviera ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Demasiado peque\xF1o: se esperaba que ${origin} fuera ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Cadena inv\xE1lida: debe comenzar con "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Cadena inv\xE1lida: debe terminar en "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Cadena inv\xE1lida: debe incluir "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Cadena inv\xE1lida: debe coincidir con el patr\xF3n ${_issue.pattern}`;
+        return `Inv\xE1lido ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `N\xFAmero inv\xE1lido: debe ser m\xFAltiplo de ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Llave${issue2.keys.length > 1 ? "s" : ""} desconocida${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Llave inv\xE1lida en ${TypeDictionary[issue2.origin] ?? issue2.origin}`;
+      case "invalid_union":
+        return "Entrada inv\xE1lida";
+      case "invalid_element":
+        return `Valor inv\xE1lido en ${TypeDictionary[issue2.origin] ?? issue2.origin}`;
+      default:
+        return `Entrada inv\xE1lida`;
+    }
+  };
+};
+function es_default() {
+  return {
+    localeError: error11()
+  };
+}
+
+// node_modules/zod/v4/locales/fa.js
+var error12 = () => {
+  const Sizable = {
+    string: { unit: "\u06A9\u0627\u0631\u0627\u06A9\u062A\u0631", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
+    file: { unit: "\u0628\u0627\u06CC\u062A", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
+    array: { unit: "\u0622\u06CC\u062A\u0645", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
+    set: { unit: "\u0622\u06CC\u062A\u0645", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0648\u0631\u0648\u062F\u06CC",
+    email: "\u0622\u062F\u0631\u0633 \u0627\u06CC\u0645\u06CC\u0644",
+    url: "URL",
+    emoji: "\u0627\u06CC\u0645\u0648\u062C\u06CC",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u062A\u0627\u0631\u06CC\u062E \u0648 \u0632\u0645\u0627\u0646 \u0627\u06CC\u0632\u0648",
+    date: "\u062A\u0627\u0631\u06CC\u062E \u0627\u06CC\u0632\u0648",
+    time: "\u0632\u0645\u0627\u0646 \u0627\u06CC\u0632\u0648",
+    duration: "\u0645\u062F\u062A \u0632\u0645\u0627\u0646 \u0627\u06CC\u0632\u0648",
+    ipv4: "IPv4 \u0622\u062F\u0631\u0633",
+    ipv6: "IPv6 \u0622\u062F\u0631\u0633",
+    cidrv4: "IPv4 \u062F\u0627\u0645\u0646\u0647",
+    cidrv6: "IPv6 \u062F\u0627\u0645\u0646\u0647",
+    base64: "base64-encoded \u0631\u0634\u062A\u0647",
+    base64url: "base64url-encoded \u0631\u0634\u062A\u0647",
+    json_string: "JSON \u0631\u0634\u062A\u0647",
+    e164: "E.164 \u0639\u062F\u062F",
+    jwt: "JWT",
+    template_literal: "\u0648\u0631\u0648\u062F\u06CC"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0639\u062F\u062F",
+    array: "\u0622\u0631\u0627\u06CC\u0647"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A instanceof ${issue2.expected} \u0645\u06CC\u200C\u0628\u0648\u062F\u060C ${received} \u062F\u0631\u06CC\u0627\u0641\u062A \u0634\u062F`;
+        }
+        return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A ${expected} \u0645\u06CC\u200C\u0628\u0648\u062F\u060C ${received} \u062F\u0631\u06CC\u0627\u0641\u062A \u0634\u062F`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1) {
+          return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A ${stringifyPrimitive(issue2.values[0])} \u0645\u06CC\u200C\u0628\u0648\u062F`;
+        }
+        return `\u06AF\u0632\u06CC\u0646\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A \u06CC\u06A9\u06CC \u0627\u0632 ${joinValues(issue2.values, "|")} \u0645\u06CC\u200C\u0628\u0648\u062F`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF: ${issue2.origin ?? "\u0645\u0642\u062F\u0627\u0631"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631"} \u0628\u0627\u0634\u062F`;
+        }
+        return `\u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF: ${issue2.origin ?? "\u0645\u0642\u062F\u0627\u0631"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} \u0628\u0627\u0634\u062F`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u062E\u06CC\u0644\u06CC \u06A9\u0648\u0686\u06A9: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0628\u0627\u0634\u062F`;
+        }
+        return `\u062E\u06CC\u0644\u06CC \u06A9\u0648\u0686\u06A9: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} \u0628\u0627\u0634\u062F`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 "${_issue.prefix}" \u0634\u0631\u0648\u0639 \u0634\u0648\u062F`;
+        }
+        if (_issue.format === "ends_with") {
+          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 "${_issue.suffix}" \u062A\u0645\u0627\u0645 \u0634\u0648\u062F`;
+        }
+        if (_issue.format === "includes") {
+          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0634\u0627\u0645\u0644 "${_issue.includes}" \u0628\u0627\u0634\u062F`;
+        }
+        if (_issue.format === "regex") {
+          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 \u0627\u0644\u06AF\u0648\u06CC ${_issue.pattern} \u0645\u0637\u0627\u0628\u0642\u062A \u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F`;
+        }
+        return `${FormatDictionary[_issue.format] ?? issue2.format} \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+      }
+      case "not_multiple_of":
+        return `\u0639\u062F\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0645\u0636\u0631\u0628 ${issue2.divisor} \u0628\u0627\u0634\u062F`;
+      case "unrecognized_keys":
+        return `\u06A9\u0644\u06CC\u062F${issue2.keys.length > 1 ? "\u0647\u0627\u06CC" : ""} \u0646\u0627\u0634\u0646\u0627\u0633: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u06A9\u0644\u06CC\u062F \u0646\u0627\u0634\u0646\u0627\u0633 \u062F\u0631 ${issue2.origin}`;
+      case "invalid_union":
+        return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+      case "invalid_element":
+        return `\u0645\u0642\u062F\u0627\u0631 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u062F\u0631 ${issue2.origin}`;
+      default:
+        return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+    }
+  };
+};
+function fa_default() {
+  return {
+    localeError: error12()
+  };
+}
+
+// node_modules/zod/v4/locales/fi.js
+var error13 = () => {
+  const Sizable = {
+    string: { unit: "merkki\xE4", subject: "merkkijonon" },
+    file: { unit: "tavua", subject: "tiedoston" },
+    array: { unit: "alkiota", subject: "listan" },
+    set: { unit: "alkiota", subject: "joukon" },
+    number: { unit: "", subject: "luvun" },
+    bigint: { unit: "", subject: "suuren kokonaisluvun" },
+    int: { unit: "", subject: "kokonaisluvun" },
+    date: { unit: "", subject: "p\xE4iv\xE4m\xE4\xE4r\xE4n" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "s\xE4\xE4nn\xF6llinen lauseke",
+    email: "s\xE4hk\xF6postiosoite",
+    url: "URL-osoite",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO-aikaleima",
+    date: "ISO-p\xE4iv\xE4m\xE4\xE4r\xE4",
+    time: "ISO-aika",
+    duration: "ISO-kesto",
+    ipv4: "IPv4-osoite",
+    ipv6: "IPv6-osoite",
+    cidrv4: "IPv4-alue",
+    cidrv6: "IPv6-alue",
+    base64: "base64-koodattu merkkijono",
+    base64url: "base64url-koodattu merkkijono",
+    json_string: "JSON-merkkijono",
+    e164: "E.164-luku",
+    jwt: "JWT",
+    template_literal: "templaattimerkkijono"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Virheellinen tyyppi: odotettiin instanceof ${issue2.expected}, oli ${received}`;
+        }
+        return `Virheellinen tyyppi: odotettiin ${expected}, oli ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Virheellinen sy\xF6te: t\xE4ytyy olla ${stringifyPrimitive(issue2.values[0])}`;
+        return `Virheellinen valinta: t\xE4ytyy olla yksi seuraavista: ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Liian suuri: ${sizing.subject} t\xE4ytyy olla ${adj}${issue2.maximum.toString()} ${sizing.unit}`.trim();
+        }
+        return `Liian suuri: arvon t\xE4ytyy olla ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Liian pieni: ${sizing.subject} t\xE4ytyy olla ${adj}${issue2.minimum.toString()} ${sizing.unit}`.trim();
+        }
+        return `Liian pieni: arvon t\xE4ytyy olla ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Virheellinen sy\xF6te: t\xE4ytyy alkaa "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Virheellinen sy\xF6te: t\xE4ytyy loppua "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Virheellinen sy\xF6te: t\xE4ytyy sis\xE4lt\xE4\xE4 "${_issue.includes}"`;
+        if (_issue.format === "regex") {
+          return `Virheellinen sy\xF6te: t\xE4ytyy vastata s\xE4\xE4nn\xF6llist\xE4 lauseketta ${_issue.pattern}`;
+        }
+        return `Virheellinen ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Virheellinen luku: t\xE4ytyy olla luvun ${issue2.divisor} monikerta`;
+      case "unrecognized_keys":
+        return `${issue2.keys.length > 1 ? "Tuntemattomat avaimet" : "Tuntematon avain"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return "Virheellinen avain tietueessa";
+      case "invalid_union":
+        return "Virheellinen unioni";
+      case "invalid_element":
+        return "Virheellinen arvo joukossa";
+      default:
+        return `Virheellinen sy\xF6te`;
+    }
+  };
+};
+function fi_default() {
+  return {
+    localeError: error13()
+  };
+}
+
+// node_modules/zod/v4/locales/fr.js
+var error14 = () => {
+  const Sizable = {
+    string: { unit: "caract\xE8res", verb: "avoir" },
+    file: { unit: "octets", verb: "avoir" },
+    array: { unit: "\xE9l\xE9ments", verb: "avoir" },
+    set: { unit: "\xE9l\xE9ments", verb: "avoir" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "entr\xE9e",
+    email: "adresse e-mail",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "date et heure ISO",
+    date: "date ISO",
+    time: "heure ISO",
+    duration: "dur\xE9e ISO",
+    ipv4: "adresse IPv4",
+    ipv6: "adresse IPv6",
+    cidrv4: "plage IPv4",
+    cidrv6: "plage IPv6",
+    base64: "cha\xEEne encod\xE9e en base64",
+    base64url: "cha\xEEne encod\xE9e en base64url",
+    json_string: "cha\xEEne JSON",
+    e164: "num\xE9ro E.164",
+    jwt: "JWT",
+    template_literal: "entr\xE9e"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "nombre",
+    array: "tableau"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Entr\xE9e invalide : instanceof ${issue2.expected} attendu, ${received} re\xE7u`;
+        }
+        return `Entr\xE9e invalide : ${expected} attendu, ${received} re\xE7u`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Entr\xE9e invalide : ${stringifyPrimitive(issue2.values[0])} attendu`;
+        return `Option invalide : une valeur parmi ${joinValues(issue2.values, "|")} attendue`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Trop grand : ${issue2.origin ?? "valeur"} doit ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\xE9l\xE9ment(s)"}`;
+        return `Trop grand : ${issue2.origin ?? "valeur"} doit \xEAtre ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Trop petit : ${issue2.origin} doit ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Trop petit : ${issue2.origin} doit \xEAtre ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Cha\xEEne invalide : doit commencer par "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Cha\xEEne invalide : doit se terminer par "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Cha\xEEne invalide : doit inclure "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Cha\xEEne invalide : doit correspondre au mod\xE8le ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} invalide`;
+      }
+      case "not_multiple_of":
+        return `Nombre invalide : doit \xEAtre un multiple de ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Cl\xE9${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Cl\xE9 invalide dans ${issue2.origin}`;
+      case "invalid_union":
+        return "Entr\xE9e invalide";
+      case "invalid_element":
+        return `Valeur invalide dans ${issue2.origin}`;
+      default:
+        return `Entr\xE9e invalide`;
+    }
+  };
+};
+function fr_default() {
+  return {
+    localeError: error14()
+  };
+}
+
+// node_modules/zod/v4/locales/fr-CA.js
+var error15 = () => {
+  const Sizable = {
+    string: { unit: "caract\xE8res", verb: "avoir" },
+    file: { unit: "octets", verb: "avoir" },
+    array: { unit: "\xE9l\xE9ments", verb: "avoir" },
+    set: { unit: "\xE9l\xE9ments", verb: "avoir" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "entr\xE9e",
+    email: "adresse courriel",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "date-heure ISO",
+    date: "date ISO",
+    time: "heure ISO",
+    duration: "dur\xE9e ISO",
+    ipv4: "adresse IPv4",
+    ipv6: "adresse IPv6",
+    cidrv4: "plage IPv4",
+    cidrv6: "plage IPv6",
+    base64: "cha\xEEne encod\xE9e en base64",
+    base64url: "cha\xEEne encod\xE9e en base64url",
+    json_string: "cha\xEEne JSON",
+    e164: "num\xE9ro E.164",
+    jwt: "JWT",
+    template_literal: "entr\xE9e"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Entr\xE9e invalide : attendu instanceof ${issue2.expected}, re\xE7u ${received}`;
+        }
+        return `Entr\xE9e invalide : attendu ${expected}, re\xE7u ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Entr\xE9e invalide : attendu ${stringifyPrimitive(issue2.values[0])}`;
+        return `Option invalide : attendu l'une des valeurs suivantes ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "\u2264" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Trop grand : attendu que ${issue2.origin ?? "la valeur"} ait ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
+        return `Trop grand : attendu que ${issue2.origin ?? "la valeur"} soit ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? "\u2265" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Trop petit : attendu que ${issue2.origin} ait ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Trop petit : attendu que ${issue2.origin} soit ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Cha\xEEne invalide : doit commencer par "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `Cha\xEEne invalide : doit se terminer par "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Cha\xEEne invalide : doit inclure "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Cha\xEEne invalide : doit correspondre au motif ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} invalide`;
+      }
+      case "not_multiple_of":
+        return `Nombre invalide : doit \xEAtre un multiple de ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Cl\xE9${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Cl\xE9 invalide dans ${issue2.origin}`;
+      case "invalid_union":
+        return "Entr\xE9e invalide";
+      case "invalid_element":
+        return `Valeur invalide dans ${issue2.origin}`;
+      default:
+        return `Entr\xE9e invalide`;
+    }
+  };
+};
+function fr_CA_default() {
+  return {
+    localeError: error15()
+  };
+}
+
+// node_modules/zod/v4/locales/he.js
+var error16 = () => {
+  const TypeNames = {
+    string: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA", gender: "f" },
+    number: { label: "\u05DE\u05E1\u05E4\u05E8", gender: "m" },
+    boolean: { label: "\u05E2\u05E8\u05DA \u05D1\u05D5\u05DC\u05D9\u05D0\u05E0\u05D9", gender: "m" },
+    bigint: { label: "BigInt", gender: "m" },
+    date: { label: "\u05EA\u05D0\u05E8\u05D9\u05DA", gender: "m" },
+    array: { label: "\u05DE\u05E2\u05E8\u05DA", gender: "m" },
+    object: { label: "\u05D0\u05D5\u05D1\u05D9\u05D9\u05E7\u05D8", gender: "m" },
+    null: { label: "\u05E2\u05E8\u05DA \u05E8\u05D9\u05E7 (null)", gender: "m" },
+    undefined: { label: "\u05E2\u05E8\u05DA \u05DC\u05D0 \u05DE\u05D5\u05D2\u05D3\u05E8 (undefined)", gender: "m" },
+    symbol: { label: "\u05E1\u05D9\u05DE\u05D1\u05D5\u05DC (Symbol)", gender: "m" },
+    function: { label: "\u05E4\u05D5\u05E0\u05E7\u05E6\u05D9\u05D4", gender: "f" },
+    map: { label: "\u05DE\u05E4\u05D4 (Map)", gender: "f" },
+    set: { label: "\u05E7\u05D1\u05D5\u05E6\u05D4 (Set)", gender: "f" },
+    file: { label: "\u05E7\u05D5\u05D1\u05E5", gender: "m" },
+    promise: { label: "Promise", gender: "m" },
+    NaN: { label: "NaN", gender: "m" },
+    unknown: { label: "\u05E2\u05E8\u05DA \u05DC\u05D0 \u05D9\u05D3\u05D5\u05E2", gender: "m" },
+    value: { label: "\u05E2\u05E8\u05DA", gender: "m" }
+  };
+  const Sizable = {
+    string: { unit: "\u05EA\u05D5\u05D5\u05D9\u05DD", shortLabel: "\u05E7\u05E6\u05E8", longLabel: "\u05D0\u05E8\u05D5\u05DA" },
+    file: { unit: "\u05D1\u05D9\u05D9\u05D8\u05D9\u05DD", shortLabel: "\u05E7\u05D8\u05DF", longLabel: "\u05D2\u05D3\u05D5\u05DC" },
+    array: { unit: "\u05E4\u05E8\u05D9\u05D8\u05D9\u05DD", shortLabel: "\u05E7\u05D8\u05DF", longLabel: "\u05D2\u05D3\u05D5\u05DC" },
+    set: { unit: "\u05E4\u05E8\u05D9\u05D8\u05D9\u05DD", shortLabel: "\u05E7\u05D8\u05DF", longLabel: "\u05D2\u05D3\u05D5\u05DC" },
+    number: { unit: "", shortLabel: "\u05E7\u05D8\u05DF", longLabel: "\u05D2\u05D3\u05D5\u05DC" }
+    // no unit
+  };
+  const typeEntry = (t) => t ? TypeNames[t] : void 0;
+  const typeLabel = (t) => {
+    const e = typeEntry(t);
+    if (e)
+      return e.label;
+    return t ?? TypeNames.unknown.label;
+  };
+  const withDefinite = (t) => `\u05D4${typeLabel(t)}`;
+  const verbFor = (t) => {
+    const e = typeEntry(t);
+    const gender = e?.gender ?? "m";
+    return gender === "f" ? "\u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05D9\u05D5\u05EA" : "\u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA";
+  };
+  const getSizing = (origin) => {
+    if (!origin)
+      return null;
+    return Sizable[origin] ?? null;
+  };
+  const FormatDictionary = {
+    regex: { label: "\u05E7\u05DC\u05D8", gender: "m" },
+    email: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA \u05D0\u05D9\u05DE\u05D9\u05D9\u05DC", gender: "f" },
+    url: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA \u05E8\u05E9\u05EA", gender: "f" },
+    emoji: { label: "\u05D0\u05D9\u05DE\u05D5\u05D2'\u05D9", gender: "m" },
+    uuid: { label: "UUID", gender: "m" },
+    nanoid: { label: "nanoid", gender: "m" },
+    guid: { label: "GUID", gender: "m" },
+    cuid: { label: "cuid", gender: "m" },
+    cuid2: { label: "cuid2", gender: "m" },
+    ulid: { label: "ULID", gender: "m" },
+    xid: { label: "XID", gender: "m" },
+    ksuid: { label: "KSUID", gender: "m" },
+    datetime: { label: "\u05EA\u05D0\u05E8\u05D9\u05DA \u05D5\u05D6\u05DE\u05DF ISO", gender: "m" },
+    date: { label: "\u05EA\u05D0\u05E8\u05D9\u05DA ISO", gender: "m" },
+    time: { label: "\u05D6\u05DE\u05DF ISO", gender: "m" },
+    duration: { label: "\u05DE\u05E9\u05DA \u05D6\u05DE\u05DF ISO", gender: "m" },
+    ipv4: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA IPv4", gender: "f" },
+    ipv6: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA IPv6", gender: "f" },
+    cidrv4: { label: "\u05D8\u05D5\u05D5\u05D7 IPv4", gender: "m" },
+    cidrv6: { label: "\u05D8\u05D5\u05D5\u05D7 IPv6", gender: "m" },
+    base64: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D1\u05D1\u05E1\u05D9\u05E1 64", gender: "f" },
+    base64url: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D1\u05D1\u05E1\u05D9\u05E1 64 \u05DC\u05DB\u05EA\u05D5\u05D1\u05D5\u05EA \u05E8\u05E9\u05EA", gender: "f" },
+    json_string: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA JSON", gender: "f" },
+    e164: { label: "\u05DE\u05E1\u05E4\u05E8 E.164", gender: "m" },
+    jwt: { label: "JWT", gender: "m" },
+    ends_with: { label: "\u05E7\u05DC\u05D8", gender: "m" },
+    includes: { label: "\u05E7\u05DC\u05D8", gender: "m" },
+    lowercase: { label: "\u05E7\u05DC\u05D8", gender: "m" },
+    starts_with: { label: "\u05E7\u05DC\u05D8", gender: "m" },
+    uppercase: { label: "\u05E7\u05DC\u05D8", gender: "m" }
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expectedKey = issue2.expected;
+        const expected = TypeDictionary[expectedKey ?? ""] ?? typeLabel(expectedKey);
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? TypeNames[receivedType]?.label ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA instanceof ${issue2.expected}, \u05D4\u05EA\u05E7\u05D1\u05DC ${received}`;
+        }
+        return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${expected}, \u05D4\u05EA\u05E7\u05D1\u05DC ${received}`;
+      }
+      case "invalid_value": {
+        if (issue2.values.length === 1) {
+          return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05E2\u05E8\u05DA \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA ${stringifyPrimitive(issue2.values[0])}`;
+        }
+        const stringified = issue2.values.map((v) => stringifyPrimitive(v));
+        if (issue2.values.length === 2) {
+          return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05D0\u05E4\u05E9\u05E8\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D5\u05EA \u05D4\u05DF ${stringified[0]} \u05D0\u05D5 ${stringified[1]}`;
+        }
+        const lastValue = stringified[stringified.length - 1];
+        const restValues = stringified.slice(0, -1).join(", ");
+        return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05D0\u05E4\u05E9\u05E8\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D5\u05EA \u05D4\u05DF ${restValues} \u05D0\u05D5 ${lastValue}`;
+      }
+      case "too_big": {
+        const sizing = getSizing(issue2.origin);
+        const subject = withDefinite(issue2.origin ?? "value");
+        if (issue2.origin === "string") {
+          return `${sizing?.longLabel ?? "\u05D0\u05E8\u05D5\u05DA"} \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05DB\u05D9\u05DC ${issue2.maximum.toString()} ${sizing?.unit ?? ""} ${issue2.inclusive ? "\u05D0\u05D5 \u05E4\u05D7\u05D5\u05EA" : "\u05DC\u05DB\u05DC \u05D4\u05D9\u05D5\u05EA\u05E8"}`.trim();
+        }
+        if (issue2.origin === "number") {
+          const comparison = issue2.inclusive ? `\u05E7\u05D8\u05DF \u05D0\u05D5 \u05E9\u05D5\u05D5\u05D4 \u05DC-${issue2.maximum}` : `\u05E7\u05D8\u05DF \u05DE-${issue2.maximum}`;
+          return `\u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${comparison}`;
+        }
+        if (issue2.origin === "array" || issue2.origin === "set") {
+          const verb = issue2.origin === "set" ? "\u05E6\u05E8\u05D9\u05DB\u05D4" : "\u05E6\u05E8\u05D9\u05DA";
+          const comparison = issue2.inclusive ? `${issue2.maximum} ${sizing?.unit ?? ""} \u05D0\u05D5 \u05E4\u05D7\u05D5\u05EA` : `\u05E4\u05D7\u05D5\u05EA \u05DE-${issue2.maximum} ${sizing?.unit ?? ""}`;
+          return `\u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9: ${subject} ${verb} \u05DC\u05D4\u05DB\u05D9\u05DC ${comparison}`.trim();
+        }
+        const adj = issue2.inclusive ? "<=" : "<";
+        const be = verbFor(issue2.origin ?? "value");
+        if (sizing?.unit) {
+          return `${sizing.longLabel} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
+        }
+        return `${sizing?.longLabel ?? "\u05D2\u05D3\u05D5\u05DC"} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const sizing = getSizing(issue2.origin);
+        const subject = withDefinite(issue2.origin ?? "value");
+        if (issue2.origin === "string") {
+          return `${sizing?.shortLabel ?? "\u05E7\u05E6\u05E8"} \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05DB\u05D9\u05DC ${issue2.minimum.toString()} ${sizing?.unit ?? ""} ${issue2.inclusive ? "\u05D0\u05D5 \u05D9\u05D5\u05EA\u05E8" : "\u05DC\u05E4\u05D7\u05D5\u05EA"}`.trim();
+        }
+        if (issue2.origin === "number") {
+          const comparison = issue2.inclusive ? `\u05D2\u05D3\u05D5\u05DC \u05D0\u05D5 \u05E9\u05D5\u05D5\u05D4 \u05DC-${issue2.minimum}` : `\u05D2\u05D3\u05D5\u05DC \u05DE-${issue2.minimum}`;
+          return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${comparison}`;
+        }
+        if (issue2.origin === "array" || issue2.origin === "set") {
+          const verb = issue2.origin === "set" ? "\u05E6\u05E8\u05D9\u05DB\u05D4" : "\u05E6\u05E8\u05D9\u05DA";
+          if (issue2.minimum === 1 && issue2.inclusive) {
+            const singularPhrase = issue2.origin === "set" ? "\u05DC\u05E4\u05D7\u05D5\u05EA \u05E4\u05E8\u05D9\u05D8 \u05D0\u05D7\u05D3" : "\u05DC\u05E4\u05D7\u05D5\u05EA \u05E4\u05E8\u05D9\u05D8 \u05D0\u05D7\u05D3";
+            return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${subject} ${verb} \u05DC\u05D4\u05DB\u05D9\u05DC ${singularPhrase}`;
+          }
+          const comparison = issue2.inclusive ? `${issue2.minimum} ${sizing?.unit ?? ""} \u05D0\u05D5 \u05D9\u05D5\u05EA\u05E8` : `\u05D9\u05D5\u05EA\u05E8 \u05DE-${issue2.minimum} ${sizing?.unit ?? ""}`;
+          return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${subject} ${verb} \u05DC\u05D4\u05DB\u05D9\u05DC ${comparison}`.trim();
+        }
+        const adj = issue2.inclusive ? ">=" : ">";
+        const be = verbFor(issue2.origin ?? "value");
+        if (sizing?.unit) {
+          return `${sizing.shortLabel} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `${sizing?.shortLabel ?? "\u05E7\u05D8\u05DF"} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05EA\u05D7\u05D9\u05DC \u05D1 "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05E1\u05EA\u05D9\u05D9\u05DD \u05D1 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05DB\u05DC\u05D5\u05DC "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05EA\u05D0\u05D9\u05DD \u05DC\u05EA\u05D1\u05E0\u05D9\u05EA ${_issue.pattern}`;
+        const nounEntry = FormatDictionary[_issue.format];
+        const noun = nounEntry?.label ?? _issue.format;
+        const gender = nounEntry?.gender ?? "m";
+        const adjective = gender === "f" ? "\u05EA\u05E7\u05D9\u05E0\u05D4" : "\u05EA\u05E7\u05D9\u05DF";
+        return `${noun} \u05DC\u05D0 ${adjective}`;
+      }
+      case "not_multiple_of":
+        return `\u05DE\u05E1\u05E4\u05E8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA \u05DE\u05DB\u05E4\u05DC\u05D4 \u05E9\u05DC ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u05DE\u05E4\u05EA\u05D7${issue2.keys.length > 1 ? "\u05D5\u05EA" : ""} \u05DC\u05D0 \u05DE\u05D6\u05D5\u05D4${issue2.keys.length > 1 ? "\u05D9\u05DD" : "\u05D4"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key": {
+        return `\u05E9\u05D3\u05D4 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF \u05D1\u05D0\u05D5\u05D1\u05D9\u05D9\u05E7\u05D8`;
+      }
+      case "invalid_union":
+        return "\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF";
+      case "invalid_element": {
+        const place = withDefinite(issue2.origin ?? "array");
+        return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF \u05D1${place}`;
+      }
+      default:
+        return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF`;
+    }
+  };
+};
+function he_default() {
+  return {
+    localeError: error16()
+  };
+}
+
+// node_modules/zod/v4/locales/hu.js
+var error17 = () => {
+  const Sizable = {
+    string: { unit: "karakter", verb: "legyen" },
+    file: { unit: "byte", verb: "legyen" },
+    array: { unit: "elem", verb: "legyen" },
+    set: { unit: "elem", verb: "legyen" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "bemenet",
+    email: "email c\xEDm",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO id\u0151b\xE9lyeg",
+    date: "ISO d\xE1tum",
+    time: "ISO id\u0151",
+    duration: "ISO id\u0151intervallum",
+    ipv4: "IPv4 c\xEDm",
+    ipv6: "IPv6 c\xEDm",
+    cidrv4: "IPv4 tartom\xE1ny",
+    cidrv6: "IPv6 tartom\xE1ny",
+    base64: "base64-k\xF3dolt string",
+    base64url: "base64url-k\xF3dolt string",
+    json_string: "JSON string",
+    e164: "E.164 sz\xE1m",
+    jwt: "JWT",
+    template_literal: "bemenet"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "sz\xE1m",
+    array: "t\xF6mb"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k instanceof ${issue2.expected}, a kapott \xE9rt\xE9k ${received}`;
+        }
+        return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k ${expected}, a kapott \xE9rt\xE9k ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k ${stringifyPrimitive(issue2.values[0])}`;
+        return `\xC9rv\xE9nytelen opci\xF3: valamelyik \xE9rt\xE9k v\xE1rt ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `T\xFAl nagy: ${issue2.origin ?? "\xE9rt\xE9k"} m\xE9rete t\xFAl nagy ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elem"}`;
+        return `T\xFAl nagy: a bemeneti \xE9rt\xE9k ${issue2.origin ?? "\xE9rt\xE9k"} t\xFAl nagy: ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `T\xFAl kicsi: a bemeneti \xE9rt\xE9k ${issue2.origin} m\xE9rete t\xFAl kicsi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `T\xFAl kicsi: a bemeneti \xE9rt\xE9k ${issue2.origin} t\xFAl kicsi ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\xC9rv\xE9nytelen string: "${_issue.prefix}" \xE9rt\xE9kkel kell kezd\u0151dnie`;
+        if (_issue.format === "ends_with")
+          return `\xC9rv\xE9nytelen string: "${_issue.suffix}" \xE9rt\xE9kkel kell v\xE9gz\u0151dnie`;
+        if (_issue.format === "includes")
+          return `\xC9rv\xE9nytelen string: "${_issue.includes}" \xE9rt\xE9ket kell tartalmaznia`;
+        if (_issue.format === "regex")
+          return `\xC9rv\xE9nytelen string: ${_issue.pattern} mint\xE1nak kell megfelelnie`;
+        return `\xC9rv\xE9nytelen ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\xC9rv\xE9nytelen sz\xE1m: ${issue2.divisor} t\xF6bbsz\xF6r\xF6s\xE9nek kell lennie`;
+      case "unrecognized_keys":
+        return `Ismeretlen kulcs${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\xC9rv\xE9nytelen kulcs ${issue2.origin}`;
+      case "invalid_union":
+        return "\xC9rv\xE9nytelen bemenet";
+      case "invalid_element":
+        return `\xC9rv\xE9nytelen \xE9rt\xE9k: ${issue2.origin}`;
+      default:
+        return `\xC9rv\xE9nytelen bemenet`;
+    }
+  };
+};
+function hu_default() {
+  return {
+    localeError: error17()
+  };
+}
+
+// node_modules/zod/v4/locales/hy.js
+function getArmenianPlural(count, one, many) {
+  return Math.abs(count) === 1 ? one : many;
+}
+function withDefiniteArticle(word) {
+  if (!word)
+    return "";
+  const vowels = ["\u0561", "\u0565", "\u0568", "\u056B", "\u0578", "\u0578\u0582", "\u0585"];
+  const lastChar = word[word.length - 1];
+  return word + (vowels.includes(lastChar) ? "\u0576" : "\u0568");
+}
+var error18 = () => {
+  const Sizable = {
+    string: {
+      unit: {
+        one: "\u0576\u0577\u0561\u0576",
+        many: "\u0576\u0577\u0561\u0576\u0576\u0565\u0580"
+      },
+      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+    },
+    file: {
+      unit: {
+        one: "\u0562\u0561\u0575\u0569",
+        many: "\u0562\u0561\u0575\u0569\u0565\u0580"
+      },
+      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+    },
+    array: {
+      unit: {
+        one: "\u057F\u0561\u0580\u0580",
+        many: "\u057F\u0561\u0580\u0580\u0565\u0580"
+      },
+      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+    },
+    set: {
+      unit: {
+        one: "\u057F\u0561\u0580\u0580",
+        many: "\u057F\u0561\u0580\u0580\u0565\u0580"
+      },
+      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+    }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0574\u0578\u0582\u057F\u0584",
+    email: "\u0567\u056C. \u0570\u0561\u057D\u0581\u0565",
+    url: "URL",
+    emoji: "\u0567\u0574\u0578\u057B\u056B",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u0561\u0574\u057D\u0561\u0569\u056B\u057E \u0587 \u056A\u0561\u0574",
+    date: "ISO \u0561\u0574\u057D\u0561\u0569\u056B\u057E",
+    time: "ISO \u056A\u0561\u0574",
+    duration: "ISO \u057F\u0587\u0578\u0572\u0578\u0582\u0569\u0575\u0578\u0582\u0576",
+    ipv4: "IPv4 \u0570\u0561\u057D\u0581\u0565",
+    ipv6: "IPv6 \u0570\u0561\u057D\u0581\u0565",
+    cidrv4: "IPv4 \u0574\u056B\u057B\u0561\u056F\u0561\u0575\u0584",
+    cidrv6: "IPv6 \u0574\u056B\u057B\u0561\u056F\u0561\u0575\u0584",
+    base64: "base64 \u0571\u0587\u0561\u0579\u0561\u0583\u0578\u057E \u057F\u0578\u0572",
+    base64url: "base64url \u0571\u0587\u0561\u0579\u0561\u0583\u0578\u057E \u057F\u0578\u0572",
+    json_string: "JSON \u057F\u0578\u0572",
+    e164: "E.164 \u0570\u0561\u0574\u0561\u0580",
+    jwt: "JWT",
+    template_literal: "\u0574\u0578\u0582\u057F\u0584"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0569\u056B\u057E",
+    array: "\u0566\u0561\u0576\u0563\u057E\u0561\u056E"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 instanceof ${issue2.expected}, \u057D\u057F\u0561\u0581\u057E\u0565\u056C \u0567 ${received}`;
+        }
+        return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 ${expected}, \u057D\u057F\u0561\u0581\u057E\u0565\u056C \u0567 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 ${stringifyPrimitive(issue2.values[1])}`;
+        return `\u054D\u056D\u0561\u056C \u057F\u0561\u0580\u0562\u0565\u0580\u0561\u056F\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 \u0570\u0565\u057F\u0587\u0575\u0561\u056C\u0576\u0565\u0580\u056B\u0581 \u0574\u0565\u056F\u0568\u055D ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          const maxValue = Number(issue2.maximum);
+          const unit = getArmenianPlural(maxValue, sizing.unit.one, sizing.unit.many);
+          return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0574\u0565\u056E \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin ?? "\u0561\u0580\u056A\u0565\u0584")} \u056F\u0578\u0582\u0576\u0565\u0576\u0561 ${adj}${issue2.maximum.toString()} ${unit}`;
+        }
+        return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0574\u0565\u056E \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin ?? "\u0561\u0580\u056A\u0565\u0584")} \u056C\u056B\u0576\u056B ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          const minValue = Number(issue2.minimum);
+          const unit = getArmenianPlural(minValue, sizing.unit.one, sizing.unit.many);
+          return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0583\u0578\u0584\u0580 \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin)} \u056F\u0578\u0582\u0576\u0565\u0576\u0561 ${adj}${issue2.minimum.toString()} ${unit}`;
+        }
+        return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0583\u0578\u0584\u0580 \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin)} \u056C\u056B\u0576\u056B ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u057D\u056F\u057D\u057E\u056B "${_issue.prefix}"-\u0578\u057E`;
+        if (_issue.format === "ends_with")
+          return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u0561\u057E\u0561\u0580\u057F\u057E\u056B "${_issue.suffix}"-\u0578\u057E`;
+        if (_issue.format === "includes")
+          return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u057A\u0561\u0580\u0578\u0582\u0576\u0561\u056F\u056B "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u0570\u0561\u0574\u0561\u057A\u0561\u057F\u0561\u057D\u056D\u0561\u0576\u056B ${_issue.pattern} \u0571\u0587\u0561\u0579\u0561\u0583\u056B\u0576`;
+        return `\u054D\u056D\u0561\u056C ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u054D\u056D\u0561\u056C \u0569\u056B\u057E\u2024 \u057A\u0565\u057F\u0584 \u0567 \u0562\u0561\u0566\u0574\u0561\u057A\u0561\u057F\u056B\u056F \u056C\u056B\u0576\u056B ${issue2.divisor}-\u056B`;
+      case "unrecognized_keys":
+        return `\u0549\u0573\u0561\u0576\u0561\u0579\u057E\u0561\u056E \u0562\u0561\u0576\u0561\u056C\u056B${issue2.keys.length > 1 ? "\u0576\u0565\u0580" : ""}. ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u054D\u056D\u0561\u056C \u0562\u0561\u0576\u0561\u056C\u056B ${withDefiniteArticle(issue2.origin)}-\u0578\u0582\u0574`;
+      case "invalid_union":
+        return "\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574";
+      case "invalid_element":
+        return `\u054D\u056D\u0561\u056C \u0561\u0580\u056A\u0565\u0584 ${withDefiniteArticle(issue2.origin)}-\u0578\u0582\u0574`;
+      default:
+        return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574`;
+    }
+  };
+};
+function hy_default() {
+  return {
+    localeError: error18()
+  };
+}
+
+// node_modules/zod/v4/locales/id.js
+var error19 = () => {
+  const Sizable = {
+    string: { unit: "karakter", verb: "memiliki" },
+    file: { unit: "byte", verb: "memiliki" },
+    array: { unit: "item", verb: "memiliki" },
+    set: { unit: "item", verb: "memiliki" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "input",
+    email: "alamat email",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "tanggal dan waktu format ISO",
+    date: "tanggal format ISO",
+    time: "jam format ISO",
+    duration: "durasi format ISO",
+    ipv4: "alamat IPv4",
+    ipv6: "alamat IPv6",
+    cidrv4: "rentang alamat IPv4",
+    cidrv6: "rentang alamat IPv6",
+    base64: "string dengan enkode base64",
+    base64url: "string dengan enkode base64url",
+    json_string: "string JSON",
+    e164: "angka E.164",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Input tidak valid: diharapkan instanceof ${issue2.expected}, diterima ${received}`;
+        }
+        return `Input tidak valid: diharapkan ${expected}, diterima ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Input tidak valid: diharapkan ${stringifyPrimitive(issue2.values[0])}`;
+        return `Pilihan tidak valid: diharapkan salah satu dari ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Terlalu besar: diharapkan ${issue2.origin ?? "value"} memiliki ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elemen"}`;
+        return `Terlalu besar: diharapkan ${issue2.origin ?? "value"} menjadi ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Terlalu kecil: diharapkan ${issue2.origin} memiliki ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Terlalu kecil: diharapkan ${issue2.origin} menjadi ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `String tidak valid: harus dimulai dengan "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `String tidak valid: harus berakhir dengan "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `String tidak valid: harus menyertakan "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `String tidak valid: harus sesuai pola ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} tidak valid`;
+      }
+      case "not_multiple_of":
+        return `Angka tidak valid: harus kelipatan dari ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Kunci tidak dikenali ${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Kunci tidak valid di ${issue2.origin}`;
+      case "invalid_union":
+        return "Input tidak valid";
+      case "invalid_element":
+        return `Nilai tidak valid di ${issue2.origin}`;
+      default:
+        return `Input tidak valid`;
+    }
+  };
+};
+function id_default() {
+  return {
+    localeError: error19()
+  };
+}
+
+// node_modules/zod/v4/locales/is.js
+var error20 = () => {
+  const Sizable = {
+    string: { unit: "stafi", verb: "a\xF0 hafa" },
+    file: { unit: "b\xE6ti", verb: "a\xF0 hafa" },
+    array: { unit: "hluti", verb: "a\xF0 hafa" },
+    set: { unit: "hluti", verb: "a\xF0 hafa" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "gildi",
+    email: "netfang",
+    url: "vefsl\xF3\xF0",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO dagsetning og t\xEDmi",
+    date: "ISO dagsetning",
+    time: "ISO t\xEDmi",
+    duration: "ISO t\xEDmalengd",
+    ipv4: "IPv4 address",
+    ipv6: "IPv6 address",
+    cidrv4: "IPv4 range",
+    cidrv6: "IPv6 range",
+    base64: "base64-encoded strengur",
+    base64url: "base64url-encoded strengur",
+    json_string: "JSON strengur",
+    e164: "E.164 t\xF6lugildi",
+    jwt: "JWT",
+    template_literal: "gildi"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "n\xFAmer",
+    array: "fylki"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Rangt gildi: \xDE\xFA sl\xF3st inn ${received} \xFEar sem \xE1 a\xF0 vera instanceof ${issue2.expected}`;
+        }
+        return `Rangt gildi: \xDE\xFA sl\xF3st inn ${received} \xFEar sem \xE1 a\xF0 vera ${expected}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Rangt gildi: gert r\xE1\xF0 fyrir ${stringifyPrimitive(issue2.values[0])}`;
+        return `\xD3gilt val: m\xE1 vera eitt af eftirfarandi ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Of st\xF3rt: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin ?? "gildi"} hafi ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "hluti"}`;
+        return `Of st\xF3rt: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin ?? "gildi"} s\xE9 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Of l\xEDti\xF0: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin} hafi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Of l\xEDti\xF0: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin} s\xE9 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\xD3gildur strengur: ver\xF0ur a\xF0 byrja \xE1 "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `\xD3gildur strengur: ver\xF0ur a\xF0 enda \xE1 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\xD3gildur strengur: ver\xF0ur a\xF0 innihalda "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\xD3gildur strengur: ver\xF0ur a\xF0 fylgja mynstri ${_issue.pattern}`;
+        return `Rangt ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `R\xF6ng tala: ver\xF0ur a\xF0 vera margfeldi af ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\xD3\xFEekkt ${issue2.keys.length > 1 ? "ir lyklar" : "ur lykill"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Rangur lykill \xED ${issue2.origin}`;
+      case "invalid_union":
+        return "Rangt gildi";
+      case "invalid_element":
+        return `Rangt gildi \xED ${issue2.origin}`;
+      default:
+        return `Rangt gildi`;
+    }
+  };
+};
+function is_default() {
+  return {
+    localeError: error20()
+  };
+}
+
+// node_modules/zod/v4/locales/it.js
+var error21 = () => {
+  const Sizable = {
+    string: { unit: "caratteri", verb: "avere" },
+    file: { unit: "byte", verb: "avere" },
+    array: { unit: "elementi", verb: "avere" },
+    set: { unit: "elementi", verb: "avere" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "input",
+    email: "indirizzo email",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "data e ora ISO",
+    date: "data ISO",
+    time: "ora ISO",
+    duration: "durata ISO",
+    ipv4: "indirizzo IPv4",
+    ipv6: "indirizzo IPv6",
+    cidrv4: "intervallo IPv4",
+    cidrv6: "intervallo IPv6",
+    base64: "stringa codificata in base64",
+    base64url: "URL codificata in base64",
+    json_string: "stringa JSON",
+    e164: "numero E.164",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "numero",
+    array: "vettore"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Input non valido: atteso instanceof ${issue2.expected}, ricevuto ${received}`;
+        }
+        return `Input non valido: atteso ${expected}, ricevuto ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Input non valido: atteso ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opzione non valida: atteso uno tra ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Troppo grande: ${issue2.origin ?? "valore"} deve avere ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementi"}`;
+        return `Troppo grande: ${issue2.origin ?? "valore"} deve essere ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Troppo piccolo: ${issue2.origin} deve avere ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Troppo piccolo: ${issue2.origin} deve essere ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Stringa non valida: deve iniziare con "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Stringa non valida: deve terminare con "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Stringa non valida: deve includere "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Stringa non valida: deve corrispondere al pattern ${_issue.pattern}`;
+        return `Invalid ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Numero non valido: deve essere un multiplo di ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Chiav${issue2.keys.length > 1 ? "i" : "e"} non riconosciut${issue2.keys.length > 1 ? "e" : "a"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Chiave non valida in ${issue2.origin}`;
+      case "invalid_union":
+        return "Input non valido";
+      case "invalid_element":
+        return `Valore non valido in ${issue2.origin}`;
+      default:
+        return `Input non valido`;
+    }
+  };
+};
+function it_default() {
+  return {
+    localeError: error21()
+  };
+}
+
+// node_modules/zod/v4/locales/ja.js
+var error22 = () => {
+  const Sizable = {
+    string: { unit: "\u6587\u5B57", verb: "\u3067\u3042\u308B" },
+    file: { unit: "\u30D0\u30A4\u30C8", verb: "\u3067\u3042\u308B" },
+    array: { unit: "\u8981\u7D20", verb: "\u3067\u3042\u308B" },
+    set: { unit: "\u8981\u7D20", verb: "\u3067\u3042\u308B" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u5165\u529B\u5024",
+    email: "\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9",
+    url: "URL",
+    emoji: "\u7D75\u6587\u5B57",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO\u65E5\u6642",
+    date: "ISO\u65E5\u4ED8",
+    time: "ISO\u6642\u523B",
+    duration: "ISO\u671F\u9593",
+    ipv4: "IPv4\u30A2\u30C9\u30EC\u30B9",
+    ipv6: "IPv6\u30A2\u30C9\u30EC\u30B9",
+    cidrv4: "IPv4\u7BC4\u56F2",
+    cidrv6: "IPv6\u7BC4\u56F2",
+    base64: "base64\u30A8\u30F3\u30B3\u30FC\u30C9\u6587\u5B57\u5217",
+    base64url: "base64url\u30A8\u30F3\u30B3\u30FC\u30C9\u6587\u5B57\u5217",
+    json_string: "JSON\u6587\u5B57\u5217",
+    e164: "E.164\u756A\u53F7",
+    jwt: "JWT",
+    template_literal: "\u5165\u529B\u5024"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u6570\u5024",
+    array: "\u914D\u5217"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u7121\u52B9\u306A\u5165\u529B: instanceof ${issue2.expected}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F\u304C\u3001${received}\u304C\u5165\u529B\u3055\u308C\u307E\u3057\u305F`;
+        }
+        return `\u7121\u52B9\u306A\u5165\u529B: ${expected}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F\u304C\u3001${received}\u304C\u5165\u529B\u3055\u308C\u307E\u3057\u305F`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u7121\u52B9\u306A\u5165\u529B: ${stringifyPrimitive(issue2.values[0])}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F`;
+        return `\u7121\u52B9\u306A\u9078\u629E: ${joinValues(issue2.values, "\u3001")}\u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "\u4EE5\u4E0B\u3067\u3042\u308B" : "\u3088\u308A\u5C0F\u3055\u3044";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u5927\u304D\u3059\u304E\u308B\u5024: ${issue2.origin ?? "\u5024"}\u306F${issue2.maximum.toString()}${sizing.unit ?? "\u8981\u7D20"}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        return `\u5927\u304D\u3059\u304E\u308B\u5024: ${issue2.origin ?? "\u5024"}\u306F${issue2.maximum.toString()}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? "\u4EE5\u4E0A\u3067\u3042\u308B" : "\u3088\u308A\u5927\u304D\u3044";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u5C0F\u3055\u3059\u304E\u308B\u5024: ${issue2.origin}\u306F${issue2.minimum.toString()}${sizing.unit}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        return `\u5C0F\u3055\u3059\u304E\u308B\u5024: ${issue2.origin}\u306F${issue2.minimum.toString()}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.prefix}"\u3067\u59CB\u307E\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        if (_issue.format === "ends_with")
+          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.suffix}"\u3067\u7D42\u308F\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        if (_issue.format === "includes")
+          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.includes}"\u3092\u542B\u3080\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        if (_issue.format === "regex")
+          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: \u30D1\u30BF\u30FC\u30F3${_issue.pattern}\u306B\u4E00\u81F4\u3059\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        return `\u7121\u52B9\u306A${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u7121\u52B9\u306A\u6570\u5024: ${issue2.divisor}\u306E\u500D\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+      case "unrecognized_keys":
+        return `\u8A8D\u8B58\u3055\u308C\u3066\u3044\u306A\u3044\u30AD\u30FC${issue2.keys.length > 1 ? "\u7FA4" : ""}: ${joinValues(issue2.keys, "\u3001")}`;
+      case "invalid_key":
+        return `${issue2.origin}\u5185\u306E\u7121\u52B9\u306A\u30AD\u30FC`;
+      case "invalid_union":
+        return "\u7121\u52B9\u306A\u5165\u529B";
+      case "invalid_element":
+        return `${issue2.origin}\u5185\u306E\u7121\u52B9\u306A\u5024`;
+      default:
+        return `\u7121\u52B9\u306A\u5165\u529B`;
+    }
+  };
+};
+function ja_default() {
+  return {
+    localeError: error22()
+  };
+}
+
+// node_modules/zod/v4/locales/ka.js
+var error23 = () => {
+  const Sizable = {
+    string: { unit: "\u10E1\u10D8\u10DB\u10D1\u10DD\u10DA\u10DD", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
+    file: { unit: "\u10D1\u10D0\u10D8\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
+    array: { unit: "\u10D4\u10DA\u10D4\u10DB\u10D4\u10DC\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
+    set: { unit: "\u10D4\u10DA\u10D4\u10DB\u10D4\u10DC\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0",
+    email: "\u10D4\u10DA-\u10E4\u10DD\u10E1\u10E2\u10D8\u10E1 \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
+    url: "URL",
+    emoji: "\u10D4\u10DB\u10DD\u10EF\u10D8",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u10D7\u10D0\u10E0\u10D8\u10E6\u10D8-\u10D3\u10E0\u10DD",
+    date: "\u10D7\u10D0\u10E0\u10D8\u10E6\u10D8",
+    time: "\u10D3\u10E0\u10DD",
+    duration: "\u10EE\u10D0\u10DC\u10D2\u10E0\u10EB\u10DA\u10D8\u10D5\u10DD\u10D1\u10D0",
+    ipv4: "IPv4 \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
+    ipv6: "IPv6 \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
+    cidrv4: "IPv4 \u10D3\u10D8\u10D0\u10DE\u10D0\u10D6\u10DD\u10DC\u10D8",
+    cidrv6: "IPv6 \u10D3\u10D8\u10D0\u10DE\u10D0\u10D6\u10DD\u10DC\u10D8",
+    base64: "base64-\u10D9\u10DD\u10D3\u10D8\u10E0\u10D4\u10D1\u10E3\u10DA\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8",
+    base64url: "base64url-\u10D9\u10DD\u10D3\u10D8\u10E0\u10D4\u10D1\u10E3\u10DA\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8",
+    json_string: "JSON \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8",
+    e164: "E.164 \u10DC\u10DD\u10DB\u10D4\u10E0\u10D8",
+    jwt: "JWT",
+    template_literal: "\u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u10E0\u10D8\u10EA\u10EE\u10D5\u10D8",
+    string: "\u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8",
+    boolean: "\u10D1\u10E3\u10DA\u10D4\u10D0\u10DC\u10D8",
+    function: "\u10E4\u10E3\u10DC\u10E5\u10EA\u10D8\u10D0",
+    array: "\u10DB\u10D0\u10E1\u10D8\u10D5\u10D8"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 instanceof ${issue2.expected}, \u10DB\u10D8\u10E6\u10D4\u10D1\u10E3\u10DA\u10D8 ${received}`;
+        }
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${expected}, \u10DB\u10D8\u10E6\u10D4\u10D1\u10E3\u10DA\u10D8 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D5\u10D0\u10E0\u10D8\u10D0\u10DC\u10E2\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8\u10D0 \u10D4\u10E0\u10D7-\u10D4\u10E0\u10D7\u10D8 ${joinValues(issue2.values, "|")}-\u10D3\u10D0\u10DC`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10D3\u10D8\u10D3\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin ?? "\u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
+        return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10D3\u10D8\u10D3\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin ?? "\u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0"} \u10D8\u10E7\u10DD\u10E1 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10DE\u10D0\u10E2\u10D0\u10E0\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10DE\u10D0\u10E2\u10D0\u10E0\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin} \u10D8\u10E7\u10DD\u10E1 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10D8\u10EC\u10E7\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 "${_issue.prefix}"-\u10D8\u10D7`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10DB\u10D7\u10D0\u10D5\u10E0\u10D3\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 "${_issue.suffix}"-\u10D8\u10D7`;
+        if (_issue.format === "includes")
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1 "${_issue.includes}"-\u10E1`;
+        if (_issue.format === "regex")
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D4\u10E1\u10D0\u10D1\u10D0\u10DB\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 \u10E8\u10D0\u10D1\u10DA\u10DD\u10DC\u10E1 ${_issue.pattern}`;
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E0\u10D8\u10EA\u10EE\u10D5\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10D8\u10E7\u10DD\u10E1 ${issue2.divisor}-\u10D8\u10E1 \u10EF\u10D4\u10E0\u10D0\u10D3\u10D8`;
+      case "unrecognized_keys":
+        return `\u10E3\u10EA\u10DC\u10DD\u10D1\u10D8 \u10D2\u10D0\u10E1\u10D0\u10E6\u10D4\u10D1${issue2.keys.length > 1 ? "\u10D4\u10D1\u10D8" : "\u10D8"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D2\u10D0\u10E1\u10D0\u10E6\u10D4\u10D1\u10D8 ${issue2.origin}-\u10E8\u10D8`;
+      case "invalid_union":
+        return "\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0";
+      case "invalid_element":
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0 ${issue2.origin}-\u10E8\u10D8`;
+      default:
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0`;
+    }
+  };
+};
+function ka_default() {
+  return {
+    localeError: error23()
+  };
+}
+
+// node_modules/zod/v4/locales/km.js
+var error24 = () => {
+  const Sizable = {
+    string: { unit: "\u178F\u17BD\u17A2\u1780\u17D2\u179F\u179A", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
+    file: { unit: "\u1794\u17C3", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
+    array: { unit: "\u1792\u17B6\u178F\u17BB", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
+    set: { unit: "\u1792\u17B6\u178F\u17BB", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B",
+    email: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793\u17A2\u17CA\u17B8\u1798\u17C2\u179B",
+    url: "URL",
+    emoji: "\u179F\u1789\u17D2\u1789\u17B6\u17A2\u17B6\u179A\u1798\u17D2\u1798\u178E\u17CD",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u1780\u17B6\u179B\u1794\u179A\u17B7\u1785\u17D2\u1786\u17C1\u1791 \u1793\u17B7\u1784\u1798\u17C9\u17C4\u1784 ISO",
+    date: "\u1780\u17B6\u179B\u1794\u179A\u17B7\u1785\u17D2\u1786\u17C1\u1791 ISO",
+    time: "\u1798\u17C9\u17C4\u1784 ISO",
+    duration: "\u179A\u1799\u17C8\u1796\u17C1\u179B ISO",
+    ipv4: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv4",
+    ipv6: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv6",
+    cidrv4: "\u178A\u17C2\u1793\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv4",
+    cidrv6: "\u178A\u17C2\u1793\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv6",
+    base64: "\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u17A2\u17CA\u17B7\u1780\u17BC\u178A base64",
+    base64url: "\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u17A2\u17CA\u17B7\u1780\u17BC\u178A base64url",
+    json_string: "\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A JSON",
+    e164: "\u179B\u17C1\u1781 E.164",
+    jwt: "JWT",
+    template_literal: "\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u179B\u17C1\u1781",
+    array: "\u17A2\u17B6\u179A\u17C1 (Array)",
+    null: "\u1782\u17D2\u1798\u17B6\u1793\u178F\u1798\u17D2\u179B\u17C3 (null)"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A instanceof ${issue2.expected} \u1794\u17C9\u17BB\u1793\u17D2\u178F\u17C2\u1791\u1791\u17BD\u179B\u1794\u17B6\u1793 ${received}`;
+        }
+        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${expected} \u1794\u17C9\u17BB\u1793\u17D2\u178F\u17C2\u1791\u1791\u17BD\u179B\u1794\u17B6\u1793 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u1787\u1798\u17D2\u179A\u17BE\u179F\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1787\u17B6\u1798\u17BD\u1799\u1780\u17D2\u1793\u17BB\u1784\u1785\u17C6\u178E\u17C4\u1798 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u1792\u17C6\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin ?? "\u178F\u1798\u17D2\u179B\u17C3"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u1792\u17B6\u178F\u17BB"}`;
+        return `\u1792\u17C6\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin ?? "\u178F\u1798\u17D2\u179B\u17C3"} ${adj} ${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u178F\u17BC\u1785\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u178F\u17BC\u1785\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin} ${adj} ${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1785\u17B6\u1794\u17CB\u1795\u17D2\u178F\u17BE\u1798\u178A\u17C4\u1799 "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1794\u1789\u17D2\u1785\u1794\u17CB\u178A\u17C4\u1799 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1798\u17B6\u1793 "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u178F\u17C2\u1795\u17D2\u1782\u17BC\u1795\u17D2\u1782\u1784\u1793\u17B9\u1784\u1791\u1798\u17D2\u179A\u1784\u17CB\u178A\u17C2\u179B\u1794\u17B6\u1793\u1780\u17C6\u178E\u178F\u17CB ${_issue.pattern}`;
+        return `\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u179B\u17C1\u1781\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u178F\u17C2\u1787\u17B6\u1796\u17A0\u17BB\u1782\u17BB\u178E\u1793\u17C3 ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u179A\u1780\u1783\u17BE\u1789\u179F\u17C4\u1798\u17B7\u1793\u179F\u17D2\u1782\u17B6\u179B\u17CB\u17D6 ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u179F\u17C4\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u1793\u17C5\u1780\u17D2\u1793\u17BB\u1784 ${issue2.origin}`;
+      case "invalid_union":
+        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C`;
+      case "invalid_element":
+        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u1793\u17C5\u1780\u17D2\u1793\u17BB\u1784 ${issue2.origin}`;
+      default:
+        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C`;
+    }
+  };
+};
+function km_default() {
+  return {
+    localeError: error24()
+  };
+}
+
+// node_modules/zod/v4/locales/kh.js
+function kh_default() {
+  return km_default();
+}
+
+// node_modules/zod/v4/locales/ko.js
+var error25 = () => {
+  const Sizable = {
+    string: { unit: "\uBB38\uC790", verb: "to have" },
+    file: { unit: "\uBC14\uC774\uD2B8", verb: "to have" },
+    array: { unit: "\uAC1C", verb: "to have" },
+    set: { unit: "\uAC1C", verb: "to have" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\uC785\uB825",
+    email: "\uC774\uBA54\uC77C \uC8FC\uC18C",
+    url: "URL",
+    emoji: "\uC774\uBAA8\uC9C0",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \uB0A0\uC9DC\uC2DC\uAC04",
+    date: "ISO \uB0A0\uC9DC",
+    time: "ISO \uC2DC\uAC04",
+    duration: "ISO \uAE30\uAC04",
+    ipv4: "IPv4 \uC8FC\uC18C",
+    ipv6: "IPv6 \uC8FC\uC18C",
+    cidrv4: "IPv4 \uBC94\uC704",
+    cidrv6: "IPv6 \uBC94\uC704",
+    base64: "base64 \uC778\uCF54\uB529 \uBB38\uC790\uC5F4",
+    base64url: "base64url \uC778\uCF54\uB529 \uBB38\uC790\uC5F4",
+    json_string: "JSON \uBB38\uC790\uC5F4",
+    e164: "E.164 \uBC88\uD638",
+    jwt: "JWT",
+    template_literal: "\uC785\uB825"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\uC798\uBABB\uB41C \uC785\uB825: \uC608\uC0C1 \uD0C0\uC785\uC740 instanceof ${issue2.expected}, \uBC1B\uC740 \uD0C0\uC785\uC740 ${received}\uC785\uB2C8\uB2E4`;
+        }
+        return `\uC798\uBABB\uB41C \uC785\uB825: \uC608\uC0C1 \uD0C0\uC785\uC740 ${expected}, \uBC1B\uC740 \uD0C0\uC785\uC740 ${received}\uC785\uB2C8\uB2E4`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\uC798\uBABB\uB41C \uC785\uB825: \uAC12\uC740 ${stringifyPrimitive(issue2.values[0])} \uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4`;
+        return `\uC798\uBABB\uB41C \uC635\uC158: ${joinValues(issue2.values, "\uB610\uB294 ")} \uC911 \uD558\uB098\uC5EC\uC57C \uD569\uB2C8\uB2E4`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "\uC774\uD558" : "\uBBF8\uB9CC";
+        const suffix = adj === "\uBBF8\uB9CC" ? "\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4" : "\uC5EC\uC57C \uD569\uB2C8\uB2E4";
+        const sizing = getSizing(issue2.origin);
+        const unit = sizing?.unit ?? "\uC694\uC18C";
+        if (sizing)
+          return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4: ${issue2.maximum.toString()}${unit} ${adj}${suffix}`;
+        return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4: ${issue2.maximum.toString()} ${adj}${suffix}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? "\uC774\uC0C1" : "\uCD08\uACFC";
+        const suffix = adj === "\uC774\uC0C1" ? "\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4" : "\uC5EC\uC57C \uD569\uB2C8\uB2E4";
+        const sizing = getSizing(issue2.origin);
+        const unit = sizing?.unit ?? "\uC694\uC18C";
+        if (sizing) {
+          return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4: ${issue2.minimum.toString()}${unit} ${adj}${suffix}`;
+        }
+        return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4: ${issue2.minimum.toString()} ${adj}${suffix}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.prefix}"(\uC73C)\uB85C \uC2DC\uC791\uD574\uC57C \uD569\uB2C8\uB2E4`;
+        }
+        if (_issue.format === "ends_with")
+          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.suffix}"(\uC73C)\uB85C \uB05D\uB098\uC57C \uD569\uB2C8\uB2E4`;
+        if (_issue.format === "includes")
+          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.includes}"\uC744(\uB97C) \uD3EC\uD568\uD574\uC57C \uD569\uB2C8\uB2E4`;
+        if (_issue.format === "regex")
+          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: \uC815\uADDC\uC2DD ${_issue.pattern} \uD328\uD134\uACFC \uC77C\uCE58\uD574\uC57C \uD569\uB2C8\uB2E4`;
+        return `\uC798\uBABB\uB41C ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\uC798\uBABB\uB41C \uC22B\uC790: ${issue2.divisor}\uC758 \uBC30\uC218\uC5EC\uC57C \uD569\uB2C8\uB2E4`;
+      case "unrecognized_keys":
+        return `\uC778\uC2DD\uD560 \uC218 \uC5C6\uB294 \uD0A4: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\uC798\uBABB\uB41C \uD0A4: ${issue2.origin}`;
+      case "invalid_union":
+        return `\uC798\uBABB\uB41C \uC785\uB825`;
+      case "invalid_element":
+        return `\uC798\uBABB\uB41C \uAC12: ${issue2.origin}`;
+      default:
+        return `\uC798\uBABB\uB41C \uC785\uB825`;
+    }
+  };
+};
+function ko_default() {
+  return {
+    localeError: error25()
+  };
+}
+
+// node_modules/zod/v4/locales/lt.js
+var capitalizeFirstCharacter = (text) => {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+function getUnitTypeFromNumber(number4) {
+  const abs = Math.abs(number4);
+  const last = abs % 10;
+  const last2 = abs % 100;
+  if (last2 >= 11 && last2 <= 19 || last === 0)
+    return "many";
+  if (last === 1)
+    return "one";
+  return "few";
+}
+var error26 = () => {
+  const Sizable = {
+    string: {
+      unit: {
+        one: "simbolis",
+        few: "simboliai",
+        many: "simboli\u0173"
+      },
+      verb: {
+        smaller: {
+          inclusive: "turi b\u016Bti ne ilgesn\u0117 kaip",
+          notInclusive: "turi b\u016Bti trumpesn\u0117 kaip"
+        },
+        bigger: {
+          inclusive: "turi b\u016Bti ne trumpesn\u0117 kaip",
+          notInclusive: "turi b\u016Bti ilgesn\u0117 kaip"
+        }
+      }
+    },
+    file: {
+      unit: {
+        one: "baitas",
+        few: "baitai",
+        many: "bait\u0173"
+      },
+      verb: {
+        smaller: {
+          inclusive: "turi b\u016Bti ne didesnis kaip",
+          notInclusive: "turi b\u016Bti ma\u017Eesnis kaip"
+        },
+        bigger: {
+          inclusive: "turi b\u016Bti ne ma\u017Eesnis kaip",
+          notInclusive: "turi b\u016Bti didesnis kaip"
+        }
+      }
+    },
+    array: {
+      unit: {
+        one: "element\u0105",
+        few: "elementus",
+        many: "element\u0173"
+      },
+      verb: {
+        smaller: {
+          inclusive: "turi tur\u0117ti ne daugiau kaip",
+          notInclusive: "turi tur\u0117ti ma\u017Eiau kaip"
+        },
+        bigger: {
+          inclusive: "turi tur\u0117ti ne ma\u017Eiau kaip",
+          notInclusive: "turi tur\u0117ti daugiau kaip"
+        }
+      }
+    },
+    set: {
+      unit: {
+        one: "element\u0105",
+        few: "elementus",
+        many: "element\u0173"
+      },
+      verb: {
+        smaller: {
+          inclusive: "turi tur\u0117ti ne daugiau kaip",
+          notInclusive: "turi tur\u0117ti ma\u017Eiau kaip"
+        },
+        bigger: {
+          inclusive: "turi tur\u0117ti ne ma\u017Eiau kaip",
+          notInclusive: "turi tur\u0117ti daugiau kaip"
+        }
+      }
+    }
+  };
+  function getSizing(origin, unitType, inclusive, targetShouldBe) {
+    const result = Sizable[origin] ?? null;
+    if (result === null)
+      return result;
+    return {
+      unit: result.unit[unitType],
+      verb: result.verb[targetShouldBe][inclusive ? "inclusive" : "notInclusive"]
+    };
+  }
+  const FormatDictionary = {
+    regex: "\u012Fvestis",
+    email: "el. pa\u0161to adresas",
+    url: "URL",
+    emoji: "jaustukas",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO data ir laikas",
+    date: "ISO data",
+    time: "ISO laikas",
+    duration: "ISO trukm\u0117",
+    ipv4: "IPv4 adresas",
+    ipv6: "IPv6 adresas",
+    cidrv4: "IPv4 tinklo prefiksas (CIDR)",
+    cidrv6: "IPv6 tinklo prefiksas (CIDR)",
+    base64: "base64 u\u017Ekoduota eilut\u0117",
+    base64url: "base64url u\u017Ekoduota eilut\u0117",
+    json_string: "JSON eilut\u0117",
+    e164: "E.164 numeris",
+    jwt: "JWT",
+    template_literal: "\u012Fvestis"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "skai\u010Dius",
+    bigint: "sveikasis skai\u010Dius",
+    string: "eilut\u0117",
+    boolean: "login\u0117 reik\u0161m\u0117",
+    undefined: "neapibr\u0117\u017Eta reik\u0161m\u0117",
+    function: "funkcija",
+    symbol: "simbolis",
+    array: "masyvas",
+    object: "objektas",
+    null: "nulin\u0117 reik\u0161m\u0117"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Gautas tipas ${received}, o tik\u0117tasi - instanceof ${issue2.expected}`;
+        }
+        return `Gautas tipas ${received}, o tik\u0117tasi - ${expected}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Privalo b\u016Bti ${stringifyPrimitive(issue2.values[0])}`;
+        return `Privalo b\u016Bti vienas i\u0161 ${joinValues(issue2.values, "|")} pasirinkim\u0173`;
+      case "too_big": {
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        const sizing = getSizing(issue2.origin, getUnitTypeFromNumber(Number(issue2.maximum)), issue2.inclusive ?? false, "smaller");
+        if (sizing?.verb)
+          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.maximum.toString()} ${sizing.unit ?? "element\u0173"}`;
+        const adj = issue2.inclusive ? "ne didesnis kaip" : "ma\u017Eesnis kaip";
+        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.maximum.toString()} ${sizing?.unit}`;
+      }
+      case "too_small": {
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        const sizing = getSizing(issue2.origin, getUnitTypeFromNumber(Number(issue2.minimum)), issue2.inclusive ?? false, "bigger");
+        if (sizing?.verb)
+          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.minimum.toString()} ${sizing.unit ?? "element\u0173"}`;
+        const adj = issue2.inclusive ? "ne ma\u017Eesnis kaip" : "didesnis kaip";
+        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.minimum.toString()} ${sizing?.unit}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Eilut\u0117 privalo prasid\u0117ti "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `Eilut\u0117 privalo pasibaigti "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Eilut\u0117 privalo \u012Ftraukti "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Eilut\u0117 privalo atitikti ${_issue.pattern}`;
+        return `Neteisingas ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Skai\u010Dius privalo b\u016Bti ${issue2.divisor} kartotinis.`;
+      case "unrecognized_keys":
+        return `Neatpa\u017Eint${issue2.keys.length > 1 ? "i" : "as"} rakt${issue2.keys.length > 1 ? "ai" : "as"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return "Rastas klaidingas raktas";
+      case "invalid_union":
+        return "Klaidinga \u012Fvestis";
+      case "invalid_element": {
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi klaiding\u0105 \u012Fvest\u012F`;
+      }
+      default:
+        return "Klaidinga \u012Fvestis";
+    }
+  };
+};
+function lt_default() {
+  return {
+    localeError: error26()
+  };
+}
+
+// node_modules/zod/v4/locales/mk.js
+var error27 = () => {
+  const Sizable = {
+    string: { unit: "\u0437\u043D\u0430\u0446\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
+    file: { unit: "\u0431\u0430\u0458\u0442\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
+    array: { unit: "\u0441\u0442\u0430\u0432\u043A\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
+    set: { unit: "\u0441\u0442\u0430\u0432\u043A\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0432\u043D\u0435\u0441",
+    email: "\u0430\u0434\u0440\u0435\u0441\u0430 \u043D\u0430 \u0435-\u043F\u043E\u0448\u0442\u0430",
+    url: "URL",
+    emoji: "\u0435\u043C\u043E\u045F\u0438",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u0434\u0430\u0442\u0443\u043C \u0438 \u0432\u0440\u0435\u043C\u0435",
+    date: "ISO \u0434\u0430\u0442\u0443\u043C",
+    time: "ISO \u0432\u0440\u0435\u043C\u0435",
+    duration: "ISO \u0432\u0440\u0435\u043C\u0435\u0442\u0440\u0430\u0435\u045A\u0435",
+    ipv4: "IPv4 \u0430\u0434\u0440\u0435\u0441\u0430",
+    ipv6: "IPv6 \u0430\u0434\u0440\u0435\u0441\u0430",
+    cidrv4: "IPv4 \u043E\u043F\u0441\u0435\u0433",
+    cidrv6: "IPv6 \u043E\u043F\u0441\u0435\u0433",
+    base64: "base64-\u0435\u043D\u043A\u043E\u0434\u0438\u0440\u0430\u043D\u0430 \u043D\u0438\u0437\u0430",
+    base64url: "base64url-\u0435\u043D\u043A\u043E\u0434\u0438\u0440\u0430\u043D\u0430 \u043D\u0438\u0437\u0430",
+    json_string: "JSON \u043D\u0438\u0437\u0430",
+    e164: "E.164 \u0431\u0440\u043E\u0458",
+    jwt: "JWT",
+    template_literal: "\u0432\u043D\u0435\u0441"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0431\u0440\u043E\u0458",
+    array: "\u043D\u0438\u0437\u0430"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 instanceof ${issue2.expected}, \u043F\u0440\u0438\u043C\u0435\u043D\u043E ${received}`;
+        }
+        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${expected}, \u043F\u0440\u0438\u043C\u0435\u043D\u043E ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Invalid input: expected ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u0413\u0440\u0435\u0448\u0430\u043D\u0430 \u043E\u043F\u0446\u0438\u0458\u0430: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 \u0435\u0434\u043D\u0430 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u0433\u043E\u043B\u0435\u043C: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin ?? "\u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442\u0430"} \u0434\u0430 \u0438\u043C\u0430 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0438"}`;
+        return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u0433\u043E\u043B\u0435\u043C: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin ?? "\u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442\u0430"} \u0434\u0430 \u0431\u0438\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u043C\u0430\u043B: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin} \u0434\u0430 \u0438\u043C\u0430 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u043C\u0430\u043B: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin} \u0434\u0430 \u0431\u0438\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0437\u0430\u043F\u043E\u0447\u043D\u0443\u0432\u0430 \u0441\u043E "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0437\u0430\u0432\u0440\u0448\u0443\u0432\u0430 \u0441\u043E "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0432\u043A\u043B\u0443\u0447\u0443\u0432\u0430 "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u043E\u0434\u0433\u043E\u0430\u0440\u0430 \u043D\u0430 \u043F\u0430\u0442\u0435\u0440\u043D\u043E\u0442 ${_issue.pattern}`;
+        return `Invalid ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0431\u0440\u043E\u0458: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0431\u0438\u0434\u0435 \u0434\u0435\u043B\u0438\u0432 \u0441\u043E ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `${issue2.keys.length > 1 ? "\u041D\u0435\u043F\u0440\u0435\u043F\u043E\u0437\u043D\u0430\u0435\u043D\u0438 \u043A\u043B\u0443\u0447\u0435\u0432\u0438" : "\u041D\u0435\u043F\u0440\u0435\u043F\u043E\u0437\u043D\u0430\u0435\u043D \u043A\u043B\u0443\u0447"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u0413\u0440\u0435\u0448\u0435\u043D \u043A\u043B\u0443\u0447 \u0432\u043E ${issue2.origin}`;
+      case "invalid_union":
+        return "\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441";
+      case "invalid_element":
+        return `\u0413\u0440\u0435\u0448\u043D\u0430 \u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442 \u0432\u043E ${issue2.origin}`;
+      default:
+        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441`;
+    }
+  };
+};
+function mk_default() {
+  return {
+    localeError: error27()
+  };
+}
+
+// node_modules/zod/v4/locales/ms.js
+var error28 = () => {
+  const Sizable = {
+    string: { unit: "aksara", verb: "mempunyai" },
+    file: { unit: "bait", verb: "mempunyai" },
+    array: { unit: "elemen", verb: "mempunyai" },
+    set: { unit: "elemen", verb: "mempunyai" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "input",
+    email: "alamat e-mel",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "tarikh masa ISO",
+    date: "tarikh ISO",
+    time: "masa ISO",
+    duration: "tempoh ISO",
+    ipv4: "alamat IPv4",
+    ipv6: "alamat IPv6",
+    cidrv4: "julat IPv4",
+    cidrv6: "julat IPv6",
+    base64: "string dikodkan base64",
+    base64url: "string dikodkan base64url",
+    json_string: "string JSON",
+    e164: "nombor E.164",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "nombor"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Input tidak sah: dijangka instanceof ${issue2.expected}, diterima ${received}`;
+        }
+        return `Input tidak sah: dijangka ${expected}, diterima ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Input tidak sah: dijangka ${stringifyPrimitive(issue2.values[0])}`;
+        return `Pilihan tidak sah: dijangka salah satu daripada ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Terlalu besar: dijangka ${issue2.origin ?? "nilai"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elemen"}`;
+        return `Terlalu besar: dijangka ${issue2.origin ?? "nilai"} adalah ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Terlalu kecil: dijangka ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Terlalu kecil: dijangka ${issue2.origin} adalah ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `String tidak sah: mesti bermula dengan "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `String tidak sah: mesti berakhir dengan "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `String tidak sah: mesti mengandungi "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `String tidak sah: mesti sepadan dengan corak ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} tidak sah`;
+      }
+      case "not_multiple_of":
+        return `Nombor tidak sah: perlu gandaan ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Kunci tidak dikenali: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Kunci tidak sah dalam ${issue2.origin}`;
+      case "invalid_union":
+        return "Input tidak sah";
+      case "invalid_element":
+        return `Nilai tidak sah dalam ${issue2.origin}`;
+      default:
+        return `Input tidak sah`;
+    }
+  };
+};
+function ms_default() {
+  return {
+    localeError: error28()
+  };
+}
+
+// node_modules/zod/v4/locales/nl.js
+var error29 = () => {
+  const Sizable = {
+    string: { unit: "tekens", verb: "heeft" },
+    file: { unit: "bytes", verb: "heeft" },
+    array: { unit: "elementen", verb: "heeft" },
+    set: { unit: "elementen", verb: "heeft" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "invoer",
+    email: "emailadres",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO datum en tijd",
+    date: "ISO datum",
+    time: "ISO tijd",
+    duration: "ISO duur",
+    ipv4: "IPv4-adres",
+    ipv6: "IPv6-adres",
+    cidrv4: "IPv4-bereik",
+    cidrv6: "IPv6-bereik",
+    base64: "base64-gecodeerde tekst",
+    base64url: "base64 URL-gecodeerde tekst",
+    json_string: "JSON string",
+    e164: "E.164-nummer",
+    jwt: "JWT",
+    template_literal: "invoer"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "getal"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Ongeldige invoer: verwacht instanceof ${issue2.expected}, ontving ${received}`;
+        }
+        return `Ongeldige invoer: verwacht ${expected}, ontving ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Ongeldige invoer: verwacht ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ongeldige optie: verwacht \xE9\xE9n van ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        const longName = issue2.origin === "date" ? "laat" : issue2.origin === "string" ? "lang" : "groot";
+        if (sizing)
+          return `Te ${longName}: verwacht dat ${issue2.origin ?? "waarde"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementen"} ${sizing.verb}`;
+        return `Te ${longName}: verwacht dat ${issue2.origin ?? "waarde"} ${adj}${issue2.maximum.toString()} is`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        const shortName = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
+        if (sizing) {
+          return `Te ${shortName}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+        }
+        return `Te ${shortName}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Ongeldige tekst: moet met "${_issue.prefix}" beginnen`;
+        }
+        if (_issue.format === "ends_with")
+          return `Ongeldige tekst: moet op "${_issue.suffix}" eindigen`;
+        if (_issue.format === "includes")
+          return `Ongeldige tekst: moet "${_issue.includes}" bevatten`;
+        if (_issue.format === "regex")
+          return `Ongeldige tekst: moet overeenkomen met patroon ${_issue.pattern}`;
+        return `Ongeldig: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Ongeldig getal: moet een veelvoud van ${issue2.divisor} zijn`;
+      case "unrecognized_keys":
+        return `Onbekende key${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Ongeldige key in ${issue2.origin}`;
+      case "invalid_union":
+        return "Ongeldige invoer";
+      case "invalid_element":
+        return `Ongeldige waarde in ${issue2.origin}`;
+      default:
+        return `Ongeldige invoer`;
+    }
+  };
+};
+function nl_default() {
+  return {
+    localeError: error29()
+  };
+}
+
+// node_modules/zod/v4/locales/no.js
+var error30 = () => {
+  const Sizable = {
+    string: { unit: "tegn", verb: "\xE5 ha" },
+    file: { unit: "bytes", verb: "\xE5 ha" },
+    array: { unit: "elementer", verb: "\xE5 inneholde" },
+    set: { unit: "elementer", verb: "\xE5 inneholde" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "input",
+    email: "e-postadresse",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO dato- og klokkeslett",
+    date: "ISO-dato",
+    time: "ISO-klokkeslett",
+    duration: "ISO-varighet",
+    ipv4: "IPv4-omr\xE5de",
+    ipv6: "IPv6-omr\xE5de",
+    cidrv4: "IPv4-spekter",
+    cidrv6: "IPv6-spekter",
+    base64: "base64-enkodet streng",
+    base64url: "base64url-enkodet streng",
+    json_string: "JSON-streng",
+    e164: "E.164-nummer",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "tall",
+    array: "liste"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Ugyldig input: forventet instanceof ${issue2.expected}, fikk ${received}`;
+        }
+        return `Ugyldig input: forventet ${expected}, fikk ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Ugyldig verdi: forventet ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ugyldig valg: forventet en av ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `For stor(t): forventet ${issue2.origin ?? "value"} til \xE5 ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementer"}`;
+        return `For stor(t): forventet ${issue2.origin ?? "value"} til \xE5 ha ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `For lite(n): forventet ${issue2.origin} til \xE5 ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `For lite(n): forventet ${issue2.origin} til \xE5 ha ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Ugyldig streng: m\xE5 starte med "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Ugyldig streng: m\xE5 ende med "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Ugyldig streng: m\xE5 inneholde "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Ugyldig streng: m\xE5 matche m\xF8nsteret ${_issue.pattern}`;
+        return `Ugyldig ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Ugyldig tall: m\xE5 v\xE6re et multiplum av ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `${issue2.keys.length > 1 ? "Ukjente n\xF8kler" : "Ukjent n\xF8kkel"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Ugyldig n\xF8kkel i ${issue2.origin}`;
+      case "invalid_union":
+        return "Ugyldig input";
+      case "invalid_element":
+        return `Ugyldig verdi i ${issue2.origin}`;
+      default:
+        return `Ugyldig input`;
+    }
+  };
+};
+function no_default() {
+  return {
+    localeError: error30()
+  };
+}
+
+// node_modules/zod/v4/locales/ota.js
+var error31 = () => {
+  const Sizable = {
+    string: { unit: "harf", verb: "olmal\u0131d\u0131r" },
+    file: { unit: "bayt", verb: "olmal\u0131d\u0131r" },
+    array: { unit: "unsur", verb: "olmal\u0131d\u0131r" },
+    set: { unit: "unsur", verb: "olmal\u0131d\u0131r" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "giren",
+    email: "epostag\xE2h",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO heng\xE2m\u0131",
+    date: "ISO tarihi",
+    time: "ISO zaman\u0131",
+    duration: "ISO m\xFCddeti",
+    ipv4: "IPv4 ni\u015F\xE2n\u0131",
+    ipv6: "IPv6 ni\u015F\xE2n\u0131",
+    cidrv4: "IPv4 menzili",
+    cidrv6: "IPv6 menzili",
+    base64: "base64-\u015Fifreli metin",
+    base64url: "base64url-\u015Fifreli metin",
+    json_string: "JSON metin",
+    e164: "E.164 say\u0131s\u0131",
+    jwt: "JWT",
+    template_literal: "giren"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "numara",
+    array: "saf",
+    null: "gayb"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `F\xE2sit giren: umulan instanceof ${issue2.expected}, al\u0131nan ${received}`;
+        }
+        return `F\xE2sit giren: umulan ${expected}, al\u0131nan ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `F\xE2sit giren: umulan ${stringifyPrimitive(issue2.values[0])}`;
+        return `F\xE2sit tercih: m\xFBteberler ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Fazla b\xFCy\xFCk: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elements"} sahip olmal\u0131yd\u0131.`;
+        return `Fazla b\xFCy\xFCk: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} olmal\u0131yd\u0131.`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Fazla k\xFC\xE7\xFCk: ${issue2.origin}, ${adj}${issue2.minimum.toString()} ${sizing.unit} sahip olmal\u0131yd\u0131.`;
+        }
+        return `Fazla k\xFC\xE7\xFCk: ${issue2.origin}, ${adj}${issue2.minimum.toString()} olmal\u0131yd\u0131.`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `F\xE2sit metin: "${_issue.prefix}" ile ba\u015Flamal\u0131.`;
+        if (_issue.format === "ends_with")
+          return `F\xE2sit metin: "${_issue.suffix}" ile bitmeli.`;
+        if (_issue.format === "includes")
+          return `F\xE2sit metin: "${_issue.includes}" ihtiv\xE2 etmeli.`;
+        if (_issue.format === "regex")
+          return `F\xE2sit metin: ${_issue.pattern} nak\u015F\u0131na uymal\u0131.`;
+        return `F\xE2sit ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `F\xE2sit say\u0131: ${issue2.divisor} kat\u0131 olmal\u0131yd\u0131.`;
+      case "unrecognized_keys":
+        return `Tan\u0131nmayan anahtar ${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `${issue2.origin} i\xE7in tan\u0131nmayan anahtar var.`;
+      case "invalid_union":
+        return "Giren tan\u0131namad\u0131.";
+      case "invalid_element":
+        return `${issue2.origin} i\xE7in tan\u0131nmayan k\u0131ymet var.`;
+      default:
+        return `K\u0131ymet tan\u0131namad\u0131.`;
+    }
+  };
+};
+function ota_default() {
+  return {
+    localeError: error31()
+  };
+}
+
+// node_modules/zod/v4/locales/ps.js
+var error32 = () => {
+  const Sizable = {
+    string: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
+    file: { unit: "\u0628\u0627\u06CC\u067C\u0633", verb: "\u0648\u0644\u0631\u064A" },
+    array: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
+    set: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0648\u0631\u0648\u062F\u064A",
+    email: "\u0628\u0631\u06CC\u069A\u0646\u0627\u0644\u06CC\u06A9",
+    url: "\u06CC\u0648 \u0622\u0631 \u0627\u0644",
+    emoji: "\u0627\u06CC\u0645\u0648\u062C\u064A",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u0646\u06CC\u067C\u0647 \u0627\u0648 \u0648\u062E\u062A",
+    date: "\u0646\u06D0\u067C\u0647",
+    time: "\u0648\u062E\u062A",
+    duration: "\u0645\u0648\u062F\u0647",
+    ipv4: "\u062F IPv4 \u067E\u062A\u0647",
+    ipv6: "\u062F IPv6 \u067E\u062A\u0647",
+    cidrv4: "\u062F IPv4 \u0633\u0627\u062D\u0647",
+    cidrv6: "\u062F IPv6 \u0633\u0627\u062D\u0647",
+    base64: "base64-encoded \u0645\u062A\u0646",
+    base64url: "base64url-encoded \u0645\u062A\u0646",
+    json_string: "JSON \u0645\u062A\u0646",
+    e164: "\u062F E.164 \u0634\u0645\u06D0\u0631\u0647",
+    jwt: "JWT",
+    template_literal: "\u0648\u0631\u0648\u062F\u064A"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0639\u062F\u062F",
+    array: "\u0627\u0631\u06D0"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F instanceof ${issue2.expected} \u0648\u0627\u06CC, \u0645\u06AB\u0631 ${received} \u062A\u0631\u0644\u0627\u0633\u0647 \u0634\u0648`;
+        }
+        return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F ${expected} \u0648\u0627\u06CC, \u0645\u06AB\u0631 ${received} \u062A\u0631\u0644\u0627\u0633\u0647 \u0634\u0648`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1) {
+          return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F ${stringifyPrimitive(issue2.values[0])} \u0648\u0627\u06CC`;
+        }
+        return `\u0646\u0627\u0633\u0645 \u0627\u0646\u062A\u062E\u0627\u0628: \u0628\u0627\u06CC\u062F \u06CC\u0648 \u0644\u0647 ${joinValues(issue2.values, "|")} \u0685\u062E\u0647 \u0648\u0627\u06CC`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0689\u06CC\u0631 \u0644\u0648\u06CC: ${issue2.origin ?? "\u0627\u0631\u0632\u069A\u062A"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631\u0648\u0646\u0647"} \u0648\u0644\u0631\u064A`;
+        }
+        return `\u0689\u06CC\u0631 \u0644\u0648\u06CC: ${issue2.origin ?? "\u0627\u0631\u0632\u069A\u062A"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} \u0648\u064A`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0689\u06CC\u0631 \u06A9\u0648\u0686\u0646\u06CC: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0648\u0644\u0631\u064A`;
+        }
+        return `\u0689\u06CC\u0631 \u06A9\u0648\u0686\u0646\u06CC: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} \u0648\u064A`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F "${_issue.prefix}" \u0633\u0631\u0647 \u067E\u06CC\u0644 \u0634\u064A`;
+        }
+        if (_issue.format === "ends_with") {
+          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F "${_issue.suffix}" \u0633\u0631\u0647 \u067E\u0627\u06CC \u062A\u0647 \u0648\u0631\u0633\u064A\u0696\u064A`;
+        }
+        if (_issue.format === "includes") {
+          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F "${_issue.includes}" \u0648\u0644\u0631\u064A`;
+        }
+        if (_issue.format === "regex") {
+          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F ${_issue.pattern} \u0633\u0631\u0647 \u0645\u0637\u0627\u0628\u0642\u062A \u0648\u0644\u0631\u064A`;
+        }
+        return `${FormatDictionary[_issue.format] ?? issue2.format} \u0646\u0627\u0633\u0645 \u062F\u06CC`;
+      }
+      case "not_multiple_of":
+        return `\u0646\u0627\u0633\u0645 \u0639\u062F\u062F: \u0628\u0627\u06CC\u062F \u062F ${issue2.divisor} \u0645\u0636\u0631\u0628 \u0648\u064A`;
+      case "unrecognized_keys":
+        return `\u0646\u0627\u0633\u0645 ${issue2.keys.length > 1 ? "\u06A9\u0644\u06CC\u0689\u0648\u0646\u0647" : "\u06A9\u0644\u06CC\u0689"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u0646\u0627\u0633\u0645 \u06A9\u0644\u06CC\u0689 \u067E\u0647 ${issue2.origin} \u06A9\u06D0`;
+      case "invalid_union":
+        return `\u0646\u0627\u0633\u0645\u0647 \u0648\u0631\u0648\u062F\u064A`;
+      case "invalid_element":
+        return `\u0646\u0627\u0633\u0645 \u0639\u0646\u0635\u0631 \u067E\u0647 ${issue2.origin} \u06A9\u06D0`;
+      default:
+        return `\u0646\u0627\u0633\u0645\u0647 \u0648\u0631\u0648\u062F\u064A`;
+    }
+  };
+};
+function ps_default() {
+  return {
+    localeError: error32()
+  };
+}
+
+// node_modules/zod/v4/locales/pl.js
+var error33 = () => {
+  const Sizable = {
+    string: { unit: "znak\xF3w", verb: "mie\u0107" },
+    file: { unit: "bajt\xF3w", verb: "mie\u0107" },
+    array: { unit: "element\xF3w", verb: "mie\u0107" },
+    set: { unit: "element\xF3w", verb: "mie\u0107" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "wyra\u017Cenie",
+    email: "adres email",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "data i godzina w formacie ISO",
+    date: "data w formacie ISO",
+    time: "godzina w formacie ISO",
+    duration: "czas trwania ISO",
+    ipv4: "adres IPv4",
+    ipv6: "adres IPv6",
+    cidrv4: "zakres IPv4",
+    cidrv6: "zakres IPv6",
+    base64: "ci\u0105g znak\xF3w zakodowany w formacie base64",
+    base64url: "ci\u0105g znak\xF3w zakodowany w formacie base64url",
+    json_string: "ci\u0105g znak\xF3w w formacie JSON",
+    e164: "liczba E.164",
+    jwt: "JWT",
+    template_literal: "wej\u015Bcie"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "liczba",
+    array: "tablica"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano instanceof ${issue2.expected}, otrzymano ${received}`;
+        }
+        return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano ${expected}, otrzymano ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano ${stringifyPrimitive(issue2.values[0])}`;
+        return `Nieprawid\u0142owa opcja: oczekiwano jednej z warto\u015Bci ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Za du\u017Ca warto\u015B\u0107: oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie mie\u0107 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element\xF3w"}`;
+        }
+        return `Zbyt du\u017C(y/a/e): oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie wynosi\u0107 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Za ma\u0142a warto\u015B\u0107: oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie mie\u0107 ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "element\xF3w"}`;
+        }
+        return `Zbyt ma\u0142(y/a/e): oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie wynosi\u0107 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi zaczyna\u0107 si\u0119 od "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi ko\u0144czy\u0107 si\u0119 na "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi zawiera\u0107 "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi odpowiada\u0107 wzorcowi ${_issue.pattern}`;
+        return `Nieprawid\u0142ow(y/a/e) ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Nieprawid\u0142owa liczba: musi by\u0107 wielokrotno\u015Bci\u0105 ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Nierozpoznane klucze${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Nieprawid\u0142owy klucz w ${issue2.origin}`;
+      case "invalid_union":
+        return "Nieprawid\u0142owe dane wej\u015Bciowe";
+      case "invalid_element":
+        return `Nieprawid\u0142owa warto\u015B\u0107 w ${issue2.origin}`;
+      default:
+        return `Nieprawid\u0142owe dane wej\u015Bciowe`;
+    }
+  };
+};
+function pl_default() {
+  return {
+    localeError: error33()
+  };
+}
+
+// node_modules/zod/v4/locales/pt.js
+var error34 = () => {
+  const Sizable = {
+    string: { unit: "caracteres", verb: "ter" },
+    file: { unit: "bytes", verb: "ter" },
+    array: { unit: "itens", verb: "ter" },
+    set: { unit: "itens", verb: "ter" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "padr\xE3o",
+    email: "endere\xE7o de e-mail",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "data e hora ISO",
+    date: "data ISO",
+    time: "hora ISO",
+    duration: "dura\xE7\xE3o ISO",
+    ipv4: "endere\xE7o IPv4",
+    ipv6: "endere\xE7o IPv6",
+    cidrv4: "faixa de IPv4",
+    cidrv6: "faixa de IPv6",
+    base64: "texto codificado em base64",
+    base64url: "URL codificada em base64",
+    json_string: "texto JSON",
+    e164: "n\xFAmero E.164",
+    jwt: "JWT",
+    template_literal: "entrada"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "n\xFAmero",
+    null: "nulo"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Tipo inv\xE1lido: esperado instanceof ${issue2.expected}, recebido ${received}`;
+        }
+        return `Tipo inv\xE1lido: esperado ${expected}, recebido ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Entrada inv\xE1lida: esperado ${stringifyPrimitive(issue2.values[0])}`;
+        return `Op\xE7\xE3o inv\xE1lida: esperada uma das ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Muito grande: esperado que ${issue2.origin ?? "valor"} tivesse ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementos"}`;
+        return `Muito grande: esperado que ${issue2.origin ?? "valor"} fosse ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Muito pequeno: esperado que ${issue2.origin} tivesse ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Muito pequeno: esperado que ${issue2.origin} fosse ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Texto inv\xE1lido: deve come\xE7ar com "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Texto inv\xE1lido: deve terminar com "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Texto inv\xE1lido: deve incluir "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Texto inv\xE1lido: deve corresponder ao padr\xE3o ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} inv\xE1lido`;
+      }
+      case "not_multiple_of":
+        return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Chave${issue2.keys.length > 1 ? "s" : ""} desconhecida${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Chave inv\xE1lida em ${issue2.origin}`;
+      case "invalid_union":
+        return "Entrada inv\xE1lida";
+      case "invalid_element":
+        return `Valor inv\xE1lido em ${issue2.origin}`;
+      default:
+        return `Campo inv\xE1lido`;
+    }
+  };
+};
+function pt_default() {
+  return {
+    localeError: error34()
+  };
+}
+
+// node_modules/zod/v4/locales/ru.js
+function getRussianPlural(count, one, few, many) {
+  const absCount = Math.abs(count);
+  const lastDigit = absCount % 10;
+  const lastTwoDigits = absCount % 100;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
+    return many;
+  }
+  if (lastDigit === 1) {
+    return one;
+  }
+  if (lastDigit >= 2 && lastDigit <= 4) {
+    return few;
+  }
+  return many;
+}
+var error35 = () => {
+  const Sizable = {
+    string: {
+      unit: {
+        one: "\u0441\u0438\u043C\u0432\u043E\u043B",
+        few: "\u0441\u0438\u043C\u0432\u043E\u043B\u0430",
+        many: "\u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432"
+      },
+      verb: "\u0438\u043C\u0435\u0442\u044C"
+    },
+    file: {
+      unit: {
+        one: "\u0431\u0430\u0439\u0442",
+        few: "\u0431\u0430\u0439\u0442\u0430",
+        many: "\u0431\u0430\u0439\u0442"
+      },
+      verb: "\u0438\u043C\u0435\u0442\u044C"
+    },
+    array: {
+      unit: {
+        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
+        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430",
+        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432"
+      },
+      verb: "\u0438\u043C\u0435\u0442\u044C"
+    },
+    set: {
+      unit: {
+        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
+        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430",
+        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432"
+      },
+      verb: "\u0438\u043C\u0435\u0442\u044C"
+    }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0432\u0432\u043E\u0434",
+    email: "email \u0430\u0434\u0440\u0435\u0441",
+    url: "URL",
+    emoji: "\u044D\u043C\u043E\u0434\u0437\u0438",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u0434\u0430\u0442\u0430 \u0438 \u0432\u0440\u0435\u043C\u044F",
+    date: "ISO \u0434\u0430\u0442\u0430",
+    time: "ISO \u0432\u0440\u0435\u043C\u044F",
+    duration: "ISO \u0434\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C",
+    ipv4: "IPv4 \u0430\u0434\u0440\u0435\u0441",
+    ipv6: "IPv6 \u0430\u0434\u0440\u0435\u0441",
+    cidrv4: "IPv4 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
+    cidrv6: "IPv6 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
+    base64: "\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 base64",
+    base64url: "\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 base64url",
+    json_string: "JSON \u0441\u0442\u0440\u043E\u043A\u0430",
+    e164: "\u043D\u043E\u043C\u0435\u0440 E.164",
+    jwt: "JWT",
+    template_literal: "\u0432\u0432\u043E\u0434"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0447\u0438\u0441\u043B\u043E",
+    array: "\u043C\u0430\u0441\u0441\u0438\u0432"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C instanceof ${issue2.expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ${received}`;
+        }
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C ${expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0430\u0440\u0438\u0430\u043D\u0442: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0434\u043D\u043E \u0438\u0437 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          const maxValue = Number(issue2.maximum);
+          const unit = getRussianPlural(maxValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
+          return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"} \u0431\u0443\u0434\u0435\u0442 \u0438\u043C\u0435\u0442\u044C ${adj}${issue2.maximum.toString()} ${unit}`;
+        }
+        return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"} \u0431\u0443\u0434\u0435\u0442 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          const minValue = Number(issue2.minimum);
+          const unit = getRussianPlural(minValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
+          return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin} \u0431\u0443\u0434\u0435\u0442 \u0438\u043C\u0435\u0442\u044C ${adj}${issue2.minimum.toString()} ${unit}`;
+        }
+        return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin} \u0431\u0443\u0434\u0435\u0442 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u043D\u0430\u0447\u0438\u043D\u0430\u0442\u044C\u0441\u044F \u0441 "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0437\u0430\u043A\u0430\u043D\u0447\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043D\u0430 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u0434\u0435\u0440\u0436\u0430\u0442\u044C "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u043E\u0432\u0430\u0442\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u0447\u0438\u0441\u043B\u043E: \u0434\u043E\u043B\u0436\u043D\u043E \u0431\u044B\u0442\u044C \u043A\u0440\u0430\u0442\u043D\u044B\u043C ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u041D\u0435\u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043D\u043D${issue2.keys.length > 1 ? "\u044B\u0435" : "\u044B\u0439"} \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u0438" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u0432 ${issue2.origin}`;
+      case "invalid_union":
+        return "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u0432\u0445\u043E\u0434\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435";
+      case "invalid_element":
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0432 ${issue2.origin}`;
+      default:
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u0432\u0445\u043E\u0434\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435`;
+    }
+  };
+};
+function ru_default() {
+  return {
+    localeError: error35()
+  };
+}
+
+// node_modules/zod/v4/locales/sl.js
+var error36 = () => {
+  const Sizable = {
+    string: { unit: "znakov", verb: "imeti" },
+    file: { unit: "bajtov", verb: "imeti" },
+    array: { unit: "elementov", verb: "imeti" },
+    set: { unit: "elementov", verb: "imeti" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "vnos",
+    email: "e-po\u0161tni naslov",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO datum in \u010Das",
+    date: "ISO datum",
+    time: "ISO \u010Das",
+    duration: "ISO trajanje",
+    ipv4: "IPv4 naslov",
+    ipv6: "IPv6 naslov",
+    cidrv4: "obseg IPv4",
+    cidrv6: "obseg IPv6",
+    base64: "base64 kodiran niz",
+    base64url: "base64url kodiran niz",
+    json_string: "JSON niz",
+    e164: "E.164 \u0161tevilka",
+    jwt: "JWT",
+    template_literal: "vnos"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0161tevilo",
+    array: "tabela"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Neveljaven vnos: pri\u010Dakovano instanceof ${issue2.expected}, prejeto ${received}`;
+        }
+        return `Neveljaven vnos: pri\u010Dakovano ${expected}, prejeto ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Neveljaven vnos: pri\u010Dakovano ${stringifyPrimitive(issue2.values[0])}`;
+        return `Neveljavna mo\u017Enost: pri\u010Dakovano eno izmed ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Preveliko: pri\u010Dakovano, da bo ${issue2.origin ?? "vrednost"} imelo ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementov"}`;
+        return `Preveliko: pri\u010Dakovano, da bo ${issue2.origin ?? "vrednost"} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Premajhno: pri\u010Dakovano, da bo ${issue2.origin} imelo ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Premajhno: pri\u010Dakovano, da bo ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Neveljaven niz: mora se za\u010Deti z "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `Neveljaven niz: mora se kon\u010Dati z "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Neveljaven niz: mora vsebovati "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Neveljaven niz: mora ustrezati vzorcu ${_issue.pattern}`;
+        return `Neveljaven ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Neveljavno \u0161tevilo: mora biti ve\u010Dkratnik ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Neprepoznan${issue2.keys.length > 1 ? "i klju\u010Di" : " klju\u010D"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Neveljaven klju\u010D v ${issue2.origin}`;
+      case "invalid_union":
+        return "Neveljaven vnos";
+      case "invalid_element":
+        return `Neveljavna vrednost v ${issue2.origin}`;
+      default:
+        return "Neveljaven vnos";
+    }
+  };
+};
+function sl_default() {
+  return {
+    localeError: error36()
+  };
+}
+
+// node_modules/zod/v4/locales/sv.js
+var error37 = () => {
+  const Sizable = {
+    string: { unit: "tecken", verb: "att ha" },
+    file: { unit: "bytes", verb: "att ha" },
+    array: { unit: "objekt", verb: "att inneh\xE5lla" },
+    set: { unit: "objekt", verb: "att inneh\xE5lla" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "regulj\xE4rt uttryck",
+    email: "e-postadress",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO-datum och tid",
+    date: "ISO-datum",
+    time: "ISO-tid",
+    duration: "ISO-varaktighet",
+    ipv4: "IPv4-intervall",
+    ipv6: "IPv6-intervall",
+    cidrv4: "IPv4-spektrum",
+    cidrv6: "IPv6-spektrum",
+    base64: "base64-kodad str\xE4ng",
+    base64url: "base64url-kodad str\xE4ng",
+    json_string: "JSON-str\xE4ng",
+    e164: "E.164-nummer",
+    jwt: "JWT",
+    template_literal: "mall-literal"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "antal",
+    array: "lista"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Ogiltig inmatning: f\xF6rv\xE4ntat instanceof ${issue2.expected}, fick ${received}`;
+        }
+        return `Ogiltig inmatning: f\xF6rv\xE4ntat ${expected}, fick ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Ogiltig inmatning: f\xF6rv\xE4ntat ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ogiltigt val: f\xF6rv\xE4ntade en av ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `F\xF6r stor(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
+        }
+        return `F\xF6r stor(t): f\xF6rv\xE4ntat ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `F\xF6r lite(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `F\xF6r lite(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Ogiltig str\xE4ng: m\xE5ste b\xF6rja med "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `Ogiltig str\xE4ng: m\xE5ste sluta med "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Ogiltig str\xE4ng: m\xE5ste inneh\xE5lla "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Ogiltig str\xE4ng: m\xE5ste matcha m\xF6nstret "${_issue.pattern}"`;
+        return `Ogiltig(t) ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Ogiltigt tal: m\xE5ste vara en multipel av ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `${issue2.keys.length > 1 ? "Ok\xE4nda nycklar" : "Ok\xE4nd nyckel"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Ogiltig nyckel i ${issue2.origin ?? "v\xE4rdet"}`;
+      case "invalid_union":
+        return "Ogiltig input";
+      case "invalid_element":
+        return `Ogiltigt v\xE4rde i ${issue2.origin ?? "v\xE4rdet"}`;
+      default:
+        return `Ogiltig input`;
+    }
+  };
+};
+function sv_default() {
+  return {
+    localeError: error37()
+  };
+}
+
+// node_modules/zod/v4/locales/ta.js
+var error38 = () => {
+  const Sizable = {
+    string: { unit: "\u0B8E\u0BB4\u0BC1\u0BA4\u0BCD\u0BA4\u0BC1\u0B95\u0BCD\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
+    file: { unit: "\u0BAA\u0BC8\u0B9F\u0BCD\u0B9F\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
+    array: { unit: "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
+    set: { unit: "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1",
+    email: "\u0BAE\u0BBF\u0BA9\u0BCD\u0BA9\u0B9E\u0BCD\u0B9A\u0BB2\u0BCD \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u0BA4\u0BC7\u0BA4\u0BBF \u0BA8\u0BC7\u0BB0\u0BAE\u0BCD",
+    date: "ISO \u0BA4\u0BC7\u0BA4\u0BBF",
+    time: "ISO \u0BA8\u0BC7\u0BB0\u0BAE\u0BCD",
+    duration: "ISO \u0B95\u0BBE\u0BB2 \u0B85\u0BB3\u0BB5\u0BC1",
+    ipv4: "IPv4 \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
+    ipv6: "IPv6 \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
+    cidrv4: "IPv4 \u0BB5\u0BB0\u0BAE\u0BCD\u0BAA\u0BC1",
+    cidrv6: "IPv6 \u0BB5\u0BB0\u0BAE\u0BCD\u0BAA\u0BC1",
+    base64: "base64-encoded \u0B9A\u0BB0\u0BAE\u0BCD",
+    base64url: "base64url-encoded \u0B9A\u0BB0\u0BAE\u0BCD",
+    json_string: "JSON \u0B9A\u0BB0\u0BAE\u0BCD",
+    e164: "E.164 \u0B8E\u0BA3\u0BCD",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0B8E\u0BA3\u0BCD",
+    array: "\u0B85\u0BA3\u0BBF",
+    null: "\u0BB5\u0BC6\u0BB1\u0BC1\u0BAE\u0BC8"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 instanceof ${issue2.expected}, \u0BAA\u0BC6\u0BB1\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${received}`;
+        }
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${expected}, \u0BAA\u0BC6\u0BB1\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BB5\u0BBF\u0BB0\u0BC1\u0BAA\u0BCD\u0BAA\u0BAE\u0BCD: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${joinValues(issue2.values, "|")} \u0B87\u0BB2\u0BCD \u0B92\u0BA9\u0BCD\u0BB1\u0BC1`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0BAE\u0BBF\u0B95 \u0BAA\u0BC6\u0BB0\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin ?? "\u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD"} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        }
+        return `\u0BAE\u0BBF\u0B95 \u0BAA\u0BC6\u0BB0\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin ?? "\u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1"} ${adj}${issue2.maximum.toString()} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0BAE\u0BBF\u0B95\u0B9A\u0BCD \u0B9A\u0BBF\u0BB1\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        }
+        return `\u0BAE\u0BBF\u0B95\u0B9A\u0BCD \u0B9A\u0BBF\u0BB1\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin} ${adj}${issue2.minimum.toString()} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.prefix}" \u0B87\u0BB2\u0BCD \u0BA4\u0BCA\u0B9F\u0B99\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        if (_issue.format === "ends_with")
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.suffix}" \u0B87\u0BB2\u0BCD \u0BAE\u0BC1\u0B9F\u0BBF\u0BB5\u0B9F\u0BC8\u0BAF \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        if (_issue.format === "includes")
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.includes}" \u0B90 \u0B89\u0BB3\u0BCD\u0BB3\u0B9F\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        if (_issue.format === "regex")
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: ${_issue.pattern} \u0BAE\u0BC1\u0BB1\u0BC8\u0BAA\u0BBE\u0B9F\u0BCD\u0B9F\u0BC1\u0B9F\u0BA9\u0BCD \u0BAA\u0BCA\u0BB0\u0BC1\u0BA8\u0BCD\u0BA4 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B8E\u0BA3\u0BCD: ${issue2.divisor} \u0B87\u0BA9\u0BCD \u0BAA\u0BB2\u0BAE\u0BBE\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+      case "unrecognized_keys":
+        return `\u0B85\u0B9F\u0BC8\u0BAF\u0BBE\u0BB3\u0BAE\u0BCD \u0BA4\u0BC6\u0BB0\u0BBF\u0BAF\u0BBE\u0BA4 \u0BB5\u0BBF\u0B9A\u0BC8${issue2.keys.length > 1 ? "\u0B95\u0BB3\u0BCD" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `${issue2.origin} \u0B87\u0BB2\u0BCD \u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BB5\u0BBF\u0B9A\u0BC8`;
+      case "invalid_union":
+        return "\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1";
+      case "invalid_element":
+        return `${issue2.origin} \u0B87\u0BB2\u0BCD \u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1`;
+      default:
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1`;
+    }
+  };
+};
+function ta_default() {
+  return {
+    localeError: error38()
+  };
+}
+
+// node_modules/zod/v4/locales/th.js
+var error39 = () => {
+  const Sizable = {
+    string: { unit: "\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
+    file: { unit: "\u0E44\u0E1A\u0E15\u0E4C", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
+    array: { unit: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
+    set: { unit: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E1B\u0E49\u0E2D\u0E19",
+    email: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48\u0E2D\u0E35\u0E40\u0E21\u0E25",
+    url: "URL",
+    emoji: "\u0E2D\u0E34\u0E42\u0E21\u0E08\u0E34",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E27\u0E25\u0E32\u0E41\u0E1A\u0E1A ISO",
+    date: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E41\u0E1A\u0E1A ISO",
+    time: "\u0E40\u0E27\u0E25\u0E32\u0E41\u0E1A\u0E1A ISO",
+    duration: "\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32\u0E41\u0E1A\u0E1A ISO",
+    ipv4: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48 IPv4",
+    ipv6: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48 IPv6",
+    cidrv4: "\u0E0A\u0E48\u0E27\u0E07 IP \u0E41\u0E1A\u0E1A IPv4",
+    cidrv6: "\u0E0A\u0E48\u0E27\u0E07 IP \u0E41\u0E1A\u0E1A IPv6",
+    base64: "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1A\u0E1A Base64",
+    base64url: "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1A\u0E1A Base64 \u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A URL",
+    json_string: "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1A\u0E1A JSON",
+    e164: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23\u0E28\u0E31\u0E1E\u0E17\u0E4C\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07\u0E1B\u0E23\u0E30\u0E40\u0E17\u0E28 (E.164)",
+    jwt: "\u0E42\u0E17\u0E40\u0E04\u0E19 JWT",
+    template_literal: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E1B\u0E49\u0E2D\u0E19"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02",
+    array: "\u0E2D\u0E32\u0E23\u0E4C\u0E40\u0E23\u0E22\u0E4C (Array)",
+    null: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E48\u0E32 (null)"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 instanceof ${issue2.expected} \u0E41\u0E15\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A ${received}`;
+        }
+        return `\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 ${expected} \u0E41\u0E15\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u0E04\u0E48\u0E32\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u0E15\u0E31\u0E27\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E19\u0E36\u0E48\u0E07\u0E43\u0E19 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19" : "\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin ?? "\u0E04\u0E48\u0E32"} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"}`;
+        return `\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin ?? "\u0E04\u0E48\u0E32"} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? "\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22" : "\u0E21\u0E32\u0E01\u0E01\u0E27\u0E48\u0E32";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E02\u0E36\u0E49\u0E19\u0E15\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22 "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E25\u0E07\u0E17\u0E49\u0E32\u0E22\u0E14\u0E49\u0E27\u0E22 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35 "${_issue.includes}" \u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21`;
+        if (_issue.format === "regex")
+          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E15\u0E49\u0E2D\u0E07\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14 ${_issue.pattern}`;
+        return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E08\u0E33\u0E19\u0E27\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E32\u0E23\u0E14\u0E49\u0E27\u0E22 ${issue2.divisor} \u0E44\u0E14\u0E49\u0E25\u0E07\u0E15\u0E31\u0E27`;
+      case "unrecognized_keys":
+        return `\u0E1E\u0E1A\u0E04\u0E35\u0E22\u0E4C\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E23\u0E39\u0E49\u0E08\u0E31\u0E01: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u0E04\u0E35\u0E22\u0E4C\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19 ${issue2.origin}`;
+      case "invalid_union":
+        return "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E44\u0E21\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E22\u0E39\u0E40\u0E19\u0E35\u0E22\u0E19\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E44\u0E27\u0E49";
+      case "invalid_element":
+        return `\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19 ${issue2.origin}`;
+      default:
+        return `\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07`;
+    }
+  };
+};
+function th_default() {
+  return {
+    localeError: error39()
+  };
+}
+
+// node_modules/zod/v4/locales/tr.js
+var error40 = () => {
+  const Sizable = {
+    string: { unit: "karakter", verb: "olmal\u0131" },
+    file: { unit: "bayt", verb: "olmal\u0131" },
+    array: { unit: "\xF6\u011Fe", verb: "olmal\u0131" },
+    set: { unit: "\xF6\u011Fe", verb: "olmal\u0131" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "girdi",
+    email: "e-posta adresi",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO tarih ve saat",
+    date: "ISO tarih",
+    time: "ISO saat",
+    duration: "ISO s\xFCre",
+    ipv4: "IPv4 adresi",
+    ipv6: "IPv6 adresi",
+    cidrv4: "IPv4 aral\u0131\u011F\u0131",
+    cidrv6: "IPv6 aral\u0131\u011F\u0131",
+    base64: "base64 ile \u015Fifrelenmi\u015F metin",
+    base64url: "base64url ile \u015Fifrelenmi\u015F metin",
+    json_string: "JSON dizesi",
+    e164: "E.164 say\u0131s\u0131",
+    jwt: "JWT",
+    template_literal: "\u015Eablon dizesi"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Ge\xE7ersiz de\u011Fer: beklenen instanceof ${issue2.expected}, al\u0131nan ${received}`;
+        }
+        return `Ge\xE7ersiz de\u011Fer: beklenen ${expected}, al\u0131nan ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Ge\xE7ersiz de\u011Fer: beklenen ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ge\xE7ersiz se\xE7enek: a\u015Fa\u011F\u0131dakilerden biri olmal\u0131: ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\xC7ok b\xFCy\xFCk: beklenen ${issue2.origin ?? "de\u011Fer"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\xF6\u011Fe"}`;
+        return `\xC7ok b\xFCy\xFCk: beklenen ${issue2.origin ?? "de\u011Fer"} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\xC7ok k\xFC\xE7\xFCk: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        return `\xC7ok k\xFC\xE7\xFCk: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Ge\xE7ersiz metin: "${_issue.prefix}" ile ba\u015Flamal\u0131`;
+        if (_issue.format === "ends_with")
+          return `Ge\xE7ersiz metin: "${_issue.suffix}" ile bitmeli`;
+        if (_issue.format === "includes")
+          return `Ge\xE7ersiz metin: "${_issue.includes}" i\xE7ermeli`;
+        if (_issue.format === "regex")
+          return `Ge\xE7ersiz metin: ${_issue.pattern} desenine uymal\u0131`;
+        return `Ge\xE7ersiz ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Ge\xE7ersiz say\u0131: ${issue2.divisor} ile tam b\xF6l\xFCnebilmeli`;
+      case "unrecognized_keys":
+        return `Tan\u0131nmayan anahtar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `${issue2.origin} i\xE7inde ge\xE7ersiz anahtar`;
+      case "invalid_union":
+        return "Ge\xE7ersiz de\u011Fer";
+      case "invalid_element":
+        return `${issue2.origin} i\xE7inde ge\xE7ersiz de\u011Fer`;
+      default:
+        return `Ge\xE7ersiz de\u011Fer`;
+    }
+  };
+};
+function tr_default() {
+  return {
+    localeError: error40()
+  };
+}
+
+// node_modules/zod/v4/locales/uk.js
+var error41 = () => {
+  const Sizable = {
+    string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
+    file: { unit: "\u0431\u0430\u0439\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
+    array: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
+    set: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456",
+    email: "\u0430\u0434\u0440\u0435\u0441\u0430 \u0435\u043B\u0435\u043A\u0442\u0440\u043E\u043D\u043D\u043E\u0457 \u043F\u043E\u0448\u0442\u0438",
+    url: "URL",
+    emoji: "\u0435\u043C\u043E\u0434\u0437\u0456",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u0434\u0430\u0442\u0430 \u0442\u0430 \u0447\u0430\u0441 ISO",
+    date: "\u0434\u0430\u0442\u0430 ISO",
+    time: "\u0447\u0430\u0441 ISO",
+    duration: "\u0442\u0440\u0438\u0432\u0430\u043B\u0456\u0441\u0442\u044C ISO",
+    ipv4: "\u0430\u0434\u0440\u0435\u0441\u0430 IPv4",
+    ipv6: "\u0430\u0434\u0440\u0435\u0441\u0430 IPv6",
+    cidrv4: "\u0434\u0456\u0430\u043F\u0430\u0437\u043E\u043D IPv4",
+    cidrv6: "\u0434\u0456\u0430\u043F\u0430\u0437\u043E\u043D IPv6",
+    base64: "\u0440\u044F\u0434\u043E\u043A \u0443 \u043A\u043E\u0434\u0443\u0432\u0430\u043D\u043D\u0456 base64",
+    base64url: "\u0440\u044F\u0434\u043E\u043A \u0443 \u043A\u043E\u0434\u0443\u0432\u0430\u043D\u043D\u0456 base64url",
+    json_string: "\u0440\u044F\u0434\u043E\u043A JSON",
+    e164: "\u043D\u043E\u043C\u0435\u0440 E.164",
+    jwt: "JWT",
+    template_literal: "\u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0447\u0438\u0441\u043B\u043E",
+    array: "\u043C\u0430\u0441\u0438\u0432"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F instanceof ${issue2.expected}, \u043E\u0442\u0440\u0438\u043C\u0430\u043D\u043E ${received}`;
+        }
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F ${expected}, \u043E\u0442\u0440\u0438\u043C\u0430\u043D\u043E ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0430 \u043E\u043F\u0446\u0456\u044F: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F \u043E\u0434\u043D\u0435 \u0437 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u0432\u0435\u043B\u0438\u043A\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432"}`;
+        return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u0432\u0435\u043B\u0438\u043A\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F"} \u0431\u0443\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u043C\u0430\u043B\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u043C\u0430\u043B\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin} \u0431\u0443\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u043F\u043E\u0447\u0438\u043D\u0430\u0442\u0438\u0441\u044F \u0437 "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u0437\u0430\u043A\u0456\u043D\u0447\u0443\u0432\u0430\u0442\u0438\u0441\u044F \u043D\u0430 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u043C\u0456\u0441\u0442\u0438\u0442\u0438 "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u0442\u0438 \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0435 \u0447\u0438\u0441\u043B\u043E: \u043F\u043E\u0432\u0438\u043D\u043D\u043E \u0431\u0443\u0442\u0438 \u043A\u0440\u0430\u0442\u043D\u0438\u043C ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u041D\u0435\u0440\u043E\u0437\u043F\u0456\u0437\u043D\u0430\u043D\u0438\u0439 \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u0456" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u043A\u043B\u044E\u0447 \u0443 ${issue2.origin}`;
+      case "invalid_union":
+        return "\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456";
+      case "invalid_element":
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u0443 ${issue2.origin}`;
+      default:
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456`;
+    }
+  };
+};
+function uk_default() {
+  return {
+    localeError: error41()
+  };
+}
+
+// node_modules/zod/v4/locales/ua.js
+function ua_default() {
+  return uk_default();
+}
+
+// node_modules/zod/v4/locales/ur.js
+var error42 = () => {
+  const Sizable = {
+    string: { unit: "\u062D\u0631\u0648\u0641", verb: "\u06C1\u0648\u0646\u0627" },
+    file: { unit: "\u0628\u0627\u0626\u0679\u0633", verb: "\u06C1\u0648\u0646\u0627" },
+    array: { unit: "\u0622\u0626\u0679\u0645\u0632", verb: "\u06C1\u0648\u0646\u0627" },
+    set: { unit: "\u0622\u0626\u0679\u0645\u0632", verb: "\u06C1\u0648\u0646\u0627" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0627\u0646 \u067E\u0679",
+    email: "\u0627\u06CC \u0645\u06CC\u0644 \u0627\u06CC\u0688\u0631\u06CC\u0633",
+    url: "\u06CC\u0648 \u0622\u0631 \u0627\u06CC\u0644",
+    emoji: "\u0627\u06CC\u0645\u0648\u062C\u06CC",
+    uuid: "\u06CC\u0648 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
+    uuidv4: "\u06CC\u0648 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC \u0648\u06CC 4",
+    uuidv6: "\u06CC\u0648 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC \u0648\u06CC 6",
+    nanoid: "\u0646\u06CC\u0646\u0648 \u0622\u0626\u06CC \u0688\u06CC",
+    guid: "\u062C\u06CC \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
+    cuid: "\u0633\u06CC \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
+    cuid2: "\u0633\u06CC \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC 2",
+    ulid: "\u06CC\u0648 \u0627\u06CC\u0644 \u0622\u0626\u06CC \u0688\u06CC",
+    xid: "\u0627\u06CC\u06A9\u0633 \u0622\u0626\u06CC \u0688\u06CC",
+    ksuid: "\u06A9\u06D2 \u0627\u06CC\u0633 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
+    datetime: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u0688\u06CC\u0679 \u0679\u0627\u0626\u0645",
+    date: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u062A\u0627\u0631\u06CC\u062E",
+    time: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u0648\u0642\u062A",
+    duration: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u0645\u062F\u062A",
+    ipv4: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 4 \u0627\u06CC\u0688\u0631\u06CC\u0633",
+    ipv6: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 6 \u0627\u06CC\u0688\u0631\u06CC\u0633",
+    cidrv4: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 4 \u0631\u06CC\u0646\u062C",
+    cidrv6: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 6 \u0631\u06CC\u0646\u062C",
+    base64: "\u0628\u06CC\u0633 64 \u0627\u0646 \u06A9\u0648\u0688\u0688 \u0633\u0679\u0631\u0646\u06AF",
+    base64url: "\u0628\u06CC\u0633 64 \u06CC\u0648 \u0622\u0631 \u0627\u06CC\u0644 \u0627\u0646 \u06A9\u0648\u0688\u0688 \u0633\u0679\u0631\u0646\u06AF",
+    json_string: "\u062C\u06D2 \u0627\u06CC\u0633 \u0627\u0648 \u0627\u06CC\u0646 \u0633\u0679\u0631\u0646\u06AF",
+    e164: "\u0627\u06CC 164 \u0646\u0645\u0628\u0631",
+    jwt: "\u062C\u06D2 \u0688\u0628\u0644\u06CC\u0648 \u0679\u06CC",
+    template_literal: "\u0627\u0646 \u067E\u0679"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0646\u0645\u0628\u0631",
+    array: "\u0622\u0631\u06D2",
+    null: "\u0646\u0644"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: instanceof ${issue2.expected} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627\u060C ${received} \u0645\u0648\u0635\u0648\u0644 \u06C1\u0648\u0627`;
+        }
+        return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: ${expected} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627\u060C ${received} \u0645\u0648\u0635\u0648\u0644 \u06C1\u0648\u0627`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: ${stringifyPrimitive(issue2.values[0])} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+        return `\u063A\u0644\u0637 \u0622\u067E\u0634\u0646: ${joinValues(issue2.values, "|")} \u0645\u06CC\u06BA \u0633\u06D2 \u0627\u06CC\u06A9 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u0628\u06C1\u062A \u0628\u0691\u0627: ${issue2.origin ?? "\u0648\u06CC\u0644\u06CC\u0648"} \u06A9\u06D2 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0627\u0635\u0631"} \u06C1\u0648\u0646\u06D2 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u06D2`;
+        return `\u0628\u06C1\u062A \u0628\u0691\u0627: ${issue2.origin ?? "\u0648\u06CC\u0644\u06CC\u0648"} \u06A9\u0627 ${adj}${issue2.maximum.toString()} \u06C1\u0648\u0646\u0627 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0628\u06C1\u062A \u0686\u06BE\u0648\u0679\u0627: ${issue2.origin} \u06A9\u06D2 ${adj}${issue2.minimum.toString()} ${sizing.unit} \u06C1\u0648\u0646\u06D2 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u06D2`;
+        }
+        return `\u0628\u06C1\u062A \u0686\u06BE\u0648\u0679\u0627: ${issue2.origin} \u06A9\u0627 ${adj}${issue2.minimum.toString()} \u06C1\u0648\u0646\u0627 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.prefix}" \u0633\u06D2 \u0634\u0631\u0648\u0639 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.suffix}" \u067E\u0631 \u062E\u062A\u0645 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+        if (_issue.format === "includes")
+          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.includes}" \u0634\u0627\u0645\u0644 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+        if (_issue.format === "regex")
+          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: \u067E\u06CC\u0679\u0631\u0646 ${_issue.pattern} \u0633\u06D2 \u0645\u06CC\u0686 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+        return `\u063A\u0644\u0637 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u063A\u0644\u0637 \u0646\u0645\u0628\u0631: ${issue2.divisor} \u06A9\u0627 \u0645\u0636\u0627\u0639\u0641 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+      case "unrecognized_keys":
+        return `\u063A\u06CC\u0631 \u062A\u0633\u0644\u06CC\u0645 \u0634\u062F\u06C1 \u06A9\u06CC${issue2.keys.length > 1 ? "\u0632" : ""}: ${joinValues(issue2.keys, "\u060C ")}`;
+      case "invalid_key":
+        return `${issue2.origin} \u0645\u06CC\u06BA \u063A\u0644\u0637 \u06A9\u06CC`;
+      case "invalid_union":
+        return "\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679";
+      case "invalid_element":
+        return `${issue2.origin} \u0645\u06CC\u06BA \u063A\u0644\u0637 \u0648\u06CC\u0644\u06CC\u0648`;
+      default:
+        return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679`;
+    }
+  };
+};
+function ur_default() {
+  return {
+    localeError: error42()
+  };
+}
+
+// node_modules/zod/v4/locales/uz.js
+var error43 = () => {
+  const Sizable = {
+    string: { unit: "belgi", verb: "bo\u2018lishi kerak" },
+    file: { unit: "bayt", verb: "bo\u2018lishi kerak" },
+    array: { unit: "element", verb: "bo\u2018lishi kerak" },
+    set: { unit: "element", verb: "bo\u2018lishi kerak" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "kirish",
+    email: "elektron pochta manzili",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO sana va vaqti",
+    date: "ISO sana",
+    time: "ISO vaqt",
+    duration: "ISO davomiylik",
+    ipv4: "IPv4 manzil",
+    ipv6: "IPv6 manzil",
+    mac: "MAC manzil",
+    cidrv4: "IPv4 diapazon",
+    cidrv6: "IPv6 diapazon",
+    base64: "base64 kodlangan satr",
+    base64url: "base64url kodlangan satr",
+    json_string: "JSON satr",
+    e164: "E.164 raqam",
+    jwt: "JWT",
+    template_literal: "kirish"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "raqam",
+    array: "massiv"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Noto\u2018g\u2018ri kirish: kutilgan instanceof ${issue2.expected}, qabul qilingan ${received}`;
+        }
+        return `Noto\u2018g\u2018ri kirish: kutilgan ${expected}, qabul qilingan ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Noto\u2018g\u2018ri kirish: kutilgan ${stringifyPrimitive(issue2.values[0])}`;
+        return `Noto\u2018g\u2018ri variant: quyidagilardan biri kutilgan ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Juda katta: kutilgan ${issue2.origin ?? "qiymat"} ${adj}${issue2.maximum.toString()} ${sizing.unit} ${sizing.verb}`;
+        return `Juda katta: kutilgan ${issue2.origin ?? "qiymat"} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Juda kichik: kutilgan ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+        }
+        return `Juda kichik: kutilgan ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Noto\u2018g\u2018ri satr: "${_issue.prefix}" bilan boshlanishi kerak`;
+        if (_issue.format === "ends_with")
+          return `Noto\u2018g\u2018ri satr: "${_issue.suffix}" bilan tugashi kerak`;
+        if (_issue.format === "includes")
+          return `Noto\u2018g\u2018ri satr: "${_issue.includes}" ni o\u2018z ichiga olishi kerak`;
+        if (_issue.format === "regex")
+          return `Noto\u2018g\u2018ri satr: ${_issue.pattern} shabloniga mos kelishi kerak`;
+        return `Noto\u2018g\u2018ri ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Noto\u2018g\u2018ri raqam: ${issue2.divisor} ning karralisi bo\u2018lishi kerak`;
+      case "unrecognized_keys":
+        return `Noma\u2019lum kalit${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `${issue2.origin} dagi kalit noto\u2018g\u2018ri`;
+      case "invalid_union":
+        return "Noto\u2018g\u2018ri kirish";
+      case "invalid_element":
+        return `${issue2.origin} da noto\u2018g\u2018ri qiymat`;
+      default:
+        return `Noto\u2018g\u2018ri kirish`;
+    }
+  };
+};
+function uz_default() {
+  return {
+    localeError: error43()
+  };
+}
+
+// node_modules/zod/v4/locales/vi.js
+var error44 = () => {
+  const Sizable = {
+    string: { unit: "k\xFD t\u1EF1", verb: "c\xF3" },
+    file: { unit: "byte", verb: "c\xF3" },
+    array: { unit: "ph\u1EA7n t\u1EED", verb: "c\xF3" },
+    set: { unit: "ph\u1EA7n t\u1EED", verb: "c\xF3" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0111\u1EA7u v\xE0o",
+    email: "\u0111\u1ECBa ch\u1EC9 email",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ng\xE0y gi\u1EDD ISO",
+    date: "ng\xE0y ISO",
+    time: "gi\u1EDD ISO",
+    duration: "kho\u1EA3ng th\u1EDDi gian ISO",
+    ipv4: "\u0111\u1ECBa ch\u1EC9 IPv4",
+    ipv6: "\u0111\u1ECBa ch\u1EC9 IPv6",
+    cidrv4: "d\u1EA3i IPv4",
+    cidrv6: "d\u1EA3i IPv6",
+    base64: "chu\u1ED7i m\xE3 h\xF3a base64",
+    base64url: "chu\u1ED7i m\xE3 h\xF3a base64url",
+    json_string: "chu\u1ED7i JSON",
+    e164: "s\u1ED1 E.164",
+    jwt: "JWT",
+    template_literal: "\u0111\u1EA7u v\xE0o"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "s\u1ED1",
+    array: "m\u1EA3ng"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i instanceof ${issue2.expected}, nh\u1EADn \u0111\u01B0\u1EE3c ${received}`;
+        }
+        return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i ${expected}, nh\u1EADn \u0111\u01B0\u1EE3c ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i ${stringifyPrimitive(issue2.values[0])}`;
+        return `T\xF9y ch\u1ECDn kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i m\u1ED9t trong c\xE1c gi\xE1 tr\u1ECB ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Qu\xE1 l\u1EDBn: mong \u0111\u1EE3i ${issue2.origin ?? "gi\xE1 tr\u1ECB"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "ph\u1EA7n t\u1EED"}`;
+        return `Qu\xE1 l\u1EDBn: mong \u0111\u1EE3i ${issue2.origin ?? "gi\xE1 tr\u1ECB"} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Qu\xE1 nh\u1ECF: mong \u0111\u1EE3i ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Qu\xE1 nh\u1ECF: mong \u0111\u1EE3i ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i b\u1EAFt \u0111\u1EA7u b\u1EB1ng "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i k\u1EBFt th\xFAc b\u1EB1ng "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i bao g\u1ED3m "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i kh\u1EDBp v\u1EDBi m\u1EABu ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} kh\xF4ng h\u1EE3p l\u1EC7`;
+      }
+      case "not_multiple_of":
+        return `S\u1ED1 kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i l\xE0 b\u1ED9i s\u1ED1 c\u1EE7a ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Kh\xF3a kh\xF4ng \u0111\u01B0\u1EE3c nh\u1EADn d\u1EA1ng: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Kh\xF3a kh\xF4ng h\u1EE3p l\u1EC7 trong ${issue2.origin}`;
+      case "invalid_union":
+        return "\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7";
+      case "invalid_element":
+        return `Gi\xE1 tr\u1ECB kh\xF4ng h\u1EE3p l\u1EC7 trong ${issue2.origin}`;
+      default:
+        return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7`;
+    }
+  };
+};
+function vi_default() {
+  return {
+    localeError: error44()
+  };
+}
+
+// node_modules/zod/v4/locales/zh-CN.js
+var error45 = () => {
+  const Sizable = {
+    string: { unit: "\u5B57\u7B26", verb: "\u5305\u542B" },
+    file: { unit: "\u5B57\u8282", verb: "\u5305\u542B" },
+    array: { unit: "\u9879", verb: "\u5305\u542B" },
+    set: { unit: "\u9879", verb: "\u5305\u542B" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u8F93\u5165",
+    email: "\u7535\u5B50\u90AE\u4EF6",
+    url: "URL",
+    emoji: "\u8868\u60C5\u7B26\u53F7",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO\u65E5\u671F\u65F6\u95F4",
+    date: "ISO\u65E5\u671F",
+    time: "ISO\u65F6\u95F4",
+    duration: "ISO\u65F6\u957F",
+    ipv4: "IPv4\u5730\u5740",
+    ipv6: "IPv6\u5730\u5740",
+    cidrv4: "IPv4\u7F51\u6BB5",
+    cidrv6: "IPv6\u7F51\u6BB5",
+    base64: "base64\u7F16\u7801\u5B57\u7B26\u4E32",
+    base64url: "base64url\u7F16\u7801\u5B57\u7B26\u4E32",
+    json_string: "JSON\u5B57\u7B26\u4E32",
+    e164: "E.164\u53F7\u7801",
+    jwt: "JWT",
+    template_literal: "\u8F93\u5165"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u6570\u5B57",
+    array: "\u6570\u7EC4",
+    null: "\u7A7A\u503C(null)"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B instanceof ${issue2.expected}\uFF0C\u5B9E\u9645\u63A5\u6536 ${received}`;
+        }
+        return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B ${expected}\uFF0C\u5B9E\u9645\u63A5\u6536 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u65E0\u6548\u9009\u9879\uFF1A\u671F\u671B\u4EE5\u4E0B\u4E4B\u4E00 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u6570\u503C\u8FC7\u5927\uFF1A\u671F\u671B ${issue2.origin ?? "\u503C"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u4E2A\u5143\u7D20"}`;
+        return `\u6570\u503C\u8FC7\u5927\uFF1A\u671F\u671B ${issue2.origin ?? "\u503C"} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u6570\u503C\u8FC7\u5C0F\uFF1A\u671F\u671B ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u6570\u503C\u8FC7\u5C0F\uFF1A\u671F\u671B ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u4EE5 "${_issue.prefix}" \u5F00\u5934`;
+        if (_issue.format === "ends_with")
+          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u4EE5 "${_issue.suffix}" \u7ED3\u5C3E`;
+        if (_issue.format === "includes")
+          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u5305\u542B "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u6EE1\u8DB3\u6B63\u5219\u8868\u8FBE\u5F0F ${_issue.pattern}`;
+        return `\u65E0\u6548${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u65E0\u6548\u6570\u5B57\uFF1A\u5FC5\u987B\u662F ${issue2.divisor} \u7684\u500D\u6570`;
+      case "unrecognized_keys":
+        return `\u51FA\u73B0\u672A\u77E5\u7684\u952E(key): ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `${issue2.origin} \u4E2D\u7684\u952E(key)\u65E0\u6548`;
+      case "invalid_union":
+        return "\u65E0\u6548\u8F93\u5165";
+      case "invalid_element":
+        return `${issue2.origin} \u4E2D\u5305\u542B\u65E0\u6548\u503C(value)`;
+      default:
+        return `\u65E0\u6548\u8F93\u5165`;
+    }
+  };
+};
+function zh_CN_default() {
+  return {
+    localeError: error45()
+  };
+}
+
+// node_modules/zod/v4/locales/zh-TW.js
+var error46 = () => {
+  const Sizable = {
+    string: { unit: "\u5B57\u5143", verb: "\u64C1\u6709" },
+    file: { unit: "\u4F4D\u5143\u7D44", verb: "\u64C1\u6709" },
+    array: { unit: "\u9805\u76EE", verb: "\u64C1\u6709" },
+    set: { unit: "\u9805\u76EE", verb: "\u64C1\u6709" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u8F38\u5165",
+    email: "\u90F5\u4EF6\u5730\u5740",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u65E5\u671F\u6642\u9593",
+    date: "ISO \u65E5\u671F",
+    time: "ISO \u6642\u9593",
+    duration: "ISO \u671F\u9593",
+    ipv4: "IPv4 \u4F4D\u5740",
+    ipv6: "IPv6 \u4F4D\u5740",
+    cidrv4: "IPv4 \u7BC4\u570D",
+    cidrv6: "IPv6 \u7BC4\u570D",
+    base64: "base64 \u7DE8\u78BC\u5B57\u4E32",
+    base64url: "base64url \u7DE8\u78BC\u5B57\u4E32",
+    json_string: "JSON \u5B57\u4E32",
+    e164: "E.164 \u6578\u503C",
+    jwt: "JWT",
+    template_literal: "\u8F38\u5165"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA instanceof ${issue2.expected}\uFF0C\u4F46\u6536\u5230 ${received}`;
+        }
+        return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA ${expected}\uFF0C\u4F46\u6536\u5230 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u7121\u6548\u7684\u9078\u9805\uFF1A\u9810\u671F\u70BA\u4EE5\u4E0B\u5176\u4E2D\u4E4B\u4E00 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u6578\u503C\u904E\u5927\uFF1A\u9810\u671F ${issue2.origin ?? "\u503C"} \u61C9\u70BA ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u500B\u5143\u7D20"}`;
+        return `\u6578\u503C\u904E\u5927\uFF1A\u9810\u671F ${issue2.origin ?? "\u503C"} \u61C9\u70BA ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u6578\u503C\u904E\u5C0F\uFF1A\u9810\u671F ${issue2.origin} \u61C9\u70BA ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u6578\u503C\u904E\u5C0F\uFF1A\u9810\u671F ${issue2.origin} \u61C9\u70BA ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u4EE5 "${_issue.prefix}" \u958B\u982D`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u4EE5 "${_issue.suffix}" \u7D50\u5C3E`;
+        if (_issue.format === "includes")
+          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u5305\u542B "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u7B26\u5408\u683C\u5F0F ${_issue.pattern}`;
+        return `\u7121\u6548\u7684 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u7121\u6548\u7684\u6578\u5B57\uFF1A\u5FC5\u9808\u70BA ${issue2.divisor} \u7684\u500D\u6578`;
+      case "unrecognized_keys":
+        return `\u7121\u6CD5\u8B58\u5225\u7684\u9375\u503C${issue2.keys.length > 1 ? "\u5011" : ""}\uFF1A${joinValues(issue2.keys, "\u3001")}`;
+      case "invalid_key":
+        return `${issue2.origin} \u4E2D\u6709\u7121\u6548\u7684\u9375\u503C`;
+      case "invalid_union":
+        return "\u7121\u6548\u7684\u8F38\u5165\u503C";
+      case "invalid_element":
+        return `${issue2.origin} \u4E2D\u6709\u7121\u6548\u7684\u503C`;
+      default:
+        return `\u7121\u6548\u7684\u8F38\u5165\u503C`;
+    }
+  };
+};
+function zh_TW_default() {
+  return {
+    localeError: error46()
+  };
+}
+
+// node_modules/zod/v4/locales/yo.js
+var error47 = () => {
+  const Sizable = {
+    string: { unit: "\xE0mi", verb: "n\xED" },
+    file: { unit: "bytes", verb: "n\xED" },
+    array: { unit: "nkan", verb: "n\xED" },
+    set: { unit: "nkan", verb: "n\xED" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u1EB9\u0300r\u1ECD \xECb\xE1w\u1ECDl\xE9",
+    email: "\xE0d\xEDr\u1EB9\u0301s\xEC \xECm\u1EB9\u0301l\xEC",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\xE0k\xF3k\xF2 ISO",
+    date: "\u1ECDj\u1ECD\u0301 ISO",
+    time: "\xE0k\xF3k\xF2 ISO",
+    duration: "\xE0k\xF3k\xF2 t\xF3 p\xE9 ISO",
+    ipv4: "\xE0d\xEDr\u1EB9\u0301s\xEC IPv4",
+    ipv6: "\xE0d\xEDr\u1EB9\u0301s\xEC IPv6",
+    cidrv4: "\xE0gb\xE8gb\xE8 IPv4",
+    cidrv6: "\xE0gb\xE8gb\xE8 IPv6",
+    base64: "\u1ECD\u0300r\u1ECD\u0300 t\xED a k\u1ECD\u0301 n\xED base64",
+    base64url: "\u1ECD\u0300r\u1ECD\u0300 base64url",
+    json_string: "\u1ECD\u0300r\u1ECD\u0300 JSON",
+    e164: "n\u1ECD\u0301mb\xE0 E.164",
+    jwt: "JWT",
+    template_literal: "\u1EB9\u0300r\u1ECD \xECb\xE1w\u1ECDl\xE9"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "n\u1ECD\u0301mb\xE0",
+    array: "akop\u1ECD"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi instanceof ${issue2.expected}, \xE0m\u1ECD\u0300 a r\xED ${received}`;
+        }
+        return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi ${expected}, \xE0m\u1ECD\u0300 a r\xED ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi ${stringifyPrimitive(issue2.values[0])}`;
+        return `\xC0\u1E63\xE0y\xE0n a\u1E63\xEC\u1E63e: yan \u1ECD\u0300kan l\xE1ra ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `T\xF3 p\u1ECD\u0300 j\xF9: a n\xED l\xE1ti j\u1EB9\u0301 p\xE9 ${issue2.origin ?? "iye"} ${sizing.verb} ${adj}${issue2.maximum} ${sizing.unit}`;
+        return `T\xF3 p\u1ECD\u0300 j\xF9: a n\xED l\xE1ti j\u1EB9\u0301 ${adj}${issue2.maximum}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `K\xE9r\xE9 ju: a n\xED l\xE1ti j\u1EB9\u0301 p\xE9 ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum} ${sizing.unit}`;
+        return `K\xE9r\xE9 ju: a n\xED l\xE1ti j\u1EB9\u0301 ${adj}${issue2.minimum}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 b\u1EB9\u0300r\u1EB9\u0300 p\u1EB9\u0300l\xFA "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 par\xED p\u1EB9\u0300l\xFA "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 n\xED "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 b\xE1 \xE0p\u1EB9\u1EB9r\u1EB9 mu ${_issue.pattern}`;
+        return `A\u1E63\xEC\u1E63e: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `N\u1ECD\u0301mb\xE0 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 j\u1EB9\u0301 \xE8y\xE0 p\xEDp\xEDn ti ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `B\u1ECDt\xECn\xEC \xE0\xECm\u1ECD\u0300: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `B\u1ECDt\xECn\xEC a\u1E63\xEC\u1E63e n\xEDn\xFA ${issue2.origin}`;
+      case "invalid_union":
+        return "\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e";
+      case "invalid_element":
+        return `Iye a\u1E63\xEC\u1E63e n\xEDn\xFA ${issue2.origin}`;
+      default:
+        return "\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e";
+    }
+  };
+};
+function yo_default() {
+  return {
+    localeError: error47()
   };
 }
 
 // node_modules/zod/v4/core/registries.js
 var _a;
+var $output = /* @__PURE__ */ Symbol("ZodOutput");
+var $input = /* @__PURE__ */ Symbol("ZodInput");
 var $ZodRegistry = class {
   constructor() {
     this._map = /* @__PURE__ */ new WeakMap();
@@ -18067,6 +24960,14 @@ var globalRegistry = globalThis.__zod_globalRegistry;
 function _string(Class2, params) {
   return new Class2({
     type: "string",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _coercedString(Class2, params) {
+  return new Class2({
+    type: "string",
+    coerce: true,
     ...normalizeParams(params)
   });
 }
@@ -18303,6 +25204,13 @@ function _jwt(Class2, params) {
     ...normalizeParams(params)
   });
 }
+var TimePrecision = {
+  Any: null,
+  Minute: -1,
+  Second: 0,
+  Millisecond: 3,
+  Microsecond: 6
+};
 // @__NO_SIDE_EFFECTS__
 function _isoDateTime(Class2, params) {
   return new Class2({
@@ -18347,6 +25255,15 @@ function _isoDuration(Class2, params) {
 function _number(Class2, params) {
   return new Class2({
     type: "number",
+    checks: [],
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _coercedNumber(Class2, params) {
+  return new Class2({
+    type: "number",
+    coerce: true,
     checks: [],
     ...normalizeParams(params)
   });
@@ -18409,9 +25326,25 @@ function _boolean(Class2, params) {
   });
 }
 // @__NO_SIDE_EFFECTS__
+function _coercedBoolean(Class2, params) {
+  return new Class2({
+    type: "boolean",
+    coerce: true,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
 function _bigint(Class2, params) {
   return new Class2({
     type: "bigint",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _coercedBigint(Class2, params) {
+  return new Class2({
+    type: "bigint",
+    coerce: true,
     ...normalizeParams(params)
   });
 }
@@ -18486,6 +25419,14 @@ function _void(Class2, params) {
 function _date(Class2, params) {
   return new Class2({
     type: "date",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _coercedDate(Class2, params) {
+  return new Class2({
+    type: "date",
+    coerce: true,
     ...normalizeParams(params)
   });
 }
@@ -18713,10 +25654,197 @@ function _array(Class2, element, params) {
   });
 }
 // @__NO_SIDE_EFFECTS__
+function _union(Class2, options, params) {
+  return new Class2({
+    type: "union",
+    options,
+    ...normalizeParams(params)
+  });
+}
+function _xor(Class2, options, params) {
+  return new Class2({
+    type: "union",
+    options,
+    inclusive: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _discriminatedUnion(Class2, discriminator, options, params) {
+  return new Class2({
+    type: "union",
+    options,
+    discriminator,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _intersection(Class2, left, right) {
+  return new Class2({
+    type: "intersection",
+    left,
+    right
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _tuple(Class2, items, _paramsOrRest, _params) {
+  const hasRest = _paramsOrRest instanceof $ZodType;
+  const params = hasRest ? _params : _paramsOrRest;
+  const rest = hasRest ? _paramsOrRest : null;
+  return new Class2({
+    type: "tuple",
+    items,
+    rest,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _record(Class2, keyType, valueType, params) {
+  return new Class2({
+    type: "record",
+    keyType,
+    valueType,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _map(Class2, keyType, valueType, params) {
+  return new Class2({
+    type: "map",
+    keyType,
+    valueType,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _set(Class2, valueType, params) {
+  return new Class2({
+    type: "set",
+    valueType,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _enum(Class2, values, params) {
+  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
+  return new Class2({
+    type: "enum",
+    entries,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _nativeEnum(Class2, entries, params) {
+  return new Class2({
+    type: "enum",
+    entries,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _literal(Class2, value, params) {
+  return new Class2({
+    type: "literal",
+    values: Array.isArray(value) ? value : [value],
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
 function _file(Class2, params) {
   return new Class2({
     type: "file",
     ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _transform(Class2, fn) {
+  return new Class2({
+    type: "transform",
+    transform: fn
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _optional(Class2, innerType) {
+  return new Class2({
+    type: "optional",
+    innerType
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _nullable(Class2, innerType) {
+  return new Class2({
+    type: "nullable",
+    innerType
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _default(Class2, innerType, defaultValue) {
+  return new Class2({
+    type: "default",
+    innerType,
+    get defaultValue() {
+      return typeof defaultValue === "function" ? defaultValue() : shallowClone(defaultValue);
+    }
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _nonoptional(Class2, innerType, params) {
+  return new Class2({
+    type: "nonoptional",
+    innerType,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _success(Class2, innerType) {
+  return new Class2({
+    type: "success",
+    innerType
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _catch(Class2, innerType, catchValue) {
+  return new Class2({
+    type: "catch",
+    innerType,
+    catchValue: typeof catchValue === "function" ? catchValue : () => catchValue
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _pipe(Class2, in_, out) {
+  return new Class2({
+    type: "pipe",
+    in: in_,
+    out
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _readonly(Class2, innerType) {
+  return new Class2({
+    type: "readonly",
+    innerType
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _templateLiteral(Class2, parts, params) {
+  return new Class2({
+    type: "template_literal",
+    parts,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _lazy(Class2, getter) {
+  return new Class2({
+    type: "lazy",
+    getter
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _promise(Class2, innerType) {
+  return new Class2({
+    type: "promise",
+    innerType
   });
 }
 // @__NO_SIDE_EFFECTS__
@@ -19693,6 +26821,159 @@ var lazyProcessor = (schema, ctx, _json, params) => {
   const seen = ctx.seen.get(schema);
   seen.ref = innerType;
 };
+var allProcessors = {
+  string: stringProcessor,
+  number: numberProcessor,
+  boolean: booleanProcessor,
+  bigint: bigintProcessor,
+  symbol: symbolProcessor,
+  null: nullProcessor,
+  undefined: undefinedProcessor,
+  void: voidProcessor,
+  never: neverProcessor,
+  any: anyProcessor,
+  unknown: unknownProcessor,
+  date: dateProcessor,
+  enum: enumProcessor,
+  literal: literalProcessor,
+  nan: nanProcessor,
+  template_literal: templateLiteralProcessor,
+  file: fileProcessor,
+  success: successProcessor,
+  custom: customProcessor,
+  function: functionProcessor,
+  transform: transformProcessor,
+  map: mapProcessor,
+  set: setProcessor,
+  array: arrayProcessor,
+  object: objectProcessor,
+  union: unionProcessor,
+  intersection: intersectionProcessor,
+  tuple: tupleProcessor,
+  record: recordProcessor,
+  nullable: nullableProcessor,
+  nonoptional: nonoptionalProcessor,
+  default: defaultProcessor,
+  prefault: prefaultProcessor,
+  catch: catchProcessor,
+  pipe: pipeProcessor,
+  readonly: readonlyProcessor,
+  promise: promiseProcessor,
+  optional: optionalProcessor,
+  lazy: lazyProcessor
+};
+function toJSONSchema(input, params) {
+  if ("_idmap" in input) {
+    const registry2 = input;
+    const ctx2 = initializeContext({ ...params, processors: allProcessors });
+    const defs = {};
+    for (const entry of registry2._idmap.entries()) {
+      const [_, schema] = entry;
+      process2(schema, ctx2);
+    }
+    const schemas = {};
+    const external = {
+      registry: registry2,
+      uri: params?.uri,
+      defs
+    };
+    ctx2.external = external;
+    for (const entry of registry2._idmap.entries()) {
+      const [key, schema] = entry;
+      extractDefs(ctx2, schema);
+      schemas[key] = finalize(ctx2, schema);
+    }
+    if (Object.keys(defs).length > 0) {
+      const defsSegment = ctx2.target === "draft-2020-12" ? "$defs" : "definitions";
+      schemas.__shared = {
+        [defsSegment]: defs
+      };
+    }
+    return { schemas };
+  }
+  const ctx = initializeContext({ ...params, processors: allProcessors });
+  process2(input, ctx);
+  extractDefs(ctx, input);
+  return finalize(ctx, input);
+}
+
+// node_modules/zod/v4/core/json-schema-generator.js
+var JSONSchemaGenerator = class {
+  /** @deprecated Access via ctx instead */
+  get metadataRegistry() {
+    return this.ctx.metadataRegistry;
+  }
+  /** @deprecated Access via ctx instead */
+  get target() {
+    return this.ctx.target;
+  }
+  /** @deprecated Access via ctx instead */
+  get unrepresentable() {
+    return this.ctx.unrepresentable;
+  }
+  /** @deprecated Access via ctx instead */
+  get override() {
+    return this.ctx.override;
+  }
+  /** @deprecated Access via ctx instead */
+  get io() {
+    return this.ctx.io;
+  }
+  /** @deprecated Access via ctx instead */
+  get counter() {
+    return this.ctx.counter;
+  }
+  set counter(value) {
+    this.ctx.counter = value;
+  }
+  /** @deprecated Access via ctx instead */
+  get seen() {
+    return this.ctx.seen;
+  }
+  constructor(params) {
+    let normalizedTarget = params?.target ?? "draft-2020-12";
+    if (normalizedTarget === "draft-4")
+      normalizedTarget = "draft-04";
+    if (normalizedTarget === "draft-7")
+      normalizedTarget = "draft-07";
+    this.ctx = initializeContext({
+      processors: allProcessors,
+      target: normalizedTarget,
+      ...params?.metadata && { metadata: params.metadata },
+      ...params?.unrepresentable && { unrepresentable: params.unrepresentable },
+      ...params?.override && { override: params.override },
+      ...params?.io && { io: params.io }
+    });
+  }
+  /**
+   * Process a schema to prepare it for JSON Schema generation.
+   * This must be called before emit().
+   */
+  process(schema, _params = { path: [], schemaPath: [] }) {
+    return process2(schema, this.ctx, _params);
+  }
+  /**
+   * Emit the final JSON Schema after processing.
+   * Must call process() first.
+   */
+  emit(schema, _params) {
+    if (_params) {
+      if (_params.cycles)
+        this.ctx.cycles = _params.cycles;
+      if (_params.reused)
+        this.ctx.reused = _params.reused;
+      if (_params.external)
+        this.ctx.external = _params.external;
+    }
+    extractDefs(this.ctx, schema);
+    const result = finalize(this.ctx, schema);
+    const { "~standard": _, ...plainResult } = result;
+    return plainResult;
+  }
+};
+
+// node_modules/zod/v4/core/json-schema.js
+var json_schema_exports = {};
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
 function isZ4Schema(s) {
@@ -19756,6 +27037,247 @@ function getLiteralValue(schema) {
     return directValue;
   return void 0;
 }
+
+// node_modules/zod/v4/classic/external.js
+var external_exports3 = {};
+__export(external_exports3, {
+  $brand: () => $brand,
+  $input: () => $input,
+  $output: () => $output,
+  NEVER: () => NEVER,
+  TimePrecision: () => TimePrecision,
+  ZodAny: () => ZodAny2,
+  ZodArray: () => ZodArray2,
+  ZodBase64: () => ZodBase64,
+  ZodBase64URL: () => ZodBase64URL,
+  ZodBigInt: () => ZodBigInt2,
+  ZodBigIntFormat: () => ZodBigIntFormat,
+  ZodBoolean: () => ZodBoolean2,
+  ZodCIDRv4: () => ZodCIDRv4,
+  ZodCIDRv6: () => ZodCIDRv6,
+  ZodCUID: () => ZodCUID,
+  ZodCUID2: () => ZodCUID2,
+  ZodCatch: () => ZodCatch2,
+  ZodCodec: () => ZodCodec,
+  ZodCustom: () => ZodCustom,
+  ZodCustomStringFormat: () => ZodCustomStringFormat,
+  ZodDate: () => ZodDate2,
+  ZodDefault: () => ZodDefault2,
+  ZodDiscriminatedUnion: () => ZodDiscriminatedUnion2,
+  ZodE164: () => ZodE164,
+  ZodEmail: () => ZodEmail,
+  ZodEmoji: () => ZodEmoji,
+  ZodEnum: () => ZodEnum2,
+  ZodError: () => ZodError2,
+  ZodExactOptional: () => ZodExactOptional,
+  ZodFile: () => ZodFile,
+  ZodFirstPartyTypeKind: () => ZodFirstPartyTypeKind2,
+  ZodFunction: () => ZodFunction2,
+  ZodGUID: () => ZodGUID,
+  ZodIPv4: () => ZodIPv4,
+  ZodIPv6: () => ZodIPv6,
+  ZodISODate: () => ZodISODate,
+  ZodISODateTime: () => ZodISODateTime,
+  ZodISODuration: () => ZodISODuration,
+  ZodISOTime: () => ZodISOTime,
+  ZodIntersection: () => ZodIntersection2,
+  ZodIssueCode: () => ZodIssueCode2,
+  ZodJWT: () => ZodJWT,
+  ZodKSUID: () => ZodKSUID,
+  ZodLazy: () => ZodLazy2,
+  ZodLiteral: () => ZodLiteral2,
+  ZodMAC: () => ZodMAC,
+  ZodMap: () => ZodMap2,
+  ZodNaN: () => ZodNaN2,
+  ZodNanoID: () => ZodNanoID,
+  ZodNever: () => ZodNever2,
+  ZodNonOptional: () => ZodNonOptional,
+  ZodNull: () => ZodNull2,
+  ZodNullable: () => ZodNullable2,
+  ZodNumber: () => ZodNumber2,
+  ZodNumberFormat: () => ZodNumberFormat,
+  ZodObject: () => ZodObject2,
+  ZodOptional: () => ZodOptional2,
+  ZodPipe: () => ZodPipe,
+  ZodPrefault: () => ZodPrefault,
+  ZodPromise: () => ZodPromise2,
+  ZodReadonly: () => ZodReadonly2,
+  ZodRealError: () => ZodRealError,
+  ZodRecord: () => ZodRecord2,
+  ZodSet: () => ZodSet2,
+  ZodString: () => ZodString2,
+  ZodStringFormat: () => ZodStringFormat,
+  ZodSuccess: () => ZodSuccess,
+  ZodSymbol: () => ZodSymbol2,
+  ZodTemplateLiteral: () => ZodTemplateLiteral,
+  ZodTransform: () => ZodTransform,
+  ZodTuple: () => ZodTuple2,
+  ZodType: () => ZodType2,
+  ZodULID: () => ZodULID,
+  ZodURL: () => ZodURL,
+  ZodUUID: () => ZodUUID,
+  ZodUndefined: () => ZodUndefined2,
+  ZodUnion: () => ZodUnion2,
+  ZodUnknown: () => ZodUnknown2,
+  ZodVoid: () => ZodVoid2,
+  ZodXID: () => ZodXID,
+  ZodXor: () => ZodXor,
+  _ZodString: () => _ZodString,
+  _default: () => _default2,
+  _function: () => _function,
+  any: () => any,
+  array: () => array,
+  base64: () => base642,
+  base64url: () => base64url2,
+  bigint: () => bigint2,
+  boolean: () => boolean2,
+  catch: () => _catch2,
+  check: () => check,
+  cidrv4: () => cidrv42,
+  cidrv6: () => cidrv62,
+  clone: () => clone,
+  codec: () => codec,
+  coerce: () => coerce_exports2,
+  config: () => config,
+  core: () => core_exports2,
+  cuid: () => cuid3,
+  cuid2: () => cuid22,
+  custom: () => custom,
+  date: () => date3,
+  decode: () => decode2,
+  decodeAsync: () => decodeAsync2,
+  describe: () => describe2,
+  discriminatedUnion: () => discriminatedUnion,
+  e164: () => e1642,
+  email: () => email2,
+  emoji: () => emoji2,
+  encode: () => encode2,
+  encodeAsync: () => encodeAsync2,
+  endsWith: () => _endsWith,
+  enum: () => _enum2,
+  exactOptional: () => exactOptional,
+  file: () => file,
+  flattenError: () => flattenError,
+  float32: () => float32,
+  float64: () => float64,
+  formatError: () => formatError,
+  fromJSONSchema: () => fromJSONSchema,
+  function: () => _function,
+  getErrorMap: () => getErrorMap2,
+  globalRegistry: () => globalRegistry,
+  gt: () => _gt,
+  gte: () => _gte,
+  guid: () => guid2,
+  hash: () => hash,
+  hex: () => hex2,
+  hostname: () => hostname2,
+  httpUrl: () => httpUrl,
+  includes: () => _includes,
+  instanceof: () => _instanceof,
+  int: () => int,
+  int32: () => int32,
+  int64: () => int64,
+  intersection: () => intersection,
+  ipv4: () => ipv42,
+  ipv6: () => ipv62,
+  iso: () => iso_exports2,
+  json: () => json,
+  jwt: () => jwt,
+  keyof: () => keyof,
+  ksuid: () => ksuid2,
+  lazy: () => lazy,
+  length: () => _length,
+  literal: () => literal,
+  locales: () => locales_exports,
+  looseObject: () => looseObject,
+  looseRecord: () => looseRecord,
+  lowercase: () => _lowercase,
+  lt: () => _lt,
+  lte: () => _lte,
+  mac: () => mac2,
+  map: () => map,
+  maxLength: () => _maxLength,
+  maxSize: () => _maxSize,
+  meta: () => meta2,
+  mime: () => _mime,
+  minLength: () => _minLength,
+  minSize: () => _minSize,
+  multipleOf: () => _multipleOf,
+  nan: () => nan,
+  nanoid: () => nanoid2,
+  nativeEnum: () => nativeEnum,
+  negative: () => _negative,
+  never: () => never,
+  nonnegative: () => _nonnegative,
+  nonoptional: () => nonoptional,
+  nonpositive: () => _nonpositive,
+  normalize: () => _normalize,
+  null: () => _null3,
+  nullable: () => nullable,
+  nullish: () => nullish2,
+  number: () => number2,
+  object: () => object2,
+  optional: () => optional,
+  overwrite: () => _overwrite,
+  parse: () => parse2,
+  parseAsync: () => parseAsync2,
+  partialRecord: () => partialRecord,
+  pipe: () => pipe,
+  positive: () => _positive,
+  prefault: () => prefault,
+  preprocess: () => preprocess,
+  prettifyError: () => prettifyError,
+  promise: () => promise,
+  property: () => _property,
+  readonly: () => readonly,
+  record: () => record,
+  refine: () => refine,
+  regex: () => _regex,
+  regexes: () => regexes_exports,
+  registry: () => registry,
+  safeDecode: () => safeDecode2,
+  safeDecodeAsync: () => safeDecodeAsync2,
+  safeEncode: () => safeEncode2,
+  safeEncodeAsync: () => safeEncodeAsync2,
+  safeParse: () => safeParse3,
+  safeParseAsync: () => safeParseAsync2,
+  set: () => set,
+  setErrorMap: () => setErrorMap,
+  size: () => _size,
+  slugify: () => _slugify,
+  startsWith: () => _startsWith,
+  strictObject: () => strictObject,
+  string: () => string2,
+  stringFormat: () => stringFormat,
+  stringbool: () => stringbool,
+  success: () => success,
+  superRefine: () => superRefine,
+  symbol: () => symbol,
+  templateLiteral: () => templateLiteral,
+  toJSONSchema: () => toJSONSchema,
+  toLowerCase: () => _toLowerCase,
+  toUpperCase: () => _toUpperCase,
+  transform: () => transform,
+  treeifyError: () => treeifyError,
+  trim: () => _trim,
+  tuple: () => tuple,
+  uint32: () => uint32,
+  uint64: () => uint64,
+  ulid: () => ulid2,
+  undefined: () => _undefined3,
+  union: () => union,
+  unknown: () => unknown,
+  uppercase: () => _uppercase,
+  url: () => url,
+  util: () => util_exports,
+  uuid: () => uuid2,
+  uuidv4: () => uuidv4,
+  uuidv6: () => uuidv6,
+  uuidv7: () => uuidv7,
+  void: () => _void2,
+  xid: () => xid2,
+  xor: () => xor
+});
 
 // node_modules/zod/v4/classic/schemas.js
 var schemas_exports3 = {};
@@ -19829,7 +27351,7 @@ __export(schemas_exports3, {
   ZodXID: () => ZodXID,
   ZodXor: () => ZodXor,
   _ZodString: () => _ZodString,
-  _default: () => _default,
+  _default: () => _default2,
   _function: () => _function,
   any: () => any,
   array: () => array,
@@ -19837,7 +27359,7 @@ __export(schemas_exports3, {
   base64url: () => base64url2,
   bigint: () => bigint2,
   boolean: () => boolean2,
-  catch: () => _catch,
+  catch: () => _catch2,
   check: () => check,
   cidrv4: () => cidrv42,
   cidrv6: () => cidrv62,
@@ -19851,7 +27373,7 @@ __export(schemas_exports3, {
   e164: () => e1642,
   email: () => email2,
   emoji: () => emoji2,
-  enum: () => _enum,
+  enum: () => _enum2,
   exactOptional: () => exactOptional,
   file: () => file,
   float32: () => float32,
@@ -20110,9 +27632,9 @@ var ZodType2 = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
   inst.or = (arg) => union([inst, arg]);
   inst.and = (arg) => intersection(inst, arg);
   inst.transform = (tx) => pipe(inst, transform(tx));
-  inst.default = (def2) => _default(inst, def2);
+  inst.default = (def2) => _default2(inst, def2);
   inst.prefault = (def2) => prefault(inst, def2);
-  inst.catch = (params) => _catch(inst, params);
+  inst.catch = (params) => _catch2(inst, params);
   inst.pipe = (target) => pipe(inst, target);
   inst.readonly = () => readonly(inst);
   inst.describe = (description) => {
@@ -20554,7 +28076,7 @@ function array(element, params) {
 }
 function keyof(schema) {
   const shape = schema._zod.def.shape;
-  return _enum(Object.keys(shape));
+  return _enum2(Object.keys(shape));
 }
 var ZodObject2 = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
   $ZodObjectJIT.init(inst, def);
@@ -20563,7 +28085,7 @@ var ZodObject2 = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
   util_exports.defineLazy(inst, "shape", () => {
     return def.shape;
   });
-  inst.keyof = () => _enum(Object.keys(inst._zod.def.shape));
+  inst.keyof = () => _enum2(Object.keys(inst._zod.def.shape));
   inst.catchall = (catchall) => inst.clone({ ...inst._zod.def, catchall });
   inst.passthrough = () => inst.clone({ ...inst._zod.def, catchall: unknown() });
   inst.loose = () => inst.clone({ ...inst._zod.def, catchall: unknown() });
@@ -20783,7 +28305,7 @@ var ZodEnum2 = /* @__PURE__ */ $constructor("ZodEnum", (inst, def) => {
     });
   };
 });
-function _enum(values, params) {
+function _enum2(values, params) {
   const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
   return new ZodEnum2({
     type: "enum",
@@ -20914,7 +28436,7 @@ var ZodDefault2 = /* @__PURE__ */ $constructor("ZodDefault", (inst, def) => {
   inst.unwrap = () => inst._zod.def.innerType;
   inst.removeDefault = inst.unwrap;
 });
-function _default(innerType, defaultValue) {
+function _default2(innerType, defaultValue) {
   return new ZodDefault2({
     type: "default",
     innerType,
@@ -20970,7 +28492,7 @@ var ZodCatch2 = /* @__PURE__ */ $constructor("ZodCatch", (inst, def) => {
   inst.unwrap = () => inst._zod.def.innerType;
   inst.removeCatch = inst.unwrap;
 });
-function _catch(innerType, catchValue) {
+function _catch2(innerType, catchValue) {
   return new ZodCatch2({
     type: "catch",
     innerType,
@@ -21135,6 +28657,27 @@ function preprocess(fn, schema) {
 }
 
 // node_modules/zod/v4/classic/compat.js
+var ZodIssueCode2 = {
+  invalid_type: "invalid_type",
+  too_big: "too_big",
+  too_small: "too_small",
+  invalid_format: "invalid_format",
+  not_multiple_of: "not_multiple_of",
+  unrecognized_keys: "unrecognized_keys",
+  invalid_union: "invalid_union",
+  invalid_key: "invalid_key",
+  invalid_element: "invalid_element",
+  invalid_value: "invalid_value",
+  custom: "custom"
+};
+function setErrorMap(map2) {
+  config({
+    customError: map2
+  });
+}
+function getErrorMap2() {
+  return config().customError;
+}
 var ZodFirstPartyTypeKind2;
 /* @__PURE__ */ (function(ZodFirstPartyTypeKind3) {
 })(ZodFirstPartyTypeKind2 || (ZodFirstPartyTypeKind2 = {}));
@@ -21145,6 +28688,498 @@ var z = {
   ...checks_exports2,
   iso: iso_exports2
 };
+var RECOGNIZED_KEYS = /* @__PURE__ */ new Set([
+  // Schema identification
+  "$schema",
+  "$ref",
+  "$defs",
+  "definitions",
+  // Core schema keywords
+  "$id",
+  "id",
+  "$comment",
+  "$anchor",
+  "$vocabulary",
+  "$dynamicRef",
+  "$dynamicAnchor",
+  // Type
+  "type",
+  "enum",
+  "const",
+  // Composition
+  "anyOf",
+  "oneOf",
+  "allOf",
+  "not",
+  // Object
+  "properties",
+  "required",
+  "additionalProperties",
+  "patternProperties",
+  "propertyNames",
+  "minProperties",
+  "maxProperties",
+  // Array
+  "items",
+  "prefixItems",
+  "additionalItems",
+  "minItems",
+  "maxItems",
+  "uniqueItems",
+  "contains",
+  "minContains",
+  "maxContains",
+  // String
+  "minLength",
+  "maxLength",
+  "pattern",
+  "format",
+  // Number
+  "minimum",
+  "maximum",
+  "exclusiveMinimum",
+  "exclusiveMaximum",
+  "multipleOf",
+  // Already handled metadata
+  "description",
+  "default",
+  // Content
+  "contentEncoding",
+  "contentMediaType",
+  "contentSchema",
+  // Unsupported (error-throwing)
+  "unevaluatedItems",
+  "unevaluatedProperties",
+  "if",
+  "then",
+  "else",
+  "dependentSchemas",
+  "dependentRequired",
+  // OpenAPI
+  "nullable",
+  "readOnly"
+]);
+function detectVersion(schema, defaultTarget) {
+  const $schema = schema.$schema;
+  if ($schema === "https://json-schema.org/draft/2020-12/schema") {
+    return "draft-2020-12";
+  }
+  if ($schema === "http://json-schema.org/draft-07/schema#") {
+    return "draft-7";
+  }
+  if ($schema === "http://json-schema.org/draft-04/schema#") {
+    return "draft-4";
+  }
+  return defaultTarget ?? "draft-2020-12";
+}
+function resolveRef(ref, ctx) {
+  if (!ref.startsWith("#")) {
+    throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
+  }
+  const path5 = ref.slice(1).split("/").filter(Boolean);
+  if (path5.length === 0) {
+    return ctx.rootSchema;
+  }
+  const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
+  if (path5[0] === defsKey) {
+    const key = path5[1];
+    if (!key || !ctx.defs[key]) {
+      throw new Error(`Reference not found: ${ref}`);
+    }
+    return ctx.defs[key];
+  }
+  throw new Error(`Reference not found: ${ref}`);
+}
+function convertBaseSchema(schema, ctx) {
+  if (schema.not !== void 0) {
+    if (typeof schema.not === "object" && Object.keys(schema.not).length === 0) {
+      return z.never();
+    }
+    throw new Error("not is not supported in Zod (except { not: {} } for never)");
+  }
+  if (schema.unevaluatedItems !== void 0) {
+    throw new Error("unevaluatedItems is not supported");
+  }
+  if (schema.unevaluatedProperties !== void 0) {
+    throw new Error("unevaluatedProperties is not supported");
+  }
+  if (schema.if !== void 0 || schema.then !== void 0 || schema.else !== void 0) {
+    throw new Error("Conditional schemas (if/then/else) are not supported");
+  }
+  if (schema.dependentSchemas !== void 0 || schema.dependentRequired !== void 0) {
+    throw new Error("dependentSchemas and dependentRequired are not supported");
+  }
+  if (schema.$ref) {
+    const refPath = schema.$ref;
+    if (ctx.refs.has(refPath)) {
+      return ctx.refs.get(refPath);
+    }
+    if (ctx.processing.has(refPath)) {
+      return z.lazy(() => {
+        if (!ctx.refs.has(refPath)) {
+          throw new Error(`Circular reference not resolved: ${refPath}`);
+        }
+        return ctx.refs.get(refPath);
+      });
+    }
+    ctx.processing.add(refPath);
+    const resolved = resolveRef(refPath, ctx);
+    const zodSchema2 = convertSchema(resolved, ctx);
+    ctx.refs.set(refPath, zodSchema2);
+    ctx.processing.delete(refPath);
+    return zodSchema2;
+  }
+  if (schema.enum !== void 0) {
+    const enumValues = schema.enum;
+    if (ctx.version === "openapi-3.0" && schema.nullable === true && enumValues.length === 1 && enumValues[0] === null) {
+      return z.null();
+    }
+    if (enumValues.length === 0) {
+      return z.never();
+    }
+    if (enumValues.length === 1) {
+      return z.literal(enumValues[0]);
+    }
+    if (enumValues.every((v) => typeof v === "string")) {
+      return z.enum(enumValues);
+    }
+    const literalSchemas = enumValues.map((v) => z.literal(v));
+    if (literalSchemas.length < 2) {
+      return literalSchemas[0];
+    }
+    return z.union([literalSchemas[0], literalSchemas[1], ...literalSchemas.slice(2)]);
+  }
+  if (schema.const !== void 0) {
+    return z.literal(schema.const);
+  }
+  const type = schema.type;
+  if (Array.isArray(type)) {
+    const typeSchemas = type.map((t) => {
+      const typeSchema = { ...schema, type: t };
+      return convertBaseSchema(typeSchema, ctx);
+    });
+    if (typeSchemas.length === 0) {
+      return z.never();
+    }
+    if (typeSchemas.length === 1) {
+      return typeSchemas[0];
+    }
+    return z.union(typeSchemas);
+  }
+  if (!type) {
+    return z.any();
+  }
+  let zodSchema;
+  switch (type) {
+    case "string": {
+      let stringSchema = z.string();
+      if (schema.format) {
+        const format = schema.format;
+        if (format === "email") {
+          stringSchema = stringSchema.check(z.email());
+        } else if (format === "uri" || format === "uri-reference") {
+          stringSchema = stringSchema.check(z.url());
+        } else if (format === "uuid" || format === "guid") {
+          stringSchema = stringSchema.check(z.uuid());
+        } else if (format === "date-time") {
+          stringSchema = stringSchema.check(z.iso.datetime());
+        } else if (format === "date") {
+          stringSchema = stringSchema.check(z.iso.date());
+        } else if (format === "time") {
+          stringSchema = stringSchema.check(z.iso.time());
+        } else if (format === "duration") {
+          stringSchema = stringSchema.check(z.iso.duration());
+        } else if (format === "ipv4") {
+          stringSchema = stringSchema.check(z.ipv4());
+        } else if (format === "ipv6") {
+          stringSchema = stringSchema.check(z.ipv6());
+        } else if (format === "mac") {
+          stringSchema = stringSchema.check(z.mac());
+        } else if (format === "cidr") {
+          stringSchema = stringSchema.check(z.cidrv4());
+        } else if (format === "cidr-v6") {
+          stringSchema = stringSchema.check(z.cidrv6());
+        } else if (format === "base64") {
+          stringSchema = stringSchema.check(z.base64());
+        } else if (format === "base64url") {
+          stringSchema = stringSchema.check(z.base64url());
+        } else if (format === "e164") {
+          stringSchema = stringSchema.check(z.e164());
+        } else if (format === "jwt") {
+          stringSchema = stringSchema.check(z.jwt());
+        } else if (format === "emoji") {
+          stringSchema = stringSchema.check(z.emoji());
+        } else if (format === "nanoid") {
+          stringSchema = stringSchema.check(z.nanoid());
+        } else if (format === "cuid") {
+          stringSchema = stringSchema.check(z.cuid());
+        } else if (format === "cuid2") {
+          stringSchema = stringSchema.check(z.cuid2());
+        } else if (format === "ulid") {
+          stringSchema = stringSchema.check(z.ulid());
+        } else if (format === "xid") {
+          stringSchema = stringSchema.check(z.xid());
+        } else if (format === "ksuid") {
+          stringSchema = stringSchema.check(z.ksuid());
+        }
+      }
+      if (typeof schema.minLength === "number") {
+        stringSchema = stringSchema.min(schema.minLength);
+      }
+      if (typeof schema.maxLength === "number") {
+        stringSchema = stringSchema.max(schema.maxLength);
+      }
+      if (schema.pattern) {
+        stringSchema = stringSchema.regex(new RegExp(schema.pattern));
+      }
+      zodSchema = stringSchema;
+      break;
+    }
+    case "number":
+    case "integer": {
+      let numberSchema = type === "integer" ? z.number().int() : z.number();
+      if (typeof schema.minimum === "number") {
+        numberSchema = numberSchema.min(schema.minimum);
+      }
+      if (typeof schema.maximum === "number") {
+        numberSchema = numberSchema.max(schema.maximum);
+      }
+      if (typeof schema.exclusiveMinimum === "number") {
+        numberSchema = numberSchema.gt(schema.exclusiveMinimum);
+      } else if (schema.exclusiveMinimum === true && typeof schema.minimum === "number") {
+        numberSchema = numberSchema.gt(schema.minimum);
+      }
+      if (typeof schema.exclusiveMaximum === "number") {
+        numberSchema = numberSchema.lt(schema.exclusiveMaximum);
+      } else if (schema.exclusiveMaximum === true && typeof schema.maximum === "number") {
+        numberSchema = numberSchema.lt(schema.maximum);
+      }
+      if (typeof schema.multipleOf === "number") {
+        numberSchema = numberSchema.multipleOf(schema.multipleOf);
+      }
+      zodSchema = numberSchema;
+      break;
+    }
+    case "boolean": {
+      zodSchema = z.boolean();
+      break;
+    }
+    case "null": {
+      zodSchema = z.null();
+      break;
+    }
+    case "object": {
+      const shape = {};
+      const properties = schema.properties || {};
+      const requiredSet = new Set(schema.required || []);
+      for (const [key, propSchema] of Object.entries(properties)) {
+        const propZodSchema = convertSchema(propSchema, ctx);
+        shape[key] = requiredSet.has(key) ? propZodSchema : propZodSchema.optional();
+      }
+      if (schema.propertyNames) {
+        const keySchema = convertSchema(schema.propertyNames, ctx);
+        const valueSchema = schema.additionalProperties && typeof schema.additionalProperties === "object" ? convertSchema(schema.additionalProperties, ctx) : z.any();
+        if (Object.keys(shape).length === 0) {
+          zodSchema = z.record(keySchema, valueSchema);
+          break;
+        }
+        const objectSchema2 = z.object(shape).passthrough();
+        const recordSchema = z.looseRecord(keySchema, valueSchema);
+        zodSchema = z.intersection(objectSchema2, recordSchema);
+        break;
+      }
+      if (schema.patternProperties) {
+        const patternProps = schema.patternProperties;
+        const patternKeys = Object.keys(patternProps);
+        const looseRecords = [];
+        for (const pattern of patternKeys) {
+          const patternValue = convertSchema(patternProps[pattern], ctx);
+          const keySchema = z.string().regex(new RegExp(pattern));
+          looseRecords.push(z.looseRecord(keySchema, patternValue));
+        }
+        const schemasToIntersect = [];
+        if (Object.keys(shape).length > 0) {
+          schemasToIntersect.push(z.object(shape).passthrough());
+        }
+        schemasToIntersect.push(...looseRecords);
+        if (schemasToIntersect.length === 0) {
+          zodSchema = z.object({}).passthrough();
+        } else if (schemasToIntersect.length === 1) {
+          zodSchema = schemasToIntersect[0];
+        } else {
+          let result = z.intersection(schemasToIntersect[0], schemasToIntersect[1]);
+          for (let i = 2; i < schemasToIntersect.length; i++) {
+            result = z.intersection(result, schemasToIntersect[i]);
+          }
+          zodSchema = result;
+        }
+        break;
+      }
+      const objectSchema = z.object(shape);
+      if (schema.additionalProperties === false) {
+        zodSchema = objectSchema.strict();
+      } else if (typeof schema.additionalProperties === "object") {
+        zodSchema = objectSchema.catchall(convertSchema(schema.additionalProperties, ctx));
+      } else {
+        zodSchema = objectSchema.passthrough();
+      }
+      break;
+    }
+    case "array": {
+      const prefixItems = schema.prefixItems;
+      const items = schema.items;
+      if (prefixItems && Array.isArray(prefixItems)) {
+        const tupleItems = prefixItems.map((item) => convertSchema(item, ctx));
+        const rest = items && typeof items === "object" && !Array.isArray(items) ? convertSchema(items, ctx) : void 0;
+        if (rest) {
+          zodSchema = z.tuple(tupleItems).rest(rest);
+        } else {
+          zodSchema = z.tuple(tupleItems);
+        }
+        if (typeof schema.minItems === "number") {
+          zodSchema = zodSchema.check(z.minLength(schema.minItems));
+        }
+        if (typeof schema.maxItems === "number") {
+          zodSchema = zodSchema.check(z.maxLength(schema.maxItems));
+        }
+      } else if (Array.isArray(items)) {
+        const tupleItems = items.map((item) => convertSchema(item, ctx));
+        const rest = schema.additionalItems && typeof schema.additionalItems === "object" ? convertSchema(schema.additionalItems, ctx) : void 0;
+        if (rest) {
+          zodSchema = z.tuple(tupleItems).rest(rest);
+        } else {
+          zodSchema = z.tuple(tupleItems);
+        }
+        if (typeof schema.minItems === "number") {
+          zodSchema = zodSchema.check(z.minLength(schema.minItems));
+        }
+        if (typeof schema.maxItems === "number") {
+          zodSchema = zodSchema.check(z.maxLength(schema.maxItems));
+        }
+      } else if (items !== void 0) {
+        const element = convertSchema(items, ctx);
+        let arraySchema = z.array(element);
+        if (typeof schema.minItems === "number") {
+          arraySchema = arraySchema.min(schema.minItems);
+        }
+        if (typeof schema.maxItems === "number") {
+          arraySchema = arraySchema.max(schema.maxItems);
+        }
+        zodSchema = arraySchema;
+      } else {
+        zodSchema = z.array(z.any());
+      }
+      break;
+    }
+    default:
+      throw new Error(`Unsupported type: ${type}`);
+  }
+  if (schema.description) {
+    zodSchema = zodSchema.describe(schema.description);
+  }
+  if (schema.default !== void 0) {
+    zodSchema = zodSchema.default(schema.default);
+  }
+  return zodSchema;
+}
+function convertSchema(schema, ctx) {
+  if (typeof schema === "boolean") {
+    return schema ? z.any() : z.never();
+  }
+  let baseSchema = convertBaseSchema(schema, ctx);
+  const hasExplicitType = schema.type || schema.enum !== void 0 || schema.const !== void 0;
+  if (schema.anyOf && Array.isArray(schema.anyOf)) {
+    const options = schema.anyOf.map((s) => convertSchema(s, ctx));
+    const anyOfUnion = z.union(options);
+    baseSchema = hasExplicitType ? z.intersection(baseSchema, anyOfUnion) : anyOfUnion;
+  }
+  if (schema.oneOf && Array.isArray(schema.oneOf)) {
+    const options = schema.oneOf.map((s) => convertSchema(s, ctx));
+    const oneOfUnion = z.xor(options);
+    baseSchema = hasExplicitType ? z.intersection(baseSchema, oneOfUnion) : oneOfUnion;
+  }
+  if (schema.allOf && Array.isArray(schema.allOf)) {
+    if (schema.allOf.length === 0) {
+      baseSchema = hasExplicitType ? baseSchema : z.any();
+    } else {
+      let result = hasExplicitType ? baseSchema : convertSchema(schema.allOf[0], ctx);
+      const startIdx = hasExplicitType ? 0 : 1;
+      for (let i = startIdx; i < schema.allOf.length; i++) {
+        result = z.intersection(result, convertSchema(schema.allOf[i], ctx));
+      }
+      baseSchema = result;
+    }
+  }
+  if (schema.nullable === true && ctx.version === "openapi-3.0") {
+    baseSchema = z.nullable(baseSchema);
+  }
+  if (schema.readOnly === true) {
+    baseSchema = z.readonly(baseSchema);
+  }
+  const extraMeta = {};
+  const coreMetadataKeys = ["$id", "id", "$comment", "$anchor", "$vocabulary", "$dynamicRef", "$dynamicAnchor"];
+  for (const key of coreMetadataKeys) {
+    if (key in schema) {
+      extraMeta[key] = schema[key];
+    }
+  }
+  const contentMetadataKeys = ["contentEncoding", "contentMediaType", "contentSchema"];
+  for (const key of contentMetadataKeys) {
+    if (key in schema) {
+      extraMeta[key] = schema[key];
+    }
+  }
+  for (const key of Object.keys(schema)) {
+    if (!RECOGNIZED_KEYS.has(key)) {
+      extraMeta[key] = schema[key];
+    }
+  }
+  if (Object.keys(extraMeta).length > 0) {
+    ctx.registry.add(baseSchema, extraMeta);
+  }
+  return baseSchema;
+}
+function fromJSONSchema(schema, params) {
+  if (typeof schema === "boolean") {
+    return schema ? z.any() : z.never();
+  }
+  const version2 = detectVersion(schema, params?.defaultTarget);
+  const defs = schema.$defs || schema.definitions || {};
+  const ctx = {
+    version: version2,
+    defs,
+    refs: /* @__PURE__ */ new Map(),
+    processing: /* @__PURE__ */ new Set(),
+    rootSchema: schema,
+    registry: params?.registry ?? globalRegistry
+  };
+  return convertSchema(schema, ctx);
+}
+
+// node_modules/zod/v4/classic/coerce.js
+var coerce_exports2 = {};
+__export(coerce_exports2, {
+  bigint: () => bigint3,
+  boolean: () => boolean3,
+  date: () => date4,
+  number: () => number3,
+  string: () => string3
+});
+function string3(params) {
+  return _coercedString(ZodString2, params);
+}
+function number3(params) {
+  return _coercedNumber(ZodNumber2, params);
+}
+function boolean3(params) {
+  return _coercedBoolean(ZodBoolean2, params);
+}
+function bigint3(params) {
+  return _coercedBigint(ZodBigInt2, params);
+}
+function date4(params) {
+  return _coercedDate(ZodDate2, params);
+}
 
 // node_modules/zod/v4/classic/external.js
 config(en_default2());
@@ -21319,7 +29354,7 @@ var IconSchema = object2({
    *
    * If not provided, the client should assume the icon can be used with any theme.
    */
-  theme: _enum(["light", "dark"]).optional()
+  theme: _enum2(["light", "dark"]).optional()
 });
 var IconsSchema = object2({
   /**
@@ -21590,7 +29625,7 @@ var PaginatedResultSchema = ResultSchema.extend({
    */
   nextCursor: CursorSchema.optional()
 });
-var TaskStatusSchema = _enum(["working", "input_required", "completed", "failed", "cancelled"]);
+var TaskStatusSchema = _enum2(["working", "input_required", "completed", "failed", "cancelled"]);
 var TaskSchema = object2({
   taskId: string2(),
   status: TaskStatusSchema,
@@ -21683,7 +29718,7 @@ var BlobResourceContentsSchema = ResourceContentsSchema.extend({
    */
   blob: Base64Schema
 });
-var RoleSchema = _enum(["user", "assistant"]);
+var RoleSchema = _enum2(["user", "assistant"]);
 var AnnotationsSchema = object2({
   /**
    * Intended audience(s) for the resource.
@@ -22020,7 +30055,7 @@ var ToolExecutionSchema = object2({
    *
    * If not present, defaults to "forbidden".
    */
-  taskSupport: _enum(["required", "optional", "forbidden"]).optional()
+  taskSupport: _enum2(["required", "optional", "forbidden"]).optional()
 });
 var ToolSchema = object2({
   ...BaseMetadataSchema.shape,
@@ -22139,7 +30174,7 @@ var ListChangedOptionsBaseSchema = object2({
    */
   debounceMs: number2().int().nonnegative().default(300)
 });
-var LoggingLevelSchema = _enum(["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"]);
+var LoggingLevelSchema = _enum2(["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"]);
 var SetLevelRequestParamsSchema = BaseRequestParamsSchema.extend({
   /**
    * The level of logging that the client wants to receive from the server. The server should send all logs at this level and higher (i.e., more severe) to the client as notifications/logging/message.
@@ -22199,7 +30234,7 @@ var ToolChoiceSchema = object2({
    * - "required": Model MUST use at least one tool before completing
    * - "none": Model MUST NOT use any tools
    */
-  mode: _enum(["auto", "required", "none"]).optional()
+  mode: _enum2(["auto", "required", "none"]).optional()
 });
 var ToolResultContentSchema = object2({
   type: literal("tool_result"),
@@ -22247,7 +30282,7 @@ var CreateMessageRequestParamsSchema = TaskAugmentedRequestParamsSchema.extend({
    * Default is "none". Values "thisServer" and "allServers" are soft-deprecated. Servers SHOULD only use these values if the client
    * declares ClientCapabilities.sampling.context. These values may be removed in future spec releases.
    */
-  includeContext: _enum(["none", "thisServer", "allServers"]).optional(),
+  includeContext: _enum2(["none", "thisServer", "allServers"]).optional(),
   temperature: number2().optional(),
   /**
    * The requested maximum number of tokens to sample (to prevent runaway completions).
@@ -22291,7 +30326,7 @@ var CreateMessageResultSchema = ResultSchema.extend({
    *
    * This field is an open string to allow for provider-specific stop reasons.
    */
-  stopReason: optional(_enum(["endTurn", "stopSequence", "maxTokens"]).or(string2())),
+  stopReason: optional(_enum2(["endTurn", "stopSequence", "maxTokens"]).or(string2())),
   role: RoleSchema,
   /**
    * Response content. Single content block (text, image, or audio).
@@ -22314,7 +30349,7 @@ var CreateMessageResultWithToolsSchema = ResultSchema.extend({
    *
    * This field is an open string to allow for provider-specific stop reasons.
    */
-  stopReason: optional(_enum(["endTurn", "stopSequence", "maxTokens", "toolUse"]).or(string2())),
+  stopReason: optional(_enum2(["endTurn", "stopSequence", "maxTokens", "toolUse"]).or(string2())),
   role: RoleSchema,
   /**
    * Response content. May be a single block or array. May include ToolUseContent if stopReason is "toolUse".
@@ -22333,11 +30368,11 @@ var StringSchemaSchema = object2({
   description: string2().optional(),
   minLength: number2().optional(),
   maxLength: number2().optional(),
-  format: _enum(["email", "uri", "date", "date-time"]).optional(),
+  format: _enum2(["email", "uri", "date", "date-time"]).optional(),
   default: string2().optional()
 });
 var NumberSchemaSchema = object2({
-  type: _enum(["number", "integer"]),
+  type: _enum2(["number", "integer"]),
   title: string2().optional(),
   description: string2().optional(),
   minimum: number2().optional(),
@@ -22461,7 +30496,7 @@ var ElicitResultSchema = ResultSchema.extend({
    * - "decline": User explicitly decline the action
    * - "cancel": User dismissed without making an explicit choice
    */
-  action: _enum(["accept", "decline", "cancel"]),
+  action: _enum2(["accept", "decline", "cancel"]),
   /**
    * The submitted form data, only present when action is "accept".
    * Contains values matching the requested schema.
@@ -22738,8 +30773,8 @@ var Protocol = class {
                     resolver(message);
                   } else {
                     const errorMessage = message;
-                    const error2 = new McpError(errorMessage.error.code, errorMessage.error.message, errorMessage.error.data);
-                    resolver(error2);
+                    const error48 = new McpError(errorMessage.error.code, errorMessage.error.message, errorMessage.error.data);
+                    resolver(error48);
                   }
                 } else {
                   const messageType = queuedMessage.type === "response" ? "Response" : "Error";
@@ -22783,8 +30818,8 @@ var Protocol = class {
             nextCursor,
             _meta: {}
           };
-        } catch (error2) {
-          throw new McpError(ErrorCode.InvalidParams, `Failed to list tasks: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        } catch (error48) {
+          throw new McpError(ErrorCode.InvalidParams, `Failed to list tasks: ${error48 instanceof Error ? error48.message : String(error48)}`);
         }
       });
       this.setRequestHandler(CancelTaskRequestSchema, async (request, extra) => {
@@ -22806,11 +30841,11 @@ var Protocol = class {
             _meta: {},
             ...cancelledTask
           };
-        } catch (error2) {
-          if (error2 instanceof McpError) {
-            throw error2;
+        } catch (error48) {
+          if (error48 instanceof McpError) {
+            throw error48;
           }
-          throw new McpError(ErrorCode.InvalidRequest, `Failed to cancel task: ${error2 instanceof Error ? error2.message : String(error2)}`);
+          throw new McpError(ErrorCode.InvalidRequest, `Failed to cancel task: ${error48 instanceof Error ? error48.message : String(error48)}`);
         }
       });
     }
@@ -22871,9 +30906,9 @@ var Protocol = class {
       this._onclose();
     };
     const _onerror = this.transport?.onerror;
-    this._transport.onerror = (error2) => {
-      _onerror?.(error2);
-      this._onerror(error2);
+    this._transport.onerror = (error48) => {
+      _onerror?.(error48);
+      this._onerror(error48);
     };
     const _onmessage = this._transport?.onmessage;
     this._transport.onmessage = (message, extra) => {
@@ -22900,22 +30935,22 @@ var Protocol = class {
       controller.abort();
     }
     this._requestHandlerAbortControllers.clear();
-    const error2 = McpError.fromError(ErrorCode.ConnectionClosed, "Connection closed");
+    const error48 = McpError.fromError(ErrorCode.ConnectionClosed, "Connection closed");
     this._transport = void 0;
     this.onclose?.();
     for (const handler of responseHandlers.values()) {
-      handler(error2);
+      handler(error48);
     }
   }
-  _onerror(error2) {
-    this.onerror?.(error2);
+  _onerror(error48) {
+    this.onerror?.(error48);
   }
   _onnotification(notification) {
     const handler = this._notificationHandlers.get(notification.method) ?? this.fallbackNotificationHandler;
     if (handler === void 0) {
       return;
     }
-    Promise.resolve().then(() => handler(notification)).catch((error2) => this._onerror(new Error(`Uncaught error in notification handler: ${error2}`)));
+    Promise.resolve().then(() => handler(notification)).catch((error48) => this._onerror(new Error(`Uncaught error in notification handler: ${error48}`)));
   }
   _onrequest(request, extra) {
     const handler = this._requestHandlers.get(request.method) ?? this.fallbackRequestHandler;
@@ -22935,9 +30970,9 @@ var Protocol = class {
           type: "error",
           message: errorResponse,
           timestamp: Date.now()
-        }, capturedTransport?.sessionId).catch((error2) => this._onerror(new Error(`Failed to enqueue error response: ${error2}`)));
+        }, capturedTransport?.sessionId).catch((error48) => this._onerror(new Error(`Failed to enqueue error response: ${error48}`)));
       } else {
-        capturedTransport?.send(errorResponse).catch((error2) => this._onerror(new Error(`Failed to send an error response: ${error2}`)));
+        capturedTransport?.send(errorResponse).catch((error48) => this._onerror(new Error(`Failed to send an error response: ${error48}`)));
       }
       return;
     }
@@ -23003,7 +31038,7 @@ var Protocol = class {
       } else {
         await capturedTransport?.send(response);
       }
-    }, async (error2) => {
+    }, async (error48) => {
       if (abortController.signal.aborted) {
         return;
       }
@@ -23011,9 +31046,9 @@ var Protocol = class {
         jsonrpc: "2.0",
         id: request.id,
         error: {
-          code: Number.isSafeInteger(error2["code"]) ? error2["code"] : ErrorCode.InternalError,
-          message: error2.message ?? "Internal error",
-          ...error2["data"] !== void 0 && { data: error2["data"] }
+          code: Number.isSafeInteger(error48["code"]) ? error48["code"] : ErrorCode.InternalError,
+          message: error48.message ?? "Internal error",
+          ...error48["data"] !== void 0 && { data: error48["data"] }
         }
       };
       if (relatedTaskId && this._taskMessageQueue) {
@@ -23025,7 +31060,7 @@ var Protocol = class {
       } else {
         await capturedTransport?.send(errorResponse);
       }
-    }).catch((error2) => this._onerror(new Error(`Failed to send response: ${error2}`))).finally(() => {
+    }).catch((error48) => this._onerror(new Error(`Failed to send response: ${error48}`))).finally(() => {
       this._requestHandlerAbortControllers.delete(request.id);
     });
   }
@@ -23042,11 +31077,11 @@ var Protocol = class {
     if (timeoutInfo && responseHandler && timeoutInfo.resetTimeoutOnProgress) {
       try {
         this._resetTimeout(messageId);
-      } catch (error2) {
+      } catch (error48) {
         this._responseHandlers.delete(messageId);
         this._progressHandlers.delete(messageId);
         this._cleanupTimeout(messageId);
-        responseHandler(error2);
+        responseHandler(error48);
         return;
       }
     }
@@ -23060,8 +31095,8 @@ var Protocol = class {
       if (isJSONRPCResultResponse(response)) {
         resolver(response);
       } else {
-        const error2 = new McpError(response.error.code, response.error.message, response.error.data);
-        resolver(error2);
+        const error48 = new McpError(response.error.code, response.error.message, response.error.data);
+        resolver(error48);
       }
       return;
     }
@@ -23089,8 +31124,8 @@ var Protocol = class {
     if (isJSONRPCResultResponse(response)) {
       handler(response);
     } else {
-      const error2 = McpError.fromError(response.error.code, response.error.message, response.error.data);
-      handler(error2);
+      const error48 = McpError.fromError(response.error.code, response.error.message, response.error.data);
+      handler(error48);
     }
   }
   get transport() {
@@ -23135,10 +31170,10 @@ var Protocol = class {
       try {
         const result = await this.request(request, resultSchema, options);
         yield { type: "result", result };
-      } catch (error2) {
+      } catch (error48) {
         yield {
           type: "error",
-          error: error2 instanceof McpError ? error2 : new McpError(ErrorCode.InternalError, String(error2))
+          error: error48 instanceof McpError ? error48 : new McpError(ErrorCode.InternalError, String(error48))
         };
       }
       return;
@@ -23181,10 +31216,10 @@ var Protocol = class {
         await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
         options?.signal?.throwIfAborted();
       }
-    } catch (error2) {
+    } catch (error48) {
       yield {
         type: "error",
-        error: error2 instanceof McpError ? error2 : new McpError(ErrorCode.InternalError, String(error2))
+        error: error48 instanceof McpError ? error48 : new McpError(ErrorCode.InternalError, String(error48))
       };
     }
   }
@@ -23196,8 +31231,8 @@ var Protocol = class {
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
     return new Promise((resolve3, reject) => {
-      const earlyReject = (error2) => {
-        reject(error2);
+      const earlyReject = (error48) => {
+        reject(error48);
       };
       if (!this._transport) {
         earlyReject(new Error("Not connected"));
@@ -23257,9 +31292,9 @@ var Protocol = class {
             requestId: messageId,
             reason: String(reason)
           }
-        }, { relatedRequestId, resumptionToken, onresumptiontoken }).catch((error3) => this._onerror(new Error(`Failed to send cancellation: ${error3}`)));
-        const error2 = reason instanceof McpError ? reason : new McpError(ErrorCode.RequestTimeout, String(reason));
-        reject(error2);
+        }, { relatedRequestId, resumptionToken, onresumptiontoken }).catch((error49) => this._onerror(new Error(`Failed to send cancellation: ${error49}`)));
+        const error48 = reason instanceof McpError ? reason : new McpError(ErrorCode.RequestTimeout, String(reason));
+        reject(error48);
       };
       this._responseHandlers.set(messageId, (response) => {
         if (options?.signal?.aborted) {
@@ -23275,8 +31310,8 @@ var Protocol = class {
           } else {
             resolve3(parseResult.data);
           }
-        } catch (error2) {
-          reject(error2);
+        } catch (error48) {
+          reject(error48);
         }
       });
       options?.signal?.addEventListener("abort", () => {
@@ -23300,14 +31335,14 @@ var Protocol = class {
           type: "request",
           message: jsonrpcRequest,
           timestamp: Date.now()
-        }).catch((error2) => {
+        }).catch((error48) => {
           this._cleanupTimeout(messageId);
-          reject(error2);
+          reject(error48);
         });
       } else {
-        this._transport.send(jsonrpcRequest, { relatedRequestId, resumptionToken, onresumptiontoken }).catch((error2) => {
+        this._transport.send(jsonrpcRequest, { relatedRequestId, resumptionToken, onresumptiontoken }).catch((error48) => {
           this._cleanupTimeout(messageId);
-          reject(error2);
+          reject(error48);
         });
       }
     });
@@ -23400,7 +31435,7 @@ var Protocol = class {
             }
           };
         }
-        this._transport?.send(jsonrpcNotification2, options).catch((error2) => this._onerror(error2));
+        this._transport?.send(jsonrpcNotification2, options).catch((error48) => this._onerror(error48));
       });
       return;
     }
@@ -24262,11 +32297,11 @@ var Server = class extends Protocol {
             if (!validationResult.valid) {
               throw new McpError(ErrorCode.InvalidParams, `Elicitation response content does not match requested schema: ${validationResult.errorMessage}`);
             }
-          } catch (error2) {
-            if (error2 instanceof McpError) {
-              throw error2;
+          } catch (error48) {
+            if (error48 instanceof McpError) {
+              throw error48;
             }
-            throw new McpError(ErrorCode.InternalError, `Error validating elicitation response: ${error2 instanceof Error ? error2.message : String(error2)}`);
+            throw new McpError(ErrorCode.InternalError, `Error validating elicitation response: ${error48 instanceof Error ? error48.message : String(error48)}`);
           }
         }
         return result;
@@ -24370,8 +32405,8 @@ var StdioServerTransport = class {
       this._readBuffer.append(chunk);
       this.processReadBuffer();
     };
-    this._onerror = (error2) => {
-      this.onerror?.(error2);
+    this._onerror = (error48) => {
+      this.onerror?.(error48);
     };
   }
   /**
@@ -24393,8 +32428,8 @@ var StdioServerTransport = class {
           break;
         }
         this.onmessage?.(message);
-      } catch (error2) {
-        this.onerror?.(error2);
+      } catch (error48) {
+        this.onerror?.(error48);
       }
     }
   }
@@ -24420,872 +32455,10 @@ var StdioServerTransport = class {
   }
 };
 
-// src/mcp/config.ts
-import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
-var CONFIG_DIR = path.join(os.homedir(), ".claude", "qqbot-mcp");
-var CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
-function ensureConfigDir() {
-  if (!fs.existsSync(CONFIG_DIR)) {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  }
-}
-function readConfig() {
-  ensureConfigDir();
-  if (!fs.existsSync(CONFIG_FILE)) {
-    return {
-      version: "1.0.0",
-      bots: {},
-      lastUpdated: Date.now()
-    };
-  }
-  try {
-    const content = fs.readFileSync(CONFIG_FILE, "utf-8");
-    return JSON.parse(content);
-  } catch (error2) {
-    console.error("[qqbot-mcp] Failed to read config:", error2);
-    return {
-      version: "1.0.0",
-      bots: {},
-      lastUpdated: Date.now()
-    };
-  }
-}
-function writeConfig(config2) {
-  ensureConfigDir();
-  config2.lastUpdated = Date.now();
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config2, null, 2), {
-    encoding: "utf-8",
-    mode: 384
-  });
-}
-function getAllBots() {
-  return readConfig().bots;
-}
-function getBot(name) {
-  return readConfig().bots[name];
-}
-function setBot(config2) {
-  const cfg = readConfig();
-  cfg.bots[config2.name] = {
-    ...config2,
-    updatedAt: Date.now()
-  };
-  writeConfig(cfg);
-}
-function botExists(name) {
-  return name in readConfig().bots;
-}
-function loadFromEnv() {
-  const appId = process.env.QQBOT_APP_ID;
-  const clientSecret = process.env.QQBOT_CLIENT_SECRET;
-  if (!appId || !clientSecret) {
-    return null;
-  }
-  return {
-    name: "default",
-    appId,
-    clientSecret,
-    enabled: true,
-    imageServerBaseUrl: process.env.QQBOT_IMAGE_SERVER_BASE_URL,
-    markdownSupport: process.env.QQBOT_MARKDOWN_SUPPORT !== "false",
-    createdAt: Date.now(),
-    updatedAt: Date.now()
-  };
-}
-var GLOBAL_CONFIG_DIR = path.join(os.homedir(), ".claude", "qqbot-gateway");
-var GLOBAL_CONFIG_FILE = path.join(GLOBAL_CONFIG_DIR, "qqbot-config.json");
-
-// src/mcp/qq-client.ts
-import * as path2 from "path";
-import * as fs2 from "fs";
-
-// src/utils/upload-cache.ts
-import * as crypto from "node:crypto";
-var cache = /* @__PURE__ */ new Map();
-var MAX_CACHE_SIZE = 500;
-function computeFileHash(data) {
-  const content = typeof data === "string" ? data : data;
-  return crypto.createHash("md5").update(content).digest("hex");
-}
-function buildCacheKey(contentHash, scope, targetId, fileType) {
-  return `${contentHash}:${scope}:${targetId}:${fileType}`;
-}
-function getCachedFileInfo(contentHash, scope, targetId, fileType) {
-  const key = buildCacheKey(contentHash, scope, targetId, fileType);
-  const entry = cache.get(key);
-  if (!entry) return null;
-  if (Date.now() >= entry.expiresAt) {
-    cache.delete(key);
-    return null;
-  }
-  console.log(`[upload-cache] Cache HIT: key=${key.slice(0, 40)}..., fileUuid=${entry.fileUuid}`);
-  return entry.fileInfo;
-}
-function setCachedFileInfo(contentHash, scope, targetId, fileType, fileInfo, fileUuid, ttl) {
-  if (cache.size >= MAX_CACHE_SIZE) {
-    const now = Date.now();
-    for (const [k, v] of cache) {
-      if (now >= v.expiresAt) {
-        cache.delete(k);
-      }
-    }
-    if (cache.size >= MAX_CACHE_SIZE) {
-      const keys = Array.from(cache.keys());
-      for (let i = 0; i < keys.length / 2; i++) {
-        cache.delete(keys[i]);
-      }
-    }
-  }
-  const key = buildCacheKey(contentHash, scope, targetId, fileType);
-  const safetyMargin = 60;
-  const effectiveTtl = Math.max(ttl - safetyMargin, 10);
-  cache.set(key, {
-    fileInfo,
-    fileUuid,
-    expiresAt: Date.now() + effectiveTtl * 1e3
-  });
-  console.log(`[upload-cache] Cache SET: key=${key.slice(0, 40)}..., ttl=${effectiveTtl}s, uuid=${fileUuid}`);
-}
-
-// src/utils/platform.ts
-function sanitizeFileName(name) {
-  if (!name) return name;
-  let result = name.trim();
-  if (result.includes("%")) {
-    try {
-      result = decodeURIComponent(result);
-    } catch {
-    }
-  }
-  result = result.normalize("NFC");
-  result = result.replace(/[\x00-\x1F\x7F]/g, "");
-  return result;
-}
-
-// src/api.ts
-var API_BASE = "https://api.sgroup.qq.com";
-var TOKEN_URL = "https://bots.qq.com/app/getAppAccessToken";
-var currentMarkdownSupport = false;
-function initApiConfig(options) {
-  currentMarkdownSupport = options.markdownSupport === true;
-}
-var tokenCacheMap = /* @__PURE__ */ new Map();
-var tokenFetchPromises = /* @__PURE__ */ new Map();
-async function getAccessToken(appId, clientSecret) {
-  const cachedToken = tokenCacheMap.get(appId);
-  if (cachedToken && Date.now() < cachedToken.expiresAt - 5 * 60 * 1e3) {
-    return cachedToken.token;
-  }
-  let fetchPromise = tokenFetchPromises.get(appId);
-  if (fetchPromise) {
-    console.error(`[qqbot-api:${appId}] Token fetch in progress, waiting for existing request...`);
-    return fetchPromise;
-  }
-  fetchPromise = (async () => {
-    try {
-      return await doFetchToken(appId, clientSecret);
-    } finally {
-      tokenFetchPromises.delete(appId);
-    }
-  })();
-  tokenFetchPromises.set(appId, fetchPromise);
-  return fetchPromise;
-}
-async function doFetchToken(appId, clientSecret) {
-  const requestBody = { appId, clientSecret };
-  const requestHeaders = { "Content-Type": "application/json" };
-  console.error(`[qqbot-api:${appId}] >>> POST ${TOKEN_URL}`);
-  let response;
-  try {
-    response = await fetch(TOKEN_URL, {
-      method: "POST",
-      headers: requestHeaders,
-      body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(3e4)
-      // 30 秒超时
-    });
-  } catch (err) {
-    console.error(`[qqbot-api:${appId}] <<< Network error:`, err);
-    throw new Error(`Network error getting access_token: ${err instanceof Error ? err.message : String(err)}`);
-  }
-  const responseHeaders = {};
-  response.headers.forEach((value, key) => {
-    responseHeaders[key] = value;
-  });
-  console.error(`[qqbot-api:${appId}] <<< Status: ${response.status} ${response.statusText}`);
-  let data;
-  let rawBody;
-  try {
-    rawBody = await response.text();
-    const logBody = rawBody.replace(/"access_token"\s*:\s*"[^"]+"/g, '"access_token": "***"');
-    console.error(`[qqbot-api:${appId}] <<< Body:`, logBody);
-    data = JSON.parse(rawBody);
-  } catch (err) {
-    console.error(`[qqbot-api:${appId}] <<< Parse error:`, err);
-    throw new Error(`Failed to parse access_token response: ${err instanceof Error ? err.message : String(err)}`);
-  }
-  if (!data.access_token) {
-    throw new Error(`Failed to get access_token: ${JSON.stringify(data)}`);
-  }
-  const expiresAt = Date.now() + (data.expires_in ?? 7200) * 1e3;
-  tokenCacheMap.set(appId, {
-    token: data.access_token,
-    expiresAt,
-    appId
-  });
-  console.error(`[qqbot-api:${appId}] Token cached, expires at: ${new Date(expiresAt).toISOString()}`);
-  return data.access_token;
-}
-function getNextMsgSeq(_msgId) {
-  const timePart = Date.now() % 1e8;
-  const random = Math.floor(Math.random() * 65536);
-  return (timePart ^ random) % 65536;
-}
-var DEFAULT_API_TIMEOUT = 3e4;
-var FILE_UPLOAD_TIMEOUT = 12e4;
-async function apiRequest(accessToken, method, path5, body, timeoutMs) {
-  const url2 = `${API_BASE}${path5}`;
-  const headers = {
-    Authorization: `QQBot ${accessToken}`,
-    "Content-Type": "application/json"
-  };
-  const isFileUpload = path5.includes("/files");
-  const timeout = timeoutMs ?? (isFileUpload ? FILE_UPLOAD_TIMEOUT : DEFAULT_API_TIMEOUT);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, timeout);
-  const options = {
-    method,
-    headers,
-    signal: controller.signal
-  };
-  if (body) {
-    options.body = JSON.stringify(body);
-  }
-  console.error(`[qqbot-api] >>> ${method} ${url2} (timeout: ${timeout}ms)`);
-  if (body) {
-    const logBody = { ...body };
-    if (typeof logBody.file_data === "string") {
-      logBody.file_data = `<base64 ${logBody.file_data.length} chars>`;
-    }
-  }
-  let res;
-  try {
-    res = await fetch(url2, options);
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err instanceof Error && err.name === "AbortError") {
-      console.error(`[qqbot-api] <<< Request timeout after ${timeout}ms`);
-      throw new Error(`Request timeout[${path5}]: exceeded ${timeout}ms`);
-    }
-    console.error(`[qqbot-api] <<< Network error:`, err);
-    throw new Error(`Network error [${path5}]: ${err instanceof Error ? err.message : String(err)}`);
-  } finally {
-    clearTimeout(timeoutId);
-  }
-  const responseHeaders = {};
-  res.headers.forEach((value, key) => {
-    responseHeaders[key] = value;
-  });
-  console.error(`[qqbot-api] <<< Status: ${res.status} ${res.statusText}`);
-  let data;
-  let rawBody;
-  try {
-    rawBody = await res.text();
-    data = JSON.parse(rawBody);
-  } catch (err) {
-    throw new Error(`Failed to parse response[${path5}]: ${err instanceof Error ? err.message : String(err)}`);
-  }
-  if (!res.ok) {
-    const error2 = data;
-    throw new Error(`API Error [${path5}]: ${error2.message ?? JSON.stringify(data)}`);
-  }
-  return data;
-}
-var UPLOAD_MAX_RETRIES = 2;
-var UPLOAD_BASE_DELAY_MS = 1e3;
-async function apiRequestWithRetry(accessToken, method, path5, body, maxRetries = UPLOAD_MAX_RETRIES) {
-  let lastError = null;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await apiRequest(accessToken, method, path5, body);
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      const errMsg = lastError.message;
-      if (errMsg.includes("400") || errMsg.includes("401") || errMsg.includes("Invalid") || errMsg.includes("\u4E0A\u4F20\u8D85\u65F6") || errMsg.includes("timeout") || errMsg.includes("Timeout")) {
-        throw lastError;
-      }
-      if (attempt < maxRetries) {
-        const delay = UPLOAD_BASE_DELAY_MS * Math.pow(2, attempt);
-        console.error(`[qqbot-api] Upload attempt ${attempt + 1} failed, retrying in ${delay}ms: ${errMsg.slice(0, 100)}`);
-        await new Promise((resolve3) => setTimeout(resolve3, delay));
-      }
-    }
-  }
-  throw lastError;
-}
-function buildMessageBody(content, msgId, msgSeq) {
-  const body = currentMarkdownSupport ? {
-    markdown: { content },
-    msg_type: 2,
-    msg_seq: msgSeq
-  } : {
-    content,
-    msg_type: 0,
-    msg_seq: msgSeq
-  };
-  if (msgId) {
-    body.msg_id = msgId;
-  }
-  return body;
-}
-async function sendC2CMessage(accessToken, openid, content, msgId) {
-  const msgSeq = msgId ? getNextMsgSeq(msgId) : 1;
-  const body = buildMessageBody(content, msgId, msgSeq);
-  return apiRequest(accessToken, "POST", `/v2/users/${openid}/messages`, body);
-}
-async function sendChannelMessage(accessToken, channelId, content, msgId) {
-  return apiRequest(accessToken, "POST", `/channels/${channelId}/messages`, {
-    content,
-    ...msgId ? { msg_id: msgId } : {}
-  });
-}
-async function sendGroupMessage(accessToken, groupOpenid, content, msgId) {
-  const msgSeq = msgId ? getNextMsgSeq(msgId) : 1;
-  const body = buildMessageBody(content, msgId, msgSeq);
-  return apiRequest(accessToken, "POST", `/v2/groups/${groupOpenid}/messages`, body);
-}
-function buildProactiveMessageBody(content) {
-  if (!content || content.trim().length === 0) {
-    throw new Error("\u4E3B\u52A8\u6D88\u606F\u5185\u5BB9\u4E0D\u80FD\u4E3A\u7A7A (markdown.content is empty)");
-  }
-  if (currentMarkdownSupport) {
-    return { markdown: { content }, msg_type: 2 };
-  } else {
-    return { content, msg_type: 0 };
-  }
-}
-async function sendProactiveC2CMessage(accessToken, openid, content) {
-  const body = buildProactiveMessageBody(content);
-  return apiRequest(accessToken, "POST", `/v2/users/${openid}/messages`, body);
-}
-async function sendProactiveGroupMessage(accessToken, groupOpenid, content) {
-  const body = buildProactiveMessageBody(content);
-  return apiRequest(accessToken, "POST", `/v2/groups/${groupOpenid}/messages`, body);
-}
-async function uploadC2CMedia(accessToken, openid, fileType, url2, fileData, srvSendMsg = false, fileName) {
-  if (!url2 && !fileData) throw new Error("uploadC2CMedia: url or fileData is required");
-  if (fileData) {
-    const contentHash = computeFileHash(fileData);
-    const cachedInfo = getCachedFileInfo(contentHash, "c2c", openid, fileType);
-    if (cachedInfo) {
-      return { file_uuid: "", file_info: cachedInfo, ttl: 0 };
-    }
-  }
-  const body = { file_type: fileType, srv_send_msg: srvSendMsg };
-  if (url2) body.url = url2;
-  else if (fileData) body.file_data = fileData;
-  if (fileType === 4 /* FILE */ && fileName) body.file_name = sanitizeFileName(fileName);
-  const result = await apiRequestWithRetry(
-    accessToken,
-    "POST",
-    `/v2/users/${openid}/files`,
-    body
-  );
-  if (fileData && result.file_info && result.ttl > 0) {
-    const contentHash = computeFileHash(fileData);
-    setCachedFileInfo(contentHash, "c2c", openid, fileType, result.file_info, result.file_uuid, result.ttl);
-  }
-  return result;
-}
-async function uploadGroupMedia(accessToken, groupOpenid, fileType, url2, fileData, srvSendMsg = false, fileName) {
-  if (!url2 && !fileData) throw new Error("uploadGroupMedia: url or fileData is required");
-  if (fileData) {
-    const contentHash = computeFileHash(fileData);
-    const cachedInfo = getCachedFileInfo(contentHash, "group", groupOpenid, fileType);
-    if (cachedInfo) {
-      return { file_uuid: "", file_info: cachedInfo, ttl: 0 };
-    }
-  }
-  const body = { file_type: fileType, srv_send_msg: srvSendMsg };
-  if (url2) body.url = url2;
-  else if (fileData) body.file_data = fileData;
-  if (fileType === 4 /* FILE */ && fileName) body.file_name = sanitizeFileName(fileName);
-  const result = await apiRequestWithRetry(
-    accessToken,
-    "POST",
-    `/v2/groups/${groupOpenid}/files`,
-    body
-  );
-  if (fileData && result.file_info && result.ttl > 0) {
-    const contentHash = computeFileHash(fileData);
-    setCachedFileInfo(contentHash, "group", groupOpenid, fileType, result.file_info, result.file_uuid, result.ttl);
-  }
-  return result;
-}
-async function sendC2CMediaMessage(accessToken, openid, fileInfo, msgId, content) {
-  const msgSeq = msgId ? getNextMsgSeq(msgId) : 1;
-  return apiRequest(accessToken, "POST", `/v2/users/${openid}/messages`, {
-    msg_type: 7,
-    media: { file_info: fileInfo },
-    msg_seq: msgSeq,
-    ...content ? { content } : {},
-    ...msgId ? { msg_id: msgId } : {}
-  });
-}
-async function sendGroupMediaMessage(accessToken, groupOpenid, fileInfo, msgId, content) {
-  const msgSeq = msgId ? getNextMsgSeq(msgId) : 1;
-  return apiRequest(accessToken, "POST", `/v2/groups/${groupOpenid}/messages`, {
-    msg_type: 7,
-    media: { file_info: fileInfo },
-    msg_seq: msgSeq,
-    ...content ? { content } : {},
-    ...msgId ? { msg_id: msgId } : {}
-  });
-}
-async function sendC2CImageMessage(accessToken, openid, imageUrl, msgId, content) {
-  let uploadResult;
-  if (imageUrl.startsWith("data:")) {
-    const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
-    if (!matches) throw new Error("Invalid Base64 Data URL format");
-    uploadResult = await uploadC2CMedia(accessToken, openid, 1 /* IMAGE */, void 0, matches[2], false);
-  } else {
-    uploadResult = await uploadC2CMedia(accessToken, openid, 1 /* IMAGE */, imageUrl, void 0, false);
-  }
-  return sendC2CMediaMessage(accessToken, openid, uploadResult.file_info, msgId, content);
-}
-async function sendGroupImageMessage(accessToken, groupOpenid, imageUrl, msgId, content) {
-  let uploadResult;
-  if (imageUrl.startsWith("data:")) {
-    const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
-    if (!matches) throw new Error("Invalid Base64 Data URL format");
-    uploadResult = await uploadGroupMedia(accessToken, groupOpenid, 1 /* IMAGE */, void 0, matches[2], false);
-  } else {
-    uploadResult = await uploadGroupMedia(accessToken, groupOpenid, 1 /* IMAGE */, imageUrl, void 0, false);
-  }
-  return sendGroupMediaMessage(accessToken, groupOpenid, uploadResult.file_info, msgId, content);
-}
-async function sendC2CFileMessage(accessToken, openid, fileBase64, fileUrl, msgId, fileName) {
-  const uploadResult = await uploadC2CMedia(accessToken, openid, 4 /* FILE */, fileUrl, fileBase64, false, fileName);
-  return sendC2CMediaMessage(accessToken, openid, uploadResult.file_info, msgId);
-}
-async function sendGroupFileMessage(accessToken, groupOpenid, fileBase64, fileUrl, msgId, fileName) {
-  const uploadResult = await uploadGroupMedia(accessToken, groupOpenid, 4 /* FILE */, fileUrl, fileBase64, false, fileName);
-  return sendGroupMediaMessage(accessToken, groupOpenid, uploadResult.file_info, msgId);
-}
-async function sendC2CVideoMessage(accessToken, openid, videoUrl, videoBase64, msgId, content) {
-  const uploadResult = await uploadC2CMedia(accessToken, openid, 2 /* VIDEO */, videoUrl, videoBase64, false);
-  return sendC2CMediaMessage(accessToken, openid, uploadResult.file_info, msgId, content);
-}
-async function sendGroupVideoMessage(accessToken, groupOpenid, videoUrl, videoBase64, msgId, content) {
-  const uploadResult = await uploadGroupMedia(accessToken, groupOpenid, 2 /* VIDEO */, videoUrl, videoBase64, false);
-  return sendGroupMediaMessage(accessToken, groupOpenid, uploadResult.file_info, msgId, content);
-}
-var backgroundRefreshControllers = /* @__PURE__ */ new Map();
-function startBackgroundTokenRefresh(appId, clientSecret, options) {
-  if (backgroundRefreshControllers.has(appId)) {
-    console.error(`[qqbot-api:${appId}] Background token refresh already running`);
-    return;
-  }
-  const {
-    refreshAheadMs = 5 * 60 * 1e3,
-    randomOffsetMs = 30 * 1e3,
-    minRefreshIntervalMs = 60 * 1e3,
-    retryDelayMs = 5 * 1e3,
-    log
-  } = options ?? {};
-  const controller = new AbortController();
-  backgroundRefreshControllers.set(appId, controller);
-  const signal = controller.signal;
-  const refreshLoop = async () => {
-    log?.info?.(`[qqbot-api:${appId}] Background token refresh started`);
-    while (!signal.aborted) {
-      try {
-        await getAccessToken(appId, clientSecret);
-        const cached2 = tokenCacheMap.get(appId);
-        if (cached2) {
-          const expiresIn = cached2.expiresAt - Date.now();
-          const randomOffset = Math.random() * randomOffsetMs;
-          const refreshIn = Math.max(
-            expiresIn - refreshAheadMs - randomOffset,
-            minRefreshIntervalMs
-          );
-          log?.debug?.(`[qqbot-api:${appId}] Token valid, next refresh in ${Math.round(refreshIn / 1e3)}s`);
-          await sleep(refreshIn, signal);
-        } else {
-          log?.debug?.(`[qqbot-api:${appId}] No cached token, retrying soon`);
-          await sleep(minRefreshIntervalMs, signal);
-        }
-      } catch (err) {
-        if (signal.aborted) break;
-        log?.error?.(`[qqbot-api:${appId}] Background token refresh failed: ${err}`);
-        await sleep(retryDelayMs, signal);
-      }
-    }
-    backgroundRefreshControllers.delete(appId);
-    log?.info?.(`[qqbot-api:${appId}] Background token refresh stopped`);
-  };
-  refreshLoop().catch((err) => {
-    backgroundRefreshControllers.delete(appId);
-    log?.error?.(`[qqbot-api:${appId}] Background token refresh crashed: ${err}`);
-  });
-}
-function stopBackgroundTokenRefresh(appId) {
-  if (appId) {
-    const controller = backgroundRefreshControllers.get(appId);
-    if (controller) {
-      controller.abort();
-      backgroundRefreshControllers.delete(appId);
-    }
-  } else {
-    for (const controller of backgroundRefreshControllers.values()) {
-      controller.abort();
-    }
-    backgroundRefreshControllers.clear();
-  }
-}
-async function sleep(ms, signal) {
-  return new Promise((resolve3, reject) => {
-    const timer = setTimeout(resolve3, ms);
-    if (signal) {
-      if (signal.aborted) {
-        clearTimeout(timer);
-        reject(new Error("Aborted"));
-        return;
-      }
-      const onAbort = () => {
-        clearTimeout(timer);
-        reject(new Error("Aborted"));
-      };
-      signal.addEventListener("abort", onAbort, { once: true });
-    }
-  });
-}
-
-// src/mcp/message-queue.ts
-import * as crypto2 from "crypto";
-var messageQueues = /* @__PURE__ */ new Map();
-var processedMessageIds = /* @__PURE__ */ new Set();
-var MAX_QUEUE_SIZE = 1e3;
-var MAX_PROCESSED_IDS = 1e4;
-function generateMessageId(botName, sourceId, timestamp, content) {
-  const hash2 = crypto2.createHash("md5");
-  hash2.update(`${botName}:${sourceId}:${timestamp}:${content}`);
-  return hash2.digest("hex");
-}
-function ensureQueue(botName) {
-  if (!messageQueues.has(botName)) {
-    messageQueues.set(botName, []);
-  }
-  return messageQueues.get(botName);
-}
-function enqueueMessage(botName, sourceType, sourceId, content, authorId, attachments) {
-  const queue = ensureQueue(botName);
-  const timestamp = Date.now();
-  const id = generateMessageId(botName, sourceId, timestamp, content);
-  if (processedMessageIds.has(id)) {
-    console.log(`[qqbot-mcp] Duplicate message ignored: ${id.slice(0, 8)}...`);
-    return false;
-  }
-  if (queue.length >= MAX_QUEUE_SIZE) {
-    console.warn(`[qqbot-mcp] Queue full for ${botName}, dropping oldest message`);
-    const removed = queue.shift();
-    if (removed) {
-      processedMessageIds.delete(removed.id);
-    }
-  }
-  const task = {
-    id,
-    botName,
-    sourceType: sourceType === "user" ? "c2c" : sourceType === "group" ? "group" : "channel",
-    sourceId,
-    content,
-    authorId,
-    timestamp,
-    read: false,
-    attachments
-  };
-  queue.push(task);
-  processedMessageIds.add(id);
-  if (processedMessageIds.size > MAX_PROCESSED_IDS) {
-    const ids = Array.from(processedMessageIds).slice(0, MAX_PROCESSED_IDS / 2);
-    ids.forEach((id2) => processedMessageIds.delete(id2));
-  }
-  console.log(`[qqbot-mcp] Message enqueued for ${botName}: ${content.slice(0, 50)}...`);
-  return true;
-}
-function fetchUnreadTasks(botName) {
-  const queue = messageQueues.get(botName);
-  if (!queue) {
-    return [];
-  }
-  const unreadTasks = queue.filter((task) => !task.read);
-  unreadTasks.forEach((task) => {
-    task.read = true;
-  });
-  return unreadTasks;
-}
-function fetchAllUnreadTasks() {
-  const allTasks = [];
-  messageQueues.forEach((queue, botName) => {
-    const unreadTasks = queue.filter((task) => !task.read);
-    unreadTasks.forEach((task) => {
-      task.read = true;
-    });
-    allTasks.push(...unreadTasks);
-  });
-  return allTasks;
-}
-function getMessageContext(botName, sourceId, limit = 10) {
-  const queue = messageQueues.get(botName);
-  if (!queue) {
-    return [];
-  }
-  const relevantMessages = queue.filter((task) => task.sourceId === sourceId).slice(-limit).map((task) => ({
-    id: task.id,
-    content: task.content,
-    authorId: task.authorId,
-    timestamp: task.timestamp,
-    sourceType: task.sourceType === "c2c" ? "user" : task.sourceType,
-    attachments: task.attachments
-  }));
-  return relevantMessages;
-}
-function getQueueStatus() {
-  const status = {};
-  messageQueues.forEach((queue, botName) => {
-    status[botName] = {
-      total: queue.length,
-      unread: queue.filter((t) => !t.read).length
-    };
-  });
-  return status;
-}
-
-// src/mcp/qq-client.ts
-function parseTargetId(targetId) {
-  if (targetId.startsWith("G_")) {
-    return { type: "group", id: targetId.slice(2) };
-  }
-  if (targetId.startsWith("U_")) {
-    return { type: "user", id: targetId.slice(2) };
-  }
-  if (targetId.startsWith("C_")) {
-    return { type: "channel", id: targetId.slice(2) };
-  }
-  return { type: "group", id: targetId };
-}
-var QQClient = class {
-  config;
-  accessToken = null;
-  constructor(config2) {
-    this.config = config2;
-    initApiConfig({ markdownSupport: config2.markdownSupport ?? true });
-  }
-  /**
-   * 获取机器人名称
-   */
-  get name() {
-    return this.config.name;
-  }
-  /**
-   * 获取访问令牌
-   */
-  async getAccessToken() {
-    if (!this.accessToken) {
-      this.accessToken = await getAccessToken(this.config.appId, this.config.clientSecret);
-    }
-    return this.accessToken;
-  }
-  /**
-   * 启动后台 Token 刷新
-   */
-  startTokenRefresh() {
-    startBackgroundTokenRefresh(this.config.appId, this.config.clientSecret, {
-      log: {
-        // 🔴 重要: MCP Server 中所有日志必须输出到 stderr，不能输出到 stdout
-        // stdout 只能用于 JSON-RPC 消息，否则会破坏 MCP 协议
-        info: (msg) => console.error(`[qqbot:${this.name}] ${msg}`),
-        error: (msg) => console.error(`[qqbot:${this.name}] ${msg}`)
-      }
-    });
-  }
-  /**
-   * 停止后台 Token 刷新
-   */
-  stopTokenRefresh() {
-    stopBackgroundTokenRefresh(this.config.appId);
-  }
-  /**
-   * 发送文本消息
-   */
-  async sendMessage(targetId, content, msgId) {
-    try {
-      const token = await this.getAccessToken();
-      const { type, id } = parseTargetId(targetId);
-      let result;
-      switch (type) {
-        case "user":
-          result = await sendC2CMessage(token, id, content, msgId);
-          break;
-        case "group":
-          result = await sendGroupMessage(token, id, content, msgId);
-          break;
-        case "channel":
-          result = await sendChannelMessage(token, id, content, msgId);
-          break;
-      }
-      return { success: true, messageId: result.id };
-    } catch (error2) {
-      const errMsg = error2 instanceof Error ? error2.message : String(error2);
-      console.error(`[qqbot:${this.name}] Send message failed:`, errMsg);
-      return { success: false, error: errMsg };
-    }
-  }
-  /**
-   * 发送主动消息（无需回复）
-   */
-  async sendProactiveMessage(targetId, content) {
-    try {
-      const token = await this.getAccessToken();
-      const { type, id } = parseTargetId(targetId);
-      let result;
-      if (type === "user") {
-        result = await sendProactiveC2CMessage(token, id, content);
-      } else if (type === "group") {
-        result = await sendProactiveGroupMessage(token, id, content);
-      } else {
-        return { success: false, error: "Channel does not support proactive messages" };
-      }
-      return { success: true, messageId: result.id };
-    } catch (error2) {
-      const errMsg = error2 instanceof Error ? error2.message : String(error2);
-      console.error(`[qqbot:${this.name}] Send proactive message failed:`, errMsg);
-      return { success: false, error: errMsg };
-    }
-  }
-  /**
-   * 上传媒体文件
-   */
-  async uploadMedia(targetId, filePath, fileType, description) {
-    try {
-      const resolvedPath = path2.resolve(filePath);
-      if (!fs2.existsSync(resolvedPath)) {
-        return { success: false, error: `File not found: ${resolvedPath}` };
-      }
-      const token = await this.getAccessToken();
-      const { type, id } = parseTargetId(targetId);
-      const fileBuffer = fs2.readFileSync(resolvedPath);
-      const fileBase64 = fileBuffer.toString("base64");
-      const fileName = path2.basename(resolvedPath);
-      let result;
-      if (type === "user") {
-        result = await uploadC2CMedia(token, id, fileType, void 0, fileBase64, false, fileName);
-      } else {
-        result = await uploadGroupMedia(token, id, fileType, void 0, fileBase64, false, fileName);
-      }
-      return { success: true, fileInfo: result.file_info };
-    } catch (error2) {
-      const errMsg = error2 instanceof Error ? error2.message : String(error2);
-      console.error(`[qqbot:${this.name}] Upload media failed:`, errMsg);
-      return { success: false, error: errMsg };
-    }
-  }
-  /**
-   * 发送图片消息
-   */
-  async sendImage(targetId, imageUrl, content, msgId) {
-    try {
-      const token = await this.getAccessToken();
-      const { type, id } = parseTargetId(targetId);
-      let result;
-      if (type === "user") {
-        result = await sendC2CImageMessage(token, id, imageUrl, msgId, content);
-      } else {
-        result = await sendGroupImageMessage(token, id, imageUrl, msgId, content);
-      }
-      return { success: true, messageId: result.id };
-    } catch (error2) {
-      const errMsg = error2 instanceof Error ? error2.message : String(error2);
-      return { success: false, error: errMsg };
-    }
-  }
-  /**
-   * 发送文件消息
-   */
-  async sendFile(targetId, filePath, msgId) {
-    try {
-      const resolvedPath = path2.resolve(filePath);
-      if (!fs2.existsSync(resolvedPath)) {
-        return { success: false, error: `File not found: ${resolvedPath}` };
-      }
-      const token = await this.getAccessToken();
-      const { type, id } = parseTargetId(targetId);
-      const fileName = path2.basename(resolvedPath);
-      const fileBuffer = fs2.readFileSync(resolvedPath);
-      const fileBase64 = fileBuffer.toString("base64");
-      let result;
-      if (type === "user") {
-        result = await sendC2CFileMessage(token, id, fileBase64, void 0, msgId, fileName);
-      } else {
-        result = await sendGroupFileMessage(token, id, fileBase64, void 0, msgId, fileName);
-      }
-      return { success: true, messageId: result.id };
-    } catch (error2) {
-      const errMsg = error2 instanceof Error ? error2.message : String(error2);
-      return { success: false, error: errMsg };
-    }
-  }
-  /**
-   * 发送视频消息
-   */
-  async sendVideo(targetId, videoUrl, content, msgId) {
-    try {
-      const token = await this.getAccessToken();
-      const { type, id } = parseTargetId(targetId);
-      let result;
-      if (type === "user") {
-        result = await sendC2CVideoMessage(token, id, videoUrl, void 0, msgId, content);
-      } else {
-        result = await sendGroupVideoMessage(token, id, videoUrl, void 0, msgId, content);
-      }
-      return { success: true, messageId: result.id };
-    } catch (error2) {
-      const errMsg = error2 instanceof Error ? error2.message : String(error2);
-      return { success: false, error: errMsg };
-    }
-  }
-  /**
-   * 接收消息（供 WebSocket 回调使用）
-   */
-  receiveMessage(sourceType, sourceId, content, authorId, attachments) {
-    enqueueMessage(this.config.name, sourceType, sourceId, content, authorId, attachments);
-  }
-};
-var clients = /* @__PURE__ */ new Map();
-function getClient(config2) {
-  let client = clients.get(config2.name);
-  if (!client) {
-    client = new QQClient(config2);
-    clients.set(config2.name, client);
-  }
-  return client;
-}
-function cleanupAllClients() {
-  for (const [name, client] of clients) {
-    try {
-      client.stopTokenRefresh();
-      console.error(`[qqbot-mcp] Client stopped: ${name}`);
-    } catch (error2) {
-      console.error(`[qqbot-mcp] Error stopping client ${name}:`, error2);
-    }
-  }
-  clients.clear();
-  console.error("[qqbot-mcp] All clients cleaned up");
-}
+// src/mcp/tools.ts
+init_config();
+init_qq_client();
+init_message_queue();
 
 // node_modules/ws/wrapper.mjs
 var import_stream = __toESM(require_stream(), 1);
@@ -25293,17 +32466,527 @@ var import_receiver = __toESM(require_receiver(), 1);
 var import_sender = __toESM(require_sender(), 1);
 var import_websocket = __toESM(require_websocket(), 1);
 var import_websocket_server = __toESM(require_websocket_server(), 1);
-
-// src/mcp/permission-relay.ts
-var REQUEST_EXPIRY_MS = 5 * 60 * 1e3;
+var wrapper_default = import_websocket.default;
 
 // src/mcp/channel-pusher.ts
+init_message_queue();
+init_permission_relay();
 var GATEWAY_API_URL = process.env.QQBOT_GATEWAY_URL || "http://127.0.0.1:3310";
 var GATEWAY_WS_URL = process.env.QQBOT_GATEWAY_WS_URL || "ws://127.0.0.1:3311";
+var DEFAULT_CONFIG = {
+  interval: 200,
+  // 降低到 200ms 以减少延迟
+  mergeMessages: true,
+  maxMergeCount: 5,
+  registerToGateway: true
+};
+var FETCH_TIMEOUT = 1e4;
+var RETRY_CONFIG = {
+  maxRetries: 3,
+  retryIntervalMs: 5e3
+  // 5 秒间隔
+};
+async function fetchWithTimeout(url2, options = {}, timeout = FETCH_TIMEOUT) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  try {
+    return await fetch(url2, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+function sleep2(ms) {
+  return new Promise((resolve3) => setTimeout(resolve3, ms));
+}
+var pusherInterval = null;
+var isRunning = false;
+var mcpServer2 = null;
+var config2 = DEFAULT_CONFIG;
 var sessionId = null;
 var projectPath = null;
 var projectName = null;
 var isRegisteredWithGateway = false;
+var wsClient = null;
+var wsConnected = false;
+var wsReconnectTimer = null;
+var heartbeatCounter = 0;
+var reRegisterAttempts = 0;
+var MAX_RE_REGISTER_ATTEMPTS = 3;
+var RE_REGISTER_COOLDOWN_MS = 1e4;
+var lastReRegisterAttempt = 0;
+async function connectToGatewayWebSocket() {
+  if (wsClient && wsConnected) {
+    return;
+  }
+  return new Promise((resolve3, reject) => {
+    try {
+      console.error(`[channel-pusher] Connecting to Gateway WebSocket: ${GATEWAY_WS_URL}`);
+      wsClient = new wrapper_default(GATEWAY_WS_URL);
+      wsClient.on("open", () => {
+        console.error("[channel-pusher] \u2705 WebSocket connected");
+        wsConnected = true;
+        if (sessionId) {
+          wsClient.send(JSON.stringify({
+            type: "register",
+            sessionId
+          }));
+        }
+        startHeartbeat();
+        resolve3();
+      });
+      wsClient.on("message", (data) => {
+        try {
+          const msg = JSON.parse(data.toString());
+          if (msg.type === "registered") {
+            console.error(`[channel-pusher] \u2705 Registered to Gateway WS: ${msg.sessionId?.slice(0, 12)}...`);
+          } else if (msg.type === "channel_message") {
+            handleRealtimeMessage(msg.data);
+          } else if (msg.type === "pong") {
+          }
+        } catch (e) {
+          console.error("[channel-pusher] Invalid WS message:", e);
+        }
+      });
+      wsClient.on("close", () => {
+        console.error("[channel-pusher] \u26A0\uFE0F WebSocket disconnected");
+        wsConnected = false;
+        wsClient = null;
+        stopHeartbeat();
+        scheduleReconnect();
+      });
+      wsClient.on("error", (err) => {
+        console.error("[channel-pusher] \u274C WebSocket error:", err.message);
+        wsConnected = false;
+        reject(err);
+      });
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+var heartbeatTimer = null;
+function startHeartbeat() {
+  if (heartbeatTimer) return;
+  heartbeatTimer = setInterval(() => {
+    if (wsClient && wsConnected) {
+      wsClient.send(JSON.stringify({ type: "ping" }));
+    }
+  }, 3e4);
+}
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+function scheduleReconnect() {
+  if (wsReconnectTimer) return;
+  wsReconnectTimer = setTimeout(() => {
+    wsReconnectTimer = null;
+    if (isRunning && sessionId) {
+      console.error("[channel-pusher] \u{1F504} Attempting WebSocket reconnect...");
+      connectToGatewayWebSocket().catch((e) => {
+        console.error("[channel-pusher] Reconnect failed:", e.message);
+      });
+    }
+  }, 3e3);
+}
+async function handleRealtimeMessage(msg) {
+  if (!mcpServer2 || !isRunning) return;
+  try {
+    const content = msg.content || msg.message || "";
+    const sender = msg.sender || msg.authorId || "Unknown";
+    if (isPermissionReply(content)) {
+      const result = await handlePermissionReply(content, sender);
+      if (result.handled) {
+        console.error(`[channel-pusher] \u{1F510} Permission reply handled: ${result.request_id} -> ${result.approved ? "approved" : "denied"}`);
+        return;
+      }
+    }
+    const notification = {
+      content,
+      meta: {
+        chat_id: msg.chatId || msg.sourceId || "",
+        sender,
+        type: msg.type || "user",
+        message_id: msg.message_id || msg.id,
+        timestamp: msg.timestamp || Date.now()
+      }
+    };
+    await sendChannelNotification(mcpServer2, notification);
+    console.error(`[channel-pusher] \u26A1 Real-time push: ${content.slice(0, 30)}...`);
+  } catch (e) {
+    console.error("[channel-pusher] Real-time push error:", e);
+  }
+}
+function addChatIdPrefix(sourceId, sourceType) {
+  if (sourceId.match(/^[GUC]_/)) {
+    return sourceId;
+  }
+  if (sourceType === "group") {
+    return `G_${sourceId}`;
+  } else if (sourceType === "c2c" || sourceType === "private") {
+    return `U_${sourceId}`;
+  } else if (sourceType === "channel") {
+    return `C_${sourceId}`;
+  }
+  return sourceId;
+}
+function toChannelMessage(task) {
+  const isGroup = task.sourceType === "group" || task.sourceType === "channel";
+  const type = isGroup ? "group" : "user";
+  const chatId = addChatIdPrefix(task.sourceId, task.sourceType);
+  return {
+    content: task.content,
+    meta: {
+      chat_id: chatId,
+      sender: task.authorId || "Unknown",
+      type,
+      message_id: task.id,
+      timestamp: task.timestamp
+    }
+  };
+}
+async function sendChannelNotification(server2, params, retries = 0) {
+  try {
+    await server2.notification({
+      method: "notifications/claude/channel",
+      params: {
+        content: params.content,
+        meta: params.meta
+      }
+    });
+    console.error(`[channel-pusher] Sent to ${params.meta.chat_id} from ${params.meta.sender}`);
+  } catch (error48) {
+    if (retries < RETRY_CONFIG.maxRetries) {
+      console.error(`[channel-pusher] \u53D1\u9001\u5931\u8D25\uFF0C${RETRY_CONFIG.retryIntervalMs / 1e3}\u79D2\u540E\u91CD\u8BD5 (${retries + 1}/${RETRY_CONFIG.maxRetries})`);
+      await sleep2(RETRY_CONFIG.retryIntervalMs);
+      return sendChannelNotification(server2, params, retries + 1);
+    }
+    console.error("[channel-pusher] Failed to send notification after retries:", error48);
+    throw error48;
+  }
+}
+async function sendBatchNotifications(server2, tasks) {
+  if (tasks.length === 0) return 0;
+  if (config2.mergeMessages && tasks.length > 1) {
+    const grouped = groupMessagesByChat(tasks);
+    for (const [chatId, msgs] of grouped.entries()) {
+      if (msgs.length === 1) {
+        await sendChannelNotification(server2, toChannelMessage(msgs[0]));
+      } else {
+        const merged = mergeMessages(msgs);
+        await sendChannelNotification(server2, merged);
+      }
+    }
+    return tasks.length;
+  }
+  for (const task of tasks) {
+    await sendChannelNotification(server2, toChannelMessage(task));
+  }
+  return tasks.length;
+}
+function groupMessagesByChat(tasks) {
+  const grouped = /* @__PURE__ */ new Map();
+  for (const task of tasks) {
+    const chatId = task.sourceId;
+    if (!grouped.has(chatId)) {
+      grouped.set(chatId, []);
+    }
+    grouped.get(chatId).push(task);
+  }
+  return grouped;
+}
+function mergeMessages(tasks) {
+  if (tasks.length === 0) {
+    throw new Error("Cannot merge empty messages");
+  }
+  const first = tasks[0];
+  const isGroup = first.sourceType === "group" || first.sourceType === "channel";
+  const mergedContent = tasks.map((task) => {
+    const sender = task.authorId || "User";
+    if (tasks.length > 1 && tasks.some((t) => t.authorId !== first.authorId)) {
+      return `[${sender}] ${task.content}`;
+    }
+    return task.content;
+  }).join("\n---\n");
+  let chatId = first.sourceId;
+  if (!chatId.match(/^[GUC]_/)) {
+    if (first.sourceType === "group") {
+      chatId = `G_${chatId}`;
+    } else if (first.sourceType === "c2c") {
+      chatId = `U_${chatId}`;
+    } else if (first.sourceType === "channel") {
+      chatId = `C_${chatId}`;
+    }
+  }
+  return {
+    content: `\u{1F4EC} \u6536\u5230 ${tasks.length} \u6761\u6D88\u606F:
+
+${mergedContent}`,
+    meta: {
+      chat_id: chatId,
+      sender: first.authorId || "Multiple",
+      type: isGroup ? "group" : "user",
+      timestamp: Date.now()
+    }
+  };
+}
+async function sendHeartbeat() {
+  if (!isRegisteredWithGateway || !sessionId) {
+    return false;
+  }
+  try {
+    const response = await fetchWithTimeout(
+      `${GATEWAY_API_URL}/api/channels/${encodeURIComponent(sessionId)}/heartbeat`,
+      { method: "POST" }
+    );
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.error("[channel-pusher] Channel not found at Gateway, marking for re-registration...");
+        isRegisteredWithGateway = false;
+        return false;
+      }
+      return false;
+    }
+    return true;
+  } catch (error48) {
+    console.error("[channel-pusher] HTTP heartbeat failed:", error48);
+    return false;
+  }
+}
+async function checkAndPush() {
+  if (!mcpServer2 || !isRunning) return;
+  try {
+    if (heartbeatCounter % 10 === 0) {
+      await sendHeartbeat();
+    }
+    heartbeatCounter++;
+    if (!isRegisteredWithGateway && sessionId && config2.registerToGateway) {
+      const now = Date.now();
+      if (reRegisterAttempts < MAX_RE_REGISTER_ATTEMPTS && now - lastReRegisterAttempt > RE_REGISTER_COOLDOWN_MS) {
+        lastReRegisterAttempt = now;
+        reRegisterAttempts++;
+        console.error(`[channel-pusher] \u{1F504} Auto re-registration attempt ${reRegisterAttempts}/${MAX_RE_REGISTER_ATTEMPTS}...`);
+        try {
+          const success2 = await registerChannel(sessionId, projectPath ?? process.cwd(), projectName ?? void 0);
+          if (success2) {
+            reRegisterAttempts = 0;
+            console.error("[channel-pusher] \u2705 Auto re-registration successful");
+            connectToGatewayWebSocket().catch((err) => {
+              console.error(`[channel-pusher] \u26A0\uFE0F WebSocket reconnect after re-register failed: ${err.message}`);
+            });
+          }
+        } catch (error48) {
+          console.error(`[channel-pusher] \u274C Auto re-registration failed: ${error48}`);
+        }
+        if (reRegisterAttempts >= MAX_RE_REGISTER_ATTEMPTS) {
+          console.error(`[channel-pusher] \u26D4 Max re-registration attempts (${MAX_RE_REGISTER_ATTEMPTS}) reached, giving up`);
+        }
+      }
+    }
+    let totalSent = 0;
+    const localTasks = fetchAllUnreadTasks();
+    if (localTasks.length > 0) {
+      console.error(`[channel-pusher] Processing ${localTasks.length} local messages`);
+      const sentCount = await sendBatchNotifications(mcpServer2, localTasks);
+      if (sentCount > 0) {
+        clearReadMessages();
+        totalSent += sentCount;
+      }
+    }
+    if (config2.registerToGateway && isRegisteredWithGateway) {
+      const gatewayMessages = await fetchChannelMessages(10);
+      if (gatewayMessages.length > 0) {
+        console.error(`[channel-pusher] Processing ${gatewayMessages.length} Gateway messages`);
+        for (const msg of gatewayMessages) {
+          await sendChannelNotification(mcpServer2, msg);
+          totalSent++;
+        }
+      }
+    }
+    if (totalSent > 0) {
+      console.error(`[channel-pusher] Total sent: ${totalSent} messages`);
+    }
+  } catch (error48) {
+    console.error("[channel-pusher] Error in checkAndPush:", error48);
+  }
+}
+function startChannelPusher(server2, customConfig) {
+  if (isRunning) {
+    console.warn("[channel-pusher] Already running");
+    return;
+  }
+  if (customConfig) {
+    config2 = { ...DEFAULT_CONFIG, ...customConfig };
+  }
+  mcpServer2 = server2;
+  isRunning = true;
+  pusherInterval = setInterval(checkAndPush, config2.interval);
+  console.error(`[channel-pusher] Started (interval: ${config2.interval}ms)`);
+  setupGracefulShutdown();
+  if (config2.registerToGateway && sessionId) {
+    registerChannel(sessionId, projectPath ?? process.cwd(), projectName ?? void 0).then((success2) => {
+      if (success2) {
+        console.error("[channel-pusher] \u2705 Registered to Gateway successfully");
+        connectToGatewayWebSocket().then(() => {
+          console.error("[channel-pusher] \u2705 WebSocket real-time connection established");
+        }).catch((err) => {
+          console.error(`[channel-pusher] \u26A0\uFE0F WebSocket connection failed, falling back to polling: ${err.message}`);
+        });
+      } else {
+        console.error("[channel-pusher] \u26A0\uFE0F Failed to register to Gateway");
+      }
+    }).catch((err) => {
+      console.error(`[channel-pusher] \u274C Gateway registration error: ${err}`);
+    });
+  }
+}
+var shutdownHandled = false;
+function setupGracefulShutdown() {
+  const handleShutdown = async (signal) => {
+    if (shutdownHandled) return;
+    shutdownHandled = true;
+    console.error(`[channel-pusher] Received ${signal}, shutting down gracefully...`);
+    try {
+      await stopChannelPusher();
+      console.error("[channel-pusher] \u2705 Graceful shutdown complete");
+    } catch (err) {
+      console.error("[channel-pusher] \u274C Error during shutdown:", err);
+    }
+    setTimeout(() => process.exit(0), 100);
+  };
+  process.on("SIGINT", () => handleShutdown("SIGINT"));
+  process.on("SIGTERM", () => handleShutdown("SIGTERM"));
+  process.on("SIGHUP", () => handleShutdown("SIGHUP"));
+}
+async function stopChannelPusher() {
+  if (!isRunning) {
+    return;
+  }
+  if (isRegisteredWithGateway) {
+    await unregisterChannel();
+  }
+  if (pusherInterval) {
+    clearInterval(pusherInterval);
+    pusherInterval = null;
+  }
+  isRunning = false;
+  mcpServer2 = null;
+  console.error("[channel-pusher] Stopped");
+}
+async function registerChannel(sid, pPath, pName) {
+  sessionId = sid;
+  projectPath = pPath;
+  projectName = pName || pPath.split("/").pop() || "unknown";
+  if (!config2.registerToGateway) {
+    console.error("[channel-pusher] Gateway registration disabled by config");
+    return false;
+  }
+  try {
+    const response = await fetchWithTimeout(`${GATEWAY_API_URL}/api/channels/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId,
+        projectPath,
+        projectName
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const result = await response.json();
+    if (result.status === "registered") {
+      isRegisteredWithGateway = true;
+      reRegisterAttempts = 0;
+      console.error(`[channel-pusher] \u2705 Channel \u5DF2\u6CE8\u518C\u5230 Gateway: ${sessionId}`);
+      console.error(`[channel-pusher]    \u9879\u76EE: ${projectName}`);
+      console.error(`[channel-pusher]    \u9ED8\u8BA4: ${result.isDefault ? "\u662F" : "\u5426"}`);
+      console.error("");
+      console.error("[channel-pusher] \u26A0\uFE0F Channel \u6A21\u5F0F\u5DF2\u6FC0\u6D3B\uFF0CQQ \u6D88\u606F\u5C06\u63A8\u9001\u5230\u5F53\u524D\u4F1A\u8BDD");
+      console.error("[channel-pusher] \u5982\u6709\u591A\u4EBA\u4F1A\u8BDD\u8BF7\u6CE8\u610F\u6D88\u606F\u7BA1\u7406\uFF0C\u6216\u4F7F\u7528 unidirectional \u6A21\u5F0F");
+      return true;
+    }
+    console.error(`[channel-pusher] \u274C \u6CE8\u518C\u5931\u8D25: ${result.error}`);
+    return false;
+  } catch (error48) {
+    console.error(`[channel-pusher] \u274C \u6CE8\u518C\u8BF7\u6C42\u5931\u8D25: ${error48}`);
+    return false;
+  }
+}
+async function unregisterChannel() {
+  if (!isRegisteredWithGateway || !sessionId) {
+    return true;
+  }
+  try {
+    const response = await fetchWithTimeout(
+      `${GATEWAY_API_URL}/api/channels/${encodeURIComponent(sessionId)}`,
+      { method: "DELETE" }
+    );
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const result = await response.json();
+    if (result.status === "unregistered") {
+      console.error(`[channel-pusher] \u2705 Channel \u5DF2\u4ECE Gateway \u6CE8\u9500: ${sessionId}`);
+      isRegisteredWithGateway = false;
+      sessionId = null;
+      projectPath = null;
+      projectName = null;
+      return true;
+    }
+    console.error(`[channel-pusher] \u274C \u6CE8\u9500\u5931\u8D25: ${result.error}`);
+    return false;
+  } catch (error48) {
+    console.error(`[channel-pusher] \u274C \u6CE8\u9500\u8BF7\u6C42\u5931\u8D25: ${error48}`);
+    return false;
+  }
+}
+async function fetchChannelMessages(limit = 10) {
+  if (!isRegisteredWithGateway || !sessionId) {
+    return [];
+  }
+  try {
+    const url2 = `${GATEWAY_API_URL}/api/messages?channel=${encodeURIComponent(sessionId)}&limit=${limit}`;
+    const response = await fetchWithTimeout(url2);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const result = await response.json();
+    if (result.messages && result.messages.length > 0) {
+      const messageIds = result.messages.map((m) => m.id);
+      await markMessagesDelivered(messageIds);
+      return result.messages.map((msg) => ({
+        content: msg.content,
+        meta: {
+          chat_id: addChatIdPrefix(msg.sourceId, msg.sourceType),
+          // 使用复用函数添加前缀
+          sender: msg.authorNickname || msg.authorId,
+          type: msg.sourceType === "group" ? "group" : "user",
+          message_id: msg.msgId,
+          timestamp: msg.timestamp
+        }
+      }));
+    }
+    return [];
+  } catch (error48) {
+    console.error(`[channel-pusher] \u274C \u83B7\u53D6\u6D88\u606F\u5931\u8D25: ${error48}`);
+    return [];
+  }
+}
+async function markMessagesDelivered(messageIds) {
+  if (!sessionId || messageIds.length === 0) return;
+  try {
+    const url2 = `${GATEWAY_API_URL}/api/messages?channel=${encodeURIComponent(sessionId)}&ids=${messageIds.join(",")}`;
+    await fetchWithTimeout(url2, { method: "DELETE" });
+  } catch (error48) {
+    console.error(`[channel-pusher] \u26A0\uFE0F \u6807\u8BB0\u6D88\u606F\u5DF2\u8BFB\u5931\u8D25: ${error48}`);
+  }
+}
+function isGatewayRegistered() {
+  return isRegisteredWithGateway;
+}
 function getChannelInfo() {
   return {
     sessionId,
@@ -25484,8 +33167,8 @@ async function handleToolCall(name, args) {
           content: [{ type: "text", text: `\u672A\u77E5\u5DE5\u5177: ${name}` }]
         };
     }
-  } catch (error2) {
-    const errMsg = error2 instanceof Error ? error2.message : String(error2);
+  } catch (error48) {
+    const errMsg = error48 instanceof Error ? error48.message : String(error48);
     return {
       isError: true,
       content: [{ type: "text", text: `\u5DE5\u5177\u6267\u884C\u9519\u8BEF: ${errMsg}` }]
@@ -25670,6 +33353,13 @@ ${contextText}`
   };
 }
 
+// src/mcp/index.ts
+init_config();
+init_qq_client();
+
+// src/mcp/channel.ts
+init_permission_relay();
+
 // src/mcp/mode-registry.ts
 import * as fs3 from "fs";
 import * as path4 from "path";
@@ -25733,8 +33423,8 @@ function parseEnvFile(filePath) {
         result[key] = value;
       }
     }
-  } catch (error2) {
-    console.error(`[mode-registry] Failed to parse env file ${filePath}:`, error2);
+  } catch (error48) {
+    console.error(`[mode-registry] Failed to parse env file ${filePath}:`, error48);
   }
   return result;
 }
@@ -25744,9 +33434,9 @@ function loadEnvUnified() {
   try {
     if (fs3.existsSync(GLOBAL_CONFIG_FILE2)) {
       const configContent = fs3.readFileSync(GLOBAL_CONFIG_FILE2, "utf-8");
-      const config2 = JSON.parse(configContent);
-      if (config2.envFile) {
-        envFile = config2.envFile.replace("~", os2.homedir());
+      const config3 = JSON.parse(configContent);
+      if (config3.envFile) {
+        envFile = config3.envFile.replace("~", os2.homedir());
         const envVars = parseEnvFile(envFile);
         for (const [key, value] of Object.entries(envVars)) {
           if (process.env[key] === void 0) {
@@ -25759,8 +33449,8 @@ function loadEnvUnified() {
         }
       }
     }
-  } catch (error2) {
-    console.error("[mode-registry] Failed to load env file:", error2);
+  } catch (error48) {
+    console.error("[mode-registry] Failed to load env file:", error48);
   }
   return { loaded, envFile };
 }
@@ -25793,8 +33483,8 @@ var ModeRegistryImpl = class _ModeRegistryImpl {
         this.initialized = true;
         console.error(`[mode-registry] Loaded mode: ${this.config.mode} (source: ${this.config.source})`);
       }
-    } catch (error2) {
-      console.error("[mode-registry] Failed to load config:", error2);
+    } catch (error48) {
+      console.error("[mode-registry] Failed to load config:", error48);
       this.config = { ...DEFAULT_MODE_CONFIG };
     }
     return this.config;
@@ -25870,8 +33560,8 @@ var ModeRegistryImpl = class _ModeRegistryImpl {
         encoding: "utf-8",
         mode: 384
       });
-    } catch (error2) {
-      console.error("[mode-registry] Failed to persist config:", error2);
+    } catch (error48) {
+      console.error("[mode-registry] Failed to persist config:", error48);
     }
   }
   /**
@@ -25968,11 +33658,11 @@ var ModeRegistryImpl = class _ModeRegistryImpl {
     try {
       if (fs3.existsSync(GLOBAL_CONFIG_FILE2)) {
         const content = fs3.readFileSync(GLOBAL_CONFIG_FILE2, "utf-8");
-        const config2 = JSON.parse(content);
-        return { ...defaultConfig, ...config2 };
+        const config3 = JSON.parse(content);
+        return { ...defaultConfig, ...config3 };
       }
-    } catch (error2) {
-      console.error("[mode-registry] Failed to load global config:", error2);
+    } catch (error48) {
+      console.error("[mode-registry] Failed to load global config:", error48);
     }
     return defaultConfig;
   }
@@ -25999,7 +33689,19 @@ function setSessionInfo(sessionId2, projectPath2, projectName2) {
 }
 getModeRegistry().load();
 
+// src/mcp/channel.ts
+var PermissionRequestSchema = external_exports3.object({
+  method: external_exports3.literal("notifications/claude/channel/permission_request"),
+  params: external_exports3.object({
+    request_id: external_exports3.string(),
+    tool_name: external_exports3.string(),
+    description: external_exports3.string(),
+    input_preview: external_exports3.string().optional()
+  })
+});
+
 // src/mcp/index.ts
+init_permission_relay();
 loadEnvUnified();
 var GATEWAY_API_URL2 = process.env.QQBOT_GATEWAY_URL || "http://127.0.0.1:3310";
 async function checkGatewayAvailable() {
@@ -26167,8 +33869,8 @@ async function run() {
           console.error(`[qqbot-mcp] \u{1F9F9} Cleaned up ${result.cleaned} old registration(s) for project path`);
         }
       }
-    } catch (error2) {
-      console.error("[qqbot-mcp] Failed to cleanup old registrations:", error2);
+    } catch (error48) {
+      console.error("[qqbot-mcp] Failed to cleanup old registrations:", error48);
     }
     try {
       const registered = await registerChannel(sessionId2, projectPath2, projectName2);
@@ -26178,8 +33880,8 @@ async function run() {
       } else {
         console.error(`[qqbot-mcp] \u26A0\uFE0F Failed to register to Gateway, will use local queue only`);
       }
-    } catch (error2) {
-      console.error(`[qqbot-mcp] \u26A0\uFE0F Gateway registration error: ${error2}`);
+    } catch (error48) {
+      console.error(`[qqbot-mcp] \u26A0\uFE0F Gateway registration error: ${error48}`);
     }
   }
   console.error("[qqbot-mcp] Waiting for Claude Code requests...");
@@ -26196,16 +33898,16 @@ async function gracefulShutdown(signal, exitCode = 0) {
     if (isGatewayRegistered()) {
       try {
         await unregisterChannel();
-      } catch (error2) {
-        console.error("[qqbot-mcp] Failed to unregister channel:", error2);
+      } catch (error48) {
+        console.error("[qqbot-mcp] Failed to unregister channel:", error48);
       }
     }
   }
   cleanupAllClients();
   process.exit(exitCode);
 }
-process.on("uncaughtException", async (error2) => {
-  console.error("[qqbot-mcp] Uncaught exception:", error2);
+process.on("uncaughtException", async (error48) => {
+  console.error("[qqbot-mcp] Uncaught exception:", error48);
   await gracefulShutdown("uncaughtException", 1);
 });
 process.on("unhandledRejection", async (reason, promise2) => {
@@ -26223,12 +33925,12 @@ process.on("beforeExit", async () => {
     console.error("[qqbot-mcp] Event loop empty, performing cleanup...");
     try {
       await unregisterChannel();
-    } catch (error2) {
-      console.error("[qqbot-mcp] Cleanup error:", error2);
+    } catch (error48) {
+      console.error("[qqbot-mcp] Cleanup error:", error48);
     }
   }
 });
-run().catch((error2) => {
-  console.error("[qqbot-mcp] Failed to start server:", error2);
+run().catch((error48) => {
+  console.error("[qqbot-mcp] Failed to start server:", error48);
   process.exit(1);
 });

@@ -11,6 +11,7 @@
  *   await channel.stop();
  */
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { z } from 'zod';
 /** Channel 配置选项 */
 export interface ChannelOptions {
     /** 会话 ID */
@@ -43,6 +44,16 @@ export interface ChannelStatus {
     /** 项目名称 */
     projectName: string | null;
 }
+/** Claude Code 权限请求通知 Schema */
+export declare const PermissionRequestSchema: z.ZodObject<{
+    method: z.ZodLiteral<"notifications/claude/channel/permission_request">;
+    params: z.ZodObject<{
+        request_id: z.ZodString;
+        tool_name: z.ZodString;
+        description: z.ZodString;
+        input_preview: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+}, z.core.$strip>;
 /**
  * Channel 类 - 封装 Channel 模式的完整生命周期
  *

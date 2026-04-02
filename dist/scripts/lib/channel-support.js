@@ -560,7 +560,9 @@ export function detectAndSetMode(gatewayAvailable = false, nativeSupported = fal
     reason = 'waiting for gateway (allowDegradation=false)';
   }
 
+  const current = getModeRegistry();
   const config = {
+    ...current,
     version: '1.0.0',
     mode,
     channelSubMode,
