@@ -283,8 +283,8 @@ function createGitTag(version) {
 
 function commitRelease(version) {
   try {
-    // 添加所有变更
-    execSync('git add .', { cwd: ROOT_DIR });
+    // 显式添加版本文件、构建产物和 CHANGELOG
+    execSync('git add package.json plugin.json .claude-plugin/marketplace.json CHANGELOG.md dist/', { cwd: ROOT_DIR });
     log('green', `  ✅ 已暂存变更文件`);
 
     // 提交
@@ -354,11 +354,12 @@ async function release(type) {
 
   log('bold', `版本更新: ${currentVersion} → ${newVersion} (${type})\n`);
 
-  // 1. 检查工作目录
+  // 1. 检查工作目录 - 硬阻断
   const gitStatus = getGitStatus();
   if (gitStatus) {
-    log('yellow', '⚠️  警告: 有未提交的变更');
-    log('dim', '建议先提交当前变更再发布新版本\n');
+    log('red', '❌ 工作目录有未提交的变更，请先提交或 stash：');
+    console.log(gitStatus);
+    process.exit(1);
   }
 
   // 2. 运行测试
@@ -367,17 +368,17 @@ async function release(type) {
     process.exit(1);
   }
 
-  // 3. 构建项目
-  if (!runBuild()) {
-    log('red', '❌ 构建失败，发布中止');
-    process.exit(1);
-  }
-
-  // 4. 更新版本号
+  // 3. 更新版本号（必须在 build 之前，确保构建产物包含新版本）
   log('bold', '\n📝 更新版本号\n');
   updatePackageJson(newVersion);
   updatePluginJson(newVersion);
   updateMarketplaceJson(newVersion);
+
+  // 4. 构建项目
+  if (!runBuild()) {
+    log('red', '❌ 构建失败，发布中止');
+    process.exit(1);
+  }
 
   // 5. 更新 CHANGELOG
   log('bold', '\n📋 更新变更日志\n');

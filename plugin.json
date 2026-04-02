@@ -69,6 +69,28 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/qqbot-hook-handler.js PostToolUse 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/qqbot-hook-handler.js UserPromptSubmit 2>/dev/null || true"
+          }
+        ]
+      }
     ]
   }
 }
