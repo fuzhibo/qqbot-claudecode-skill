@@ -708,6 +708,9 @@ async function cmdStart(options) {
     }
   }
 
+  // 🔴 关键: 加载环境变量，确保 QQBOT_CHANNEL_MODE 等配置可用
+  loadEnvUnified();
+
   // 🔴 关键: 将模式配置写入统一注册中心
   // 这样 MCP Server 和 Gateway 都可以读取到一致的模式配置
   const modeRegistryConfig = {

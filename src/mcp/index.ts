@@ -28,16 +28,9 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { toolDefinitions, handleToolCall } from './tools.js';
-import { loadFromEnv, setBot, getAllBots, loadGlobalConfig, loadEnvFromFile } from './config.js';
+import { loadFromEnv, setBot, getAllBots, loadGlobalConfig } from './config.js';
 import { getClient, cleanupAllClients } from './qq-client.js';
-import {
-  startChannelPusher,
-  stopChannelPusher,
-  registerChannel,
-  unregisterChannel,
-  isGatewayRegistered,
-} from './channel-pusher.js';
-import { initPermissionRelay, handlePermissionRequest } from './permission-relay.js';
+import { Channel } from './channel.js';
 import {
   getModeRegistry,
   getOperationMode,
@@ -51,26 +44,11 @@ import {
   type OperationMode,
   type ModeConfig,
 } from './mode-registry.js';
-import { z } from 'zod';
-
-// ============ Permission Request Schema ============
-
-/** Claude Code 权限请求通知 Schema */
-const PermissionRequestSchema = z.object({
-  method: z.literal('notifications/claude/channel/permission_request'),
-  params: z.object({
-    request_id: z.string(),
-    tool_name: z.string(),
-    description: z.string(),
-    input_preview: z.string().optional(),
-  }),
-});
-
 // ============ 版本检测与模式切换 ============
 
 // 🔴 关键: 在模块加载时立即从 envFile 加载环境变量
 // 这必须在 getOperationMode() 之前执行，以确保模式检测能访问到配置
-loadEnvFromFile();
+loadEnvUnified();
 
 /** Gateway API 地址 */
 const GATEWAY_API_URL = process.env.QQBOT_GATEWAY_URL || 'http://127.0.0.1:3310';

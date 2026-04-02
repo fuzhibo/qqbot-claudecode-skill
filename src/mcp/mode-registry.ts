@@ -30,42 +30,11 @@ export const GLOBAL_CONFIG_FILE = path.join(GATEWAY_DIR, 'qqbot-config.json');
 /** Channel 模式所需最低版本 */
 export const MIN_CHANNEL_VERSION = '2.1.80';
 
-// ============ 类型定义 ============
+// ============ 类型导入 (从 types.ts 统一导出) ============
+import type { ModeConfig, OperationMode, ChannelSubMode, ModeSource } from './types.js';
 
-/** 运行模式类型 */
-export type OperationMode = 'channel' | 'tools';
-
-/** Channel 子模式类型 */
-export type ChannelSubMode = 'gateway-bridge' | 'native';
-
-/** 模式来源 */
-export type ModeSource = 'cli' | 'env' | 'config' | 'auto' | 'default';
-
-/** 模式配置 */
-export interface ModeConfig {
-  /** 配置版本 */
-  version: string;
-  /** 当前运行模式 */
-  mode: OperationMode;
-  /** Channel 子模式 (仅 mode=channel 时有效) */
-  channelSubMode?: ChannelSubMode;
-  /** 配置来源 */
-  source: ModeSource;
-  /** Gateway 是否可用 */
-  gatewayAvailable: boolean;
-  /** 原生 Channel 是否支持 */
-  nativeSupported: boolean;
-  /** 最后更新时间 */
-  lastUpdated: number;
-  /** 关联的会话 ID (Channel 模式下用于消息前缀) */
-  sessionId?: string;
-  /** 关联的项目路径 */
-  projectPath?: string;
-  /** 关联的项目名称 */
-  projectName?: string;
-  /** 配置来源描述 */
-  reason?: string;
-}
+// 重新导出类型，保持向后兼容
+export type { ModeConfig, OperationMode, ChannelSubMode, ModeSource } from './types.js';
 
 /** 默认模式配置 */
 const DEFAULT_MODE_CONFIG: ModeConfig = {

@@ -90,7 +90,11 @@ import {
 import {
   loadEnvUnified,
   getModeRegistry,
+  getModeConfig,
   setModeRegistry,
+  setMode,
+  setGatewayAvailable,
+  setSessionInfo,
   getOperationMode,
   getSessionPrefix,
   checkGatewayAvailable as checkGatewayAvailableFromRegistry,
@@ -2414,6 +2418,7 @@ function startInternalApi() {
     // API: GET /api/status - 获取网关状态
     if (req.method === 'GET' && req.url === '/api/status') {
       const stats = getActivationStats();
+      const modeConfig = getModeConfig();
       res.writeHead(200);
       res.end(JSON.stringify({
         status: 'running',
@@ -2422,6 +2427,17 @@ function startInternalApi() {
         running,  // 暴露内部 running 状态，用于检测僵尸状态
         lastWsActivity,  // WebSocket 最后活动时间戳
         wsReadyState: ws ? ws.readyState : null,  // WebSocket 状态 (0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED)
+        modeRegistry: {
+          mode: modeConfig.mode,
+          channelSubMode: modeConfig.channelSubMode,
+          source: modeConfig.source,
+          gatewayAvailable: modeConfig.gatewayAvailable,
+          nativeSupported: modeConfig.nativeSupported,
+          sessionId: modeConfig.sessionId,
+          projectName: modeConfig.projectName,
+          reason: modeConfig.reason,
+          lastUpdated: modeConfig.lastUpdated,
+        },
         ...stats
       }));
       return;
@@ -2789,6 +2805,12 @@ async function startGateway(gatewayMode = 'notify', channelConfig = null) {
   if (startupAttempts > 1) {
     log('cyan', `   启动尝试: ${startupAttempts}/${SELF_HEALING_CONFIG.startupRetry.maxAttempts}`);
   }
+
+  // 🔴 关键: 在启动时加载环境变量并检测模式
+  // Gateway 自身就是 Gateway，所以 gatewayAvailable=true
+  loadEnvUnified();
+  const modeConfig = detectAndSetMode(true);
+  log('cyan', `   ModeRegistry: ${modeConfig.mode} (source: ${modeConfig.source}, subMode: ${modeConfig.channelSubMode || 'N/A'})`);
 
   // 写入 PID
   fs.writeFileSync(PID_FILE, process.pid.toString());
@@ -4086,6 +4108,15 @@ function stopGateway() {
 
   // 重置网关激活状态
   setGatewayStatus('pending_activation');
+
+  // 🔴 关键: 通知 ModeRegistry Gateway 已不可用
+  // 允许 MCP Server 端在下次检测时降级到 tools 模式
+  try {
+    setGatewayAvailable(false);
+    log('cyan', '   ModeRegistry 已更新: gatewayAvailable=false');
+  } catch (e) {
+    log('yellow', `   ModeRegistry 更新失败: ${e.message}`);
+  }
 
   // 重置启动状态
   startupAttempts = 0;
