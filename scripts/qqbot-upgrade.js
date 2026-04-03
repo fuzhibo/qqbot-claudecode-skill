@@ -65,14 +65,54 @@ function isServiceRunning() {
 
 // 停止服务
 function stopService() {
+  const gatewayScript = path.join(__dirname, 'qqbot-gateway.js');
+
   if (isServiceRunning()) {
     console.log('正在停止后台服务...');
     try {
-      execSync('node scripts/qqbot-gateway.js stop', { stdio: 'inherit' });
+      execSync(`node "${gatewayScript}" stop`, { stdio: 'inherit' });
       console.log('✅ 后台服务已停止');
     } catch (error) {
-      console.warn('⚠️ 停止服务失败，可能需要手动处理');
+      console.warn('⚠️ 停止服务失败，尝试强制清理残留进程...');
     }
+  }
+
+  // 清理所有残留的 qqbot-gateway.js 进程（包括旧安装路径的）
+  try {
+    const result = execSync(
+      'ps aux | grep "[q]qbot-gateway.js" | awk \'{print $2}\'',
+      { encoding: 'utf8' }
+    );
+    const pids = result.trim().split('\n').filter(Boolean);
+    if (pids.length > 0) {
+      console.log(`发现 ${pids.length} 个残留 gateway 进程，正在清理...`);
+      for (const pidStr of pids) {
+        const pid = parseInt(pidStr, 10);
+        try {
+          process.kill(pid, 'SIGTERM');
+          console.log(`  已发送 SIGTERM 到进程 ${pid}`);
+        } catch {
+          // 进程可能已退出
+        }
+      }
+      // 等待进程退出
+      const deadline = Date.now() + 3000;
+      for (const pidStr of pids) {
+        const pid = parseInt(pidStr, 10);
+        while (Date.now() < deadline) {
+          try {
+            process.kill(pid, 0);
+            // 进程还在，等待
+            const sleep = require('child_process').execSync('sleep 0.2', { stdio: 'ignore' });
+          } catch {
+            break; // 进程已退出
+          }
+        }
+      }
+      console.log('✅ 残留进程清理完成');
+    }
+  } catch {
+    // 没有残留进程，正常
   }
 }
 
@@ -224,9 +264,41 @@ async function upgrade() {
   if (backupPath) {
     console.log(`\n💡 提示: 配置已备份，如需回滚可从 ${backupPath} 恢复`);
   }
-  console.log('\n运行以下命令启动服务:');
-  console.log('  npm run gateway:start        # 通知模式');
-  console.log('  npm run gateway:start -- --auto  # 自动回复模式\n');
+
+  // 6. 自动重启 Gateway（保留之前的模式配置）
+  const serviceScript = path.join(__dirname, 'qqbot-service.js');
+  let startArgs = [];
+
+  // 读取之前的运行模式
+  try {
+    const gatewayState = JSON.parse(fs.readFileSync(
+      path.join(GATEWAY_DIR, 'gateway-state.json'), 'utf8'
+    ));
+    if (gatewayState.mode === 'auto') {
+      startArgs.push('--mode', 'auto');
+    }
+
+    // 读取 Channel 模式配置
+    const modeRegistry = JSON.parse(fs.readFileSync(
+      path.join(GATEWAY_DIR, 'mode-registry.json'), 'utf8'
+    ));
+    if (modeRegistry.channelSubMode && modeRegistry.channelSubMode !== 'none') {
+      startArgs.push('--channel', modeRegistry.channelSubMode);
+    }
+  } catch {
+    // 首次安装或配置文件不存在，使用默认模式
+  }
+
+  console.log('\n正在自动重启 Gateway...');
+  try {
+    execSync(`node "${serviceScript}" start ${startArgs.join(' ')}`, {
+      stdio: 'inherit'
+    });
+    console.log('✅ Gateway 已自动重启');
+  } catch (error) {
+    console.warn('⚠️ 自动重启失败，请手动启动:');
+    console.log(`  node "${serviceScript}" start ${startArgs.join(' ') || ''}`.trim());
+  }
 }
 
 // 回滚操作

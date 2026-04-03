@@ -2,12 +2,54 @@
 
 所有重要的变更都将记录在此文件中。
 
+## [1.25.1] - 2026-04-03
+
+- 此版本号头来自上次上下文续传。实际对应的是 v1.25.0 的内容，实际应为 v1.25.1 的变更。
+
+### 新功能
+
+- **Doctor 插件版本检测**: 新增 GitHub Releases API 版本比较，支持网络异常分类提示（超时/DNS/连接拒绝/速率限制）
+- **Doctor --fix 自动升级**: 版本过旧时自动执行 `/qqbot-upgrade`
+
+### 修复
+
+- **升级脚本路径修复**: `stopService()` 使用 `__dirname` 绝对路径，避免 hook 上下文中执行失败
+- **升级后自动重启 Gateway**: 升级完成后自动重启 Gateway，保留之前的模式配置）
+- **残留进程清理**: 升级时自动清理所有路径的 gateway 残留进程
+
 ## [1.25.0] - 2026-04-03
 
 ### 新功能
 
 - **Channel 自动重注册**: Gateway 重启后 MCP Server 自动重注册 Channel（最多 3 次重试，10s 冷却）
 - **Hook 集成 Channel 注册/注销**: SessionStart 自动注册 Channel，SessionEnd 自动注销 Channel
+- **CLI register/unregister 命令**: 支持手动注册/注销 Channel 到 Gateway
+
+### 修复
+
+- **ModeRegistry 持久化对齐**: `detectAndSetMode()` 使用 `...current` 保留 sessionId/projectPath，修复消息前缀丢失
+- **TypeScript 编译修复**: 导出 `PermissionRequestSchema`，补充缺失的 import 语句
+
+## [1.25.1] - 2026-04-03
+
+### 新功能
+
+- **Doctor 插件版本检测**: 新增 GitHub Releases API 版本比较，支持网络异常分类提示（超时/DNS/连接拒绝/速率限制）
+- **Doctor --fix 自动升级**: 版本过旧时自动执行 `/qqbot-upgrade`
+
+### 修复
+
+- **升级脚本路径修复**: `stopService()` 使用 `__dirname` 绝对路径，避免 hook 上下文失败
+- **升级后自动重启**: 升级完成后自动重启 Gateway，保留之前的模式配置）
+- **残留进程清理**: 升级时自动清理所有路径的 gateway 残留进程
+
+## [1.25.0] - 2026-04-03
+
+### 新功能
+
+- **Channel 自动重注册**: Gateway 重启后 MCP Server 自动重注册 Channel（最多 3 次重试，10s 冷却）
+- **Hook 集成 Channel 注册/注销**: SessionStart 自动注册 Channel,SessionEnd 自动注销 Channel
+- **CLI register/unregister 命令**: 支持手动注册/注销 Channel 到 Gateway
 - **CLI register/unregister 命令**: 支持手动注册/注销 Channel 到 Gateway
 
 ### 修复

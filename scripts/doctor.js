@@ -699,6 +699,133 @@ async function runDiagnostics() {
     results.errors.push({ name: 'Channel 检查', message: e.message });
   }
 
+  // 10. 插件版本检查
+  log('');
+  log('bold', '📦 插件版本检查');
+
+  try {
+    const pluginRoot = (() => { let r = path.dirname(path.dirname(new URL(import.meta.url).pathname)); if (r.endsWith("/dist") || r.endsWith("\\dist")) r = path.dirname(r); return r; })();
+
+    // 读取当前版本 (package.json)
+    let currentVersion = null;
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(pluginRoot, 'package.json'), 'utf-8'));
+      currentVersion = pkg.version;
+    } catch {
+      // ignore
+    }
+
+    // 读取已安装版本 (version.json)
+    let installedVersion = null;
+    const versionFile = path.join(GATEWAY_DIR, 'version.json');
+    if (fs.existsSync(versionFile)) {
+      try {
+        const vInfo = JSON.parse(fs.readFileSync(versionFile, 'utf-8'));
+        installedVersion = vInfo.version;
+      } catch {
+        // ignore
+      }
+    }
+
+    // 比较当前版本与已安装版本
+    if (currentVersion) {
+      log('green', `  ✅ 当前版本: v${currentVersion}`);
+
+      if (installedVersion && installedVersion !== currentVersion) {
+        log('yellow', `  ⚠️  已安装版本: v${installedVersion} (与当前版本不一致)`);
+        log('dim', `      建议运行 /qqbot-upgrade 或 npm run upgrade 同步版本`);
+        results.warnings.push({ name: '版本不一致', message: `当前 v${currentVersion}, 已安装 v${installedVersion}` });
+        results.versionMismatch = true;
+      } else if (installedVersion) {
+        log('green', `  ✅ 已安装版本: v${installedVersion}`);
+      } else {
+        log('dim', `  ℹ️  已安装版本: 无记录 (首次安装或未运行 upgrade)`);
+      }
+    } else {
+      log('yellow', '  ⚠️  无法读取当前版本');
+      results.warnings.push({ name: '当前版本', message: '无法读取 package.json' });
+    }
+
+    // 从 GitHub Releases API 获取最新版本
+    let latestVersion = null;
+    let latestVersionError = null;
+
+    try {
+      const response = await fetch('https://api.github.com/repos/fuzhibo/qqbot-claudecode-skill/releases/latest', {
+        headers: { 'User-Agent': 'qqbot-mcp-doctor' },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // tag_name 格式: "v1.25.0" 或 "1.25.0"
+        const tag = data.tag_name || '';
+        latestVersion = tag.replace(/^v/, '');
+      } else if (response.status === 403) {
+        latestVersionError = 'rate_limit';
+      } else {
+        latestVersionError = `http_${response.status}`;
+      }
+    } catch (e) {
+      const code = e.cause?.code || e.code || '';
+      if (code === 'ENOTFOUND') {
+        latestVersionError = 'dns';
+      } else if (code === 'ECONNREFUSED') {
+        latestVersionError = 'connection_refused';
+      } else if (e.name === 'TimeoutError' || code === 'ETIMEDOUT' || code === 'UND_ERR_CONNECT_TIMEOUT') {
+        latestVersionError = 'timeout';
+      } else {
+        latestVersionError = `unknown: ${e.message}`;
+      }
+    }
+
+    const MANUAL_CHECK_URL = 'https://github.com/fuzhibo/qqbot-claudecode-skill/releases';
+
+    if (latestVersion) {
+      log('green', `  ✅ 最新版本: v${latestVersion}`);
+      results.latestVersion = latestVersion;
+
+      // 版本比较
+      if (currentVersion) {
+        const current = parseVersion(currentVersion);
+        const latest = parseVersion(latestVersion);
+
+        if (current && latest) {
+          const cmp = compareVersions(current, latest);
+          if (cmp < 0) {
+            log('yellow', `  ⚠️  当前版本 v${currentVersion} 低于最新版本 v${latestVersion}`);
+            log('dim', `      建议升级: /qqbot-upgrade 或 npm run upgrade`);
+            results.warnings.push({ name: '版本过低', message: `当前 v${currentVersion} < 最新 v${latestVersion}` });
+            results.versionOutdated = true;
+          } else {
+            log('green', `  ✅ 版本已是最新`);
+          }
+        }
+      }
+    } else if (latestVersionError) {
+      // 分类错误提示
+      const errorMessages = {
+        rate_limit: 'GitHub API 速率限制 (403)，请稍后重试',
+        dns: 'DNS 解析失败 (api.github.com)，请检查网络',
+        connection_refused: '连接被拒绝，请检查网络或代理设置',
+        timeout: '请求超时 (10s)，请检查网络连接',
+        http_404: 'GitHub Releases 未找到最新版本 (仓库可能无发布版)',
+      };
+
+      const errorMsg = errorMessages[latestVersionError]
+        || `获取最新版本失败: ${latestVersionError}`;
+
+      log('yellow', `  ⚠️  ${errorMsg}`);
+      log('dim', `      手动检查: ${MANUAL_CHECK_URL}`);
+      if (currentVersion) {
+        log('dim', `      当前版本: v${currentVersion}`);
+      }
+      results.warnings.push({ name: '最新版本检查', message: errorMsg });
+    }
+  } catch (e) {
+    results.errors.push({ name: '插件版本检查', message: e.message });
+  }
+
   // 输出摘要
   log('\n' + '═'.repeat(50));
   log('bold', '\n📊 诊断摘要\n');
@@ -955,6 +1082,63 @@ async function autoFix() {
   } else {
     log('yellow', '  ⚠️  settings.json 不存在，跳过 SessionStart hook 配置');
     log('dim', '     这通常意味着 Claude Code 尚未初始化');
+  }
+
+  // 8. 插件版本升级检查
+  log('');
+  log('bold', '📦 插件版本检查');
+
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(pluginRoot, 'package.json'), 'utf-8'));
+    const currentVersion = pkg.version;
+
+    // 从 GitHub Releases API 获取最新版本
+    let latestVersion = null;
+    try {
+      const response = await fetch('https://api.github.com/repos/fuzhibo/qqbot-claudecode-skill/releases/latest', {
+        headers: { 'User-Agent': 'qqbot-mcp-doctor' },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        latestVersion = (data.tag_name || '').replace(/^v/, '');
+      }
+    } catch {
+      // 网络错误，跳过升级
+    }
+
+    if (latestVersion && currentVersion) {
+      const current = parseVersion(currentVersion);
+      const latest = parseVersion(latestVersion);
+
+      if (current && latest && compareVersions(current, latest) < 0) {
+        log('yellow', `  ⚠️  当前版本 v${currentVersion} 低于最新版本 v${latestVersion}`);
+        log('dim', '  正在执行升级...');
+
+        const upgradeScript = path.join(pluginRoot, 'scripts', 'qqbot-upgrade.js');
+        if (fs.existsSync(upgradeScript)) {
+          try {
+            execSync(`node "${upgradeScript}"`, { cwd: pluginRoot, stdio: 'inherit' });
+            log('green', `  ✅ 升级完成: v${currentVersion} -> v${latestVersion}`);
+            fixed++;
+          } catch (e) {
+            log('red', `  ❌ 升级失败: ${e.message}`);
+            log('dim', `     请手动运行: npm run upgrade`);
+            failed++;
+          }
+        } else {
+          log('yellow', '  ⚠️  qqbot-upgrade.js 不存在，请手动升级');
+          failed++;
+        }
+      } else {
+        log('green', `  ✅ 版本已是最新: v${currentVersion}`);
+      }
+    } else if (!latestVersion) {
+      log('dim', '  ℹ️  无法获取最新版本 (网络问题)，跳过升级');
+      log('dim', '      手动检查: https://github.com/fuzhibo/qqbot-claudecode-skill/releases');
+    }
+  } catch (e) {
+    log('yellow', `  ⚠️  版本检查失败: ${e.message}`);
   }
 
   // 输出摘要
